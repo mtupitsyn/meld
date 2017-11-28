@@ -14,8 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-
 from gi.repository import Gdk
 from gi.repository import Gio
 from gi.repository import GLib
@@ -27,16 +25,15 @@ from . import filediff
 from . import filemerge
 from . import melddoc
 from . import newdifftab
-from . import recent
 from . import task
 from . import vcview
 from .ui import gnomeglade
 from .ui import notebooklabel
 
-from .util.compat import string_types
 from meld.conf import _, is_darwin
-from meld.recent import recent_comparisons
+from meld.recent import RecentType, recent_comparisons
 from meld.settings import interface_settings, settings
+from meld.windowstate import SavedWindowState
 
 
 class MeldWindow(gnomeglade.Component):
@@ -47,13 +44,13 @@ class MeldWindow(gnomeglade.Component):
 
         actions = (
             ("FileMenu", None, _("_File")),
-            ("New", Gtk.STOCK_NEW, _("_New Comparison..."), "<Primary>N",
+            ("New", Gtk.STOCK_NEW, _("_New Comparison…"), "<Primary>N",
                 _("Start a new comparison"),
                 self.on_menu_file_new_activate),
             ("Save", Gtk.STOCK_SAVE, None, None,
                 _("Save the current file"),
                 self.on_menu_save_activate),
-            ("SaveAs", Gtk.STOCK_SAVE_AS, _("Save As..."), "<Primary><shift>S",
+            ("SaveAs", Gtk.STOCK_SAVE_AS, _("Save As…"), "<Primary><shift>S",
                 _("Save the current file with a different name"),
                 self.on_menu_save_as_activate),
             ("Close", Gtk.STOCK_CLOSE, None, None,
@@ -73,7 +70,7 @@ class MeldWindow(gnomeglade.Component):
                 self.on_menu_copy_activate),
             ("Paste", Gtk.STOCK_PASTE, None, None, _("Paste the clipboard"),
                 self.on_menu_paste_activate),
-            ("Find", Gtk.STOCK_FIND, _("Find..."), None, _("Search for text"),
+            ("Find", Gtk.STOCK_FIND, _("Find…"), None, _("Search for text"),
                 self.on_menu_find_activate),
             ("FindNext", None, _("Find Ne_xt"), "<Primary>G",
                 _("Search forwards for the same text"),
@@ -82,9 +79,12 @@ class MeldWindow(gnomeglade.Component):
                 _("Search backwards for the same text"),
                 self.on_menu_find_previous_activate),
             ("Replace", Gtk.STOCK_FIND_AND_REPLACE,
-                _("_Replace..."), "<Primary>H",
+                _("_Replace…"), "<Primary>H",
                 _("Find and replace text"),
                 self.on_menu_replace_activate),
+            ("GoToLine", None, _("Go to _Line"), "<Primary>I",
+                _("Go to a specific line"),
+                self.on_menu_go_to_line_activate),
 
             ("ChangesMenu", None, _("_Changes")),
             ("NextChange", Gtk.STOCK_GO_DOWN, _("Next Change"), "<Alt>Down",
@@ -139,7 +139,7 @@ class MeldWindow(gnomeglade.Component):
         # Manually handle shells that don't show an application menu
         gtk_settings = Gtk.Settings.get_default()
         if not gtk_settings.props.gtk_shell_shows_app_menu or is_darwin():
-            from meldapp import app
+            from meld.meldapp import app
 
             def make_app_action(name):
                 def app_action(*args):
@@ -231,15 +231,14 @@ class MeldWindow(gnomeglade.Component):
         self.widget.connect("drag_data_received",
                             self.on_widget_drag_data_received)
 
+        self.window_state = SavedWindowState()
+        self.window_state.bind(self.widget)
+
         self.should_close = False
         self.idle_hooked = 0
         self.scheduler = task.LifoScheduler()
         self.scheduler.connect("runnable", self.on_scheduler_runnable)
-        window_size = settings.get_value('window-size')
-        self.widget.set_default_size(window_size[0], window_size[1])
-        window_state = settings.get_string('window-state')
-        if window_state == 'maximized':
-            self.widget.maximize()
+
         self.ui.ensure_update()
         self.diff_handler = None
         self.undo_handlers = tuple()
@@ -254,13 +253,9 @@ class MeldWindow(gnomeglade.Component):
         rmenu = self.ui.get_widget('/Menubar/FileMenu/Recent').get_submenu()
         rmenu.connect("map", self._on_recentmenu_map)
 
-        try:
-            builder = meld.ui.util.get_builder("shortcuts.ui")
-            shortcut_window = builder.get_object("shortcuts-meld")
-            self.widget.set_help_overlay(shortcut_window)
-        except GLib.Error:
-            # GtkShortcutsWindow is new in GTK+ 3.20
-            pass
+        builder = meld.ui.util.get_builder("shortcuts.ui")
+        shortcut_window = builder.get_object("shortcuts-meld")
+        self.widget.set_help_overlay(shortcut_window)
 
     def osx_menu_setup(self, widget, event, callback_data=None):
         if self.osx_ready == False:
@@ -299,16 +294,13 @@ class MeldWindow(gnomeglade.Component):
 
     def on_widget_drag_data_received(self, wid, context, x, y, selection_data,
                                      info, time):
-        if len(selection_data.get_uris()) != 0:
-            paths = []
-            for uri in selection_data.get_uris():
-                paths.append(Gio.File.new_for_uri(uri).get_path())
-            self.open_paths(paths)
+        if len(selection_data.get_files()) != 0:
+            self.open_paths(selection_data.get_files())
             return True
 
     def on_idle(self):
         ret = self.scheduler.iteration()
-        if ret and isinstance(ret, string_types):
+        if ret and isinstance(ret, str):
             self.spinner.set_tooltip_text(ret)
 
         pending = self.scheduler.tasks_pending()
@@ -358,14 +350,14 @@ class MeldWindow(gnomeglade.Component):
         if not isinstance(page, melddoc.MeldDoc):
             for action in ("PrevChange", "NextChange", "Cut", "Copy", "Paste",
                            "Find", "FindNext", "FindPrevious", "Replace",
-                           "Refresh"):
+                           "Refresh", "GoToLine"):
                 self.actiongroup.get_action(action).set_sensitive(False)
         else:
             for action in ("Find", "Refresh"):
                 self.actiongroup.get_action(action).set_sensitive(True)
             is_filediff = isinstance(page, filediff.FileDiff)
             for action in ("Cut", "Copy", "Paste", "FindNext", "FindPrevious",
-                           "Replace"):
+                           "Replace", "GoToLine"):
                 self.actiongroup.get_action(action).set_sensitive(is_filediff)
 
     def handle_current_doc_switch(self, page):
@@ -438,17 +430,6 @@ class MeldWindow(gnomeglade.Component):
         self.actiongroup.get_action("PrevChange").set_sensitive(have_prev)
         self.actiongroup.get_action("NextChange").set_sensitive(have_next)
 
-    def on_configure_event(self, window, event):
-        state = event.window.get_state()
-        nosave = Gdk.WindowState.FULLSCREEN | Gdk.WindowState.MAXIMIZED
-        if not (state & nosave):
-            variant = GLib.Variant('(ii)', (event.width, event.height))
-            settings.set_value('window-size', variant)
-
-        maximised = state & Gdk.WindowState.MAXIMIZED
-        window_state = 'maximized' if maximised else 'normal'
-        settings.set_string('window-state', window_state)
-
     def on_menu_file_new_activate(self, menuitem):
         self.append_new_comparison()
 
@@ -494,6 +475,9 @@ class MeldWindow(gnomeglade.Component):
 
     def on_menu_replace_activate(self, *extra):
         self.current_doc().on_replace_activate()
+
+    def on_menu_go_to_line_activate(self, *extra):
+        self.current_doc().on_go_to_line_activate()
 
     def on_menu_copy_activate(self, *extra):
         widget = self.widget.get_focus()
@@ -551,6 +535,9 @@ class MeldWindow(gnomeglade.Component):
         if not self.has_pages():
             self.on_switch_page(self.notebook, page, -1)
             self._update_page_action_sensitivity()
+            # Synchronise UIManager state; this shouldn't be necessary,
+            # but upstream aren't touching UIManager bugs.
+            self.ui.ensure_update()
             if self.should_close:
                 cancelled = self.widget.emit(
                     'delete-event', Gdk.Event.new(Gdk.EventType.DELETE))
@@ -605,103 +592,110 @@ class MeldWindow(gnomeglade.Component):
         doc.connect("diff-created", diff_created_cb)
         return doc
 
-    def append_dirdiff(self, dirs, auto_compare=False):
+    def append_dirdiff(self, gfiles, auto_compare=False):
+        dirs = [d.get_path() for d in gfiles if d]
         assert len(dirs) in (1, 2, 3)
         doc = dirdiff.DirDiff(len(dirs))
         self._append_page(doc, "folder")
         doc.set_locations(dirs)
-        # FIXME: This doesn't work, as dirdiff behaves differently to vcview
         if auto_compare:
-            doc.on_button_diff_clicked(None)
+            doc.scheduler.add_task(doc.auto_compare)
         return doc
 
-    def append_filediff(self, files, merge_output=None, meta=None):
-        assert len(files) in (1, 2, 3)
-        doc = filediff.FileDiff(len(files))
+    def append_filediff(self, gfiles, merge_output=None, meta=None):
+        assert len(gfiles) in (1, 2, 3)
+        doc = filediff.FileDiff(len(gfiles))
         self._append_page(doc, "text-x-generic")
-        doc.set_files(files)
+        doc.set_files(gfiles)
         if merge_output is not None:
             doc.set_merge_output_file(merge_output)
         if meta is not None:
             doc.set_meta(meta)
         return doc
 
-    def append_filemerge(self, files, merge_output=None):
-        if len(files) != 3:
+    def append_filemerge(self, gfiles, merge_output=None):
+        if len(gfiles) != 3:
             raise ValueError(
-                _("Need three files to auto-merge, got: %r") % files)
-        doc = filemerge.FileMerge(len(files))
+                _("Need three files to auto-merge, got: %r") %
+                [f.get_parse_name() for f in gfiles])
+        doc = filemerge.FileMerge(len(gfiles))
         self._append_page(doc, "text-x-generic")
-        doc.set_files(files)
+        doc.set_files(gfiles)
         if merge_output is not None:
             doc.set_merge_output_file(merge_output)
         return doc
 
-    def append_diff(self, paths, auto_compare=False, auto_merge=False,
+    def append_diff(self, gfiles, auto_compare=False, auto_merge=False,
                     merge_output=None, meta=None):
-        dirslist = [p for p in paths if os.path.isdir(p)]
-        fileslist = [p for p in paths if os.path.isfile(p)]
-        if dirslist and fileslist:
+        have_directories = False
+        have_files = False
+        for f in gfiles:
+            if f.query_file_type(
+               Gio.FileQueryInfoFlags.NONE, None) == Gio.FileType.DIRECTORY:
+                have_directories = True
+            else:
+                have_files = True
+        if have_directories and have_files:
             raise ValueError(
                 _("Cannot compare a mixture of files and directories"))
-        elif dirslist:
-            return self.append_dirdiff(paths, auto_compare)
+        elif have_directories:
+            return self.append_dirdiff(gfiles, auto_compare)
         elif auto_merge:
-            return self.append_filemerge(paths, merge_output=merge_output)
+            return self.append_filemerge(gfiles, merge_output=merge_output)
         else:
             return self.append_filediff(
-                paths, merge_output=merge_output, meta=meta)
+                gfiles, merge_output=merge_output, meta=meta)
 
     def append_vcview(self, location, auto_compare=False):
         doc = vcview.VcView()
         self._append_page(doc, "meld-version-control")
-        location = location[0] if isinstance(location, list) else location
-        doc.set_location(location)
+        if isinstance(location, (list, tuple)):
+            location = location[0]
+        doc.set_location(location.get_path())
         if auto_compare:
-            doc.on_button_diff_clicked(None)
+            doc.scheduler.add_task(doc.auto_compare)
         return doc
 
     def append_recent(self, uri):
-        comparison_type, files, flags = recent_comparisons.read(uri)
-        if comparison_type == recent.TYPE_MERGE:
-            tab = self.append_filemerge(files)
-        elif comparison_type == recent.TYPE_FOLDER:
-            tab = self.append_dirdiff(files)
-        elif comparison_type == recent.TYPE_VC:
-            # Files should be a single-element iterable
-            tab = self.append_vcview(files[0])
-        else:  # comparison_type == recent.TYPE_FILE:
-            tab = self.append_filediff(files)
+        comparison_type, gfiles, flags = recent_comparisons.read(uri)
+        comparison_method = {
+            RecentType.File: self.append_filediff,
+            RecentType.Folder: self.append_dirdiff,
+            RecentType.Merge: self.append_filemerge,
+            RecentType.VersionControl: self.append_vcview,
+        }
+        tab = comparison_method[comparison_type](gfiles)
         self.notebook.set_current_page(self.notebook.page_num(tab.widget))
         recent_comparisons.add(tab)
         return tab
 
-    def _single_file_open(self, path):
+    def _single_file_open(self, gfile):
         doc = vcview.VcView()
 
         def cleanup():
             self.scheduler.remove_scheduler(doc.scheduler)
         self.scheduler.add_task(cleanup)
         self.scheduler.add_scheduler(doc.scheduler)
-        path = os.path.abspath(path)
+        path = gfile.get_path()
         doc.set_location(path)
         doc.connect("create-diff", lambda obj, arg, kwargs:
                     self.append_diff(arg, **kwargs))
         doc.run_diff(path)
 
-    def open_paths(self, paths, auto_compare=False, auto_merge=False,
+    def open_paths(self, gfiles, auto_compare=False, auto_merge=False,
                    focus=False):
         tab = None
-        if len(paths) == 1:
-            a = paths[0]
-            if os.path.isfile(a):
-                self._single_file_open(a)
-            else:
+        if len(gfiles) == 1:
+            a = gfiles[0]
+            if a.query_file_type(Gio.FileQueryInfoFlags.NONE, None) == \
+                    Gio.FileType.DIRECTORY:
                 tab = self.append_vcview(a, auto_compare)
+            else:
+                self._single_file_open(a)
 
-        elif len(paths) in (2, 3):
-            tab = self.append_diff(
-                paths, auto_compare=auto_compare, auto_merge=auto_merge)
+        elif len(gfiles) in (2, 3):
+            tab = self.append_diff(gfiles, auto_compare=auto_compare,
+                                   auto_merge=auto_merge)
         if tab:
             recent_comparisons.add(tab)
             if focus:

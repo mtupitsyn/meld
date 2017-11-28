@@ -24,11 +24,8 @@ single-file registers for multi-file comparisons, and tell the recent files
 infrastructure that that's actually what we opened.
 """
 
-try:
-    # py3k
-    import configparser
-except ImportError:
-    import ConfigParser as configparser
+import configparser
+import enum
 import os
 import sys
 import tempfile
@@ -41,17 +38,18 @@ import meld.misc
 
 from meld.conf import _
 
-TYPE_FILE = "File"
-TYPE_FOLDER = "Folder"
-TYPE_VC = "Version control"
-TYPE_MERGE = "Merge"
-COMPARISON_TYPES = (TYPE_FILE, TYPE_FOLDER, TYPE_VC, TYPE_MERGE)
+
+class RecentType(enum.Enum):
+    File = "File"
+    Folder = "Folder"
+    VersionControl = "Version control"
+    Merge = "Merge"
 
 
 def unicodeify(s):
     if s is None:
         return None
-    if isinstance(s, str):
+    if isinstance(s, bytes):
         return s.decode(sys.getfilesystemencoding(), 'replace')
     return s
 
@@ -60,7 +58,6 @@ class RecentFiles(object):
 
     mime_type = "application/x-meld-comparison"
     recent_path = os.path.join(GLib.get_user_data_dir(), "meld")
-    recent_path = recent_path.decode('utf8')
     recent_suffix = ".meldcmp"
 
     # Recent data
@@ -86,86 +83,97 @@ class RecentFiles(object):
         The passed flags are currently ignored. In the future these are to be
         used for extra initialisation not captured by the tab itself.
         """
-        comp_type, paths = tab.get_comparison()
+        recent_type, gfiles = tab.get_comparison()
 
         # While Meld handles comparisons including None, recording these as
         # recently-used comparisons just isn't that sane.
-        if None in paths:
+        if None in gfiles:
             return
 
-        # If a (type, paths) comparison is already registered, then re-add
+        uris = [f.get_uri() for f in gfiles]
+        names = [f.get_parse_name() for f in gfiles]
+        comp_type = recent_type.value
+
+        # If a (type, uris) comparison is already registered, then re-add
         # the corresponding comparison file
-        comparison_key = (comp_type, tuple(paths))
-        paths = [unicodeify(p) for p in paths]
+        comparison_key = (comp_type, tuple(uris))
+        uris = [unicodeify(u) for u in uris]
         if comparison_key in self._stored_comparisons:
-            gio_file = Gio.File.new_for_uri(
+            gfile = Gio.File.new_for_uri(
                 self._stored_comparisons[comparison_key])
         else:
-            recent_path = self._write_recent_file(comp_type, paths)
-            gio_file = Gio.File.new_for_path(recent_path)
+            recent_path = self._write_recent_file(comp_type, uris)
+            gfile = Gio.File.new_for_path(recent_path)
 
-        if len(paths) > 1:
-            display_name = " : ".join(meld.misc.shorten_names(*paths))
+        if len(uris) > 1:
+            display_name = " : ".join(meld.misc.shorten_names(*names))
         else:
-            display_path = paths[0]
+            display_path = names[0]
             userhome = os.path.expanduser("~")
             if display_path.startswith(userhome):
                 # FIXME: What should we show on Windows?
                 display_path = "~" + display_path[len(userhome):]
             display_name = _("Version control:") + " " + display_path
         # FIXME: Should this be translatable? It's not actually used anywhere.
-        description = "%s comparison\n%s" % (comp_type, ", ".join(paths))
+        description = "%s comparison\n%s" % (comp_type, ", ".join(uris))
 
         recent_metadata = Gtk.RecentData()
         recent_metadata.mime_type = self.mime_type
         recent_metadata.app_name = self.app_name
         recent_metadata.app_exec = "%s --comparison-file %%u" % self.app_exec
-        recent_metadata.display_name = display_name.encode('utf8')
-        recent_metadata.description = description.encode('utf8')
+        recent_metadata.display_name = display_name
+        recent_metadata.description = description
         recent_metadata.is_private = True
-        self.recent_manager.add_full(gio_file.get_uri(), recent_metadata)
+        self.recent_manager.add_full(gfile.get_uri(), recent_metadata)
 
     def read(self, uri):
         """Read stored comparison from URI
 
-        Returns the comparison type, the paths involved and the comparison
+        Returns the comparison type, the URIs involved and the comparison
         flags.
         """
-        gio_file = Gio.File.new_for_uri(uri)
-        path = gio_file.get_path()
-        if not gio_file.query_exists(None) or not path:
-            raise IOError("File does not exist")
+        comp_gfile = Gio.File.new_for_uri(uri)
+        comp_path = comp_gfile.get_path()
+        if not comp_gfile.query_exists(None) or not comp_path:
+            raise IOError("Recent comparison file does not exist")
 
+        # TODO: remove reading paths in next release
         try:
             config = configparser.RawConfigParser()
-            config.read(path)
+            config.read(comp_path)
             assert (config.has_section("Comparison") and
                     config.has_option("Comparison", "type") and
-                    config.has_option("Comparison", "paths"))
+                    (config.has_option("Comparison", "paths") or
+                     config.has_option("Comparison", "uris")))
         except (configparser.Error, AssertionError):
             raise ValueError("Invalid recent comparison file")
 
         comp_type = config.get("Comparison", "type")
-        paths = tuple(config.get("Comparison", "paths").split(";"))
-        flags = tuple()
-
-        if comp_type not in COMPARISON_TYPES:
+        try:
+            recent_type = RecentType(comp_type)
+        except ValueError:
             raise ValueError("Invalid recent comparison file")
 
-        return comp_type, paths, flags
+        if config.has_option("Comparison", "uris"):
+            gfiles = tuple([Gio.File.new_for_uri(u)
+                for u in tuple(config.get("Comparison", "uris").split(";"))])
+        else:
+            gfiles = tuple([Gio.File.new_for_path(p)
+                for p in tuple(config.get("Comparison", "paths").split(";"))])
+        flags = tuple()
 
-    def _write_recent_file(self, comp_type, paths):
-        paths = [p.encode(sys.getfilesystemencoding()) for p in paths]
+        return recent_type, gfiles, flags
+
+    def _write_recent_file(self, comp_type, uris):
         # TODO: Use GKeyFile instead, and return a Gio.File. This is why we're
         # using ';' to join comparison paths.
-        with tempfile.NamedTemporaryFile(prefix='recent-',
-                                         suffix=self.recent_suffix,
-                                         dir=self.recent_path,
-                                         delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+                mode='w+t', prefix='recent-', suffix=self.recent_suffix,
+                dir=self.recent_path, delete=False) as f:
             config = configparser.RawConfigParser()
             config.add_section("Comparison")
             config.set("Comparison", "type", comp_type)
-            config.set("Comparison", "paths", ";".join(paths))
+            config.set("Comparison", "uris", ";".join(uris))
             config.write(f)
             name = f.name
         return name
@@ -215,7 +223,7 @@ class RecentFiles(object):
                    Gtk.RecentFilterFlags.GROUP: "groups",
                    Gtk.RecentFilterFlags.AGE: "age"}
         needed = recent_filter.get_needed()
-        attrs = [v for k, v in getters.iteritems() if needed & k]
+        attrs = [v for k, v in getters.items() if needed & k]
 
         filtered_items = []
         for i in items:
@@ -224,7 +232,7 @@ class RecentFiles(object):
                 filter_data[attr] = getattr(i, "get_" + attr)()
             filter_info = Gtk.RecentFilterInfo()
             filter_info.contains = recent_filter.get_needed()
-            for f, v in filter_data.iteritems():
+            for f, v in filter_data.items():
                 # https://bugzilla.gnome.org/show_bug.cgi?id=695970
                 if isinstance(v, list):
                     continue

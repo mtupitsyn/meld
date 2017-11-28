@@ -16,25 +16,6 @@
 
 import collections
 import difflib
-import os
-import signal
-import sys
-
-
-# Support re-execing on Windows
-if os.name == "nt":
-    self_path = os.path.realpath(__file__)
-    self_dir = os.path.abspath(os.path.dirname(self_path))
-    sys.path[0:0] = [self_dir]
-
-
-def init_worker():
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
-
-
-def matcher_worker(text1, textn):
-    matcher = InlineMyersSequenceMatcher(None, text1, textn)
-    return matcher.get_opcodes()
 
 
 def find_common_prefix(a, b):
@@ -73,8 +54,10 @@ def find_common_suffix(a, b):
     return 0
 
 
-DiffChunk = collections.namedtuple('DiffChunk',
-                                   'tag, start_a, end_a, start_b, end_b')
+class DiffChunk(collections.namedtuple(
+        'DiffChunk', 'tag, start_a, end_a, start_b, end_b')):
+
+    __slots__ = ()
 
 
 class MyersSequenceMatcher(difflib.SequenceMatcher):
@@ -82,8 +65,11 @@ class MyersSequenceMatcher(difflib.SequenceMatcher):
     def __init__(self, isjunk=None, a="", b=""):
         if isjunk is not None:
             raise NotImplementedError('isjunk is not supported yet')
-        self.a = a
-        self.b = b
+        # The sequences we're comparing must be considered immutable;
+        # calling e.g., GtkTextBuffer methods to retrieve these line-by-line
+        # isn't really a thing we can or should do.
+        self.a = a[:]
+        self.b = b[:]
         self.matching_blocks = self.opcodes = None
         self.aindex = []
         self.bindex = []

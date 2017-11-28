@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<schemalist>
+<schemalist gettext-domain="meld">
 
   <enum id="org.gnome.meld.mergefileorder">
     <value nick="local-merge-remote" value="0"/>
@@ -23,21 +23,29 @@
     <value nick="trailing" value="64"/>
   </flags>
 
+  <schema id="org.gnome.meld.WindowState" path="/org/gnome/meld/window-state/">
+      <!-- Saved window state -->
+
+      <key name="width" type="i">
+          <default>-1</default>
+          <summary>Default window width</summary>
+      </key>
+      <key name="height" type="i">
+          <default>-1</default>
+          <summary>Default window height</summary>
+      </key>
+      <key name="is-maximized" type="b">
+          <default>false</default>
+          <summary>Default window maximised state</summary>
+      </key>
+      <key name="is-fullscreen" type="b">
+          <default>false</default>
+          <summary>Default window fullscreen state</summary>
+      </key>
+  </schema>
+
   <schema id="org.gnome.meld" path="/org/gnome/meld/">
       <!-- Application settings -->
-      <key name="window-size" type="(ii)">
-          <default>(-1, -1)</default>
-          <summary>Default window size</summary>
-      </key>
-
-      <key name="window-state" type="s">
-          <choices>
-            <choice value="normal"/>
-            <choice value="maximized"/>
-          </choices>
-          <default>"normal"</default>
-          <summary>Default window state</summary>
-      </key>
 
       <key name="toolbar-visible" type="b">
           <default>true</default>
@@ -55,7 +63,7 @@
       <key name="detect-encodings" type="as">
           <default>[]</default>
           <summary>Additional automatically detected text encodings</summary>
-          <description>Meld will use these text encodings to try to decode loaded text files before trying any other encodings. In addition to the encodings in this list, UTF-8 and the current locale-default encoding will always be used; other encodings may also be tried, depending on the user's locale.</description>
+          <description>Meld will use these text encodings to try to decode loaded text files before trying any other encodings. In addition to the encodings in this list, UTF-8 and the current locale-default encoding will always be used; other encodings may also be tried, depending on the user’s locale.</description>
       </key>
 
 
@@ -78,7 +86,7 @@
       <key name="highlight-syntax" type='b'>
           <default>false</default>
           <summary>Highlight syntax</summary>
-          <description>Whether to highlight syntax in comparisons. Because of Meld's own color highlighting, this is off by default.</description>
+          <description>Whether to highlight syntax in comparisons. Because of Meld’s own color highlighting, this is off by default.</description>
       </key>
       <key name="style-scheme" type="s">
           <default>"classic"</default>
@@ -159,7 +167,7 @@
       <key name="folder-time-resolution" type="i">
           <default>100</default>
           <summary>File timestamp resolution</summary>
-          <description>When comparing based on mtime, this is the minimum difference in nanoseconds between two files before they're considered to have different mtimes. This is useful when comparing files between filesystems with different timestamp resolution.</description>
+          <description>When comparing based on mtime, this is the minimum difference in nanoseconds between two files before they’re considered to have different mtimes. This is useful when comparing files between filesystems with different timestamp resolution.</description>
       </key>
       <key name="folder-filter-text" type="b">
           <default>true</default>
@@ -220,7 +228,7 @@
             [
               ("Backups", true, "#*# .#* ~* *~ *.{orig,bak,swp}"),
               ("OS-specific metadata", true, ".DS_Store ._* .Spotlight-V100 .Trashes Thumbs.db Desktop.ini"),
-              ("Version Control", true, "_MTN .bzr .svn .svn .hg .fslckout _FOSSIL_ .fos CVS _darcs .git .svn"),
+              ("Version Control", true, "_MTN .bzr .svn .svn .hg .fslckout _FOSSIL_ .fos CVS _darcs .git .svn .osc"),
               ("Binaries", true, "*.{pyc,a,obj,o,so,la,lib,dll,exe}"),
               ("Media", false, "*.{jpg,gif,png,bmp,wav,mp3,ogg,flac,avi,mpg,xcf,xpm}")
             ]
@@ -241,7 +249,7 @@
             ]
           </default>
           <summary>Text-based filters</summary>
-          <description>List of predefined text-based regex filters that, if active, will remove text from being used in a file comparison. The text will still be displayed, but won't contribute to the comparison itself.</description>
+          <description>List of predefined text-based regex filters that, if active, will remove text from being used in a file comparison. The text will still be displayed, but won’t contribute to the comparison itself.</description>
       </key>
   </schema>
 </schemalist>

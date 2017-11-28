@@ -144,13 +144,18 @@ class DiffGrid(Gtk.Grid):
         return int(round(pos1)), int(round(pos2))
 
     def do_size_allocate(self, allocation):
-        Gtk.Grid.do_size_allocate(self, allocation)
+        # We should be chaining up here to:
+        #     Gtk.Grid.do_size_allocate(self, allocation)
+        # However, when we do this, we hit issues with doing multiple
+        # allocations in a single allocation cycle (see bgo#779883).
+
         self.set_allocation(allocation)
         wcols, hrows = self._get_min_sizes()
         yrows = [allocation.y,
                  allocation.y + hrows[0],
                  # Roughly equivalent to hard-coding row 1 to expand=True
-                 allocation.y + (allocation.height - hrows[2]),
+                 allocation.y + (allocation.height - hrows[2] - hrows[3]),
+                 allocation.y + (allocation.height - hrows[3]),
                  allocation.y + allocation.height]
 
         wmap1, wpane1, wlink1, wpane2, wlink2, wpane3, wmap2 = wcols
@@ -166,25 +171,11 @@ class DiffGrid(Gtk.Grid):
             allocation.x, wmap1, wpane1, wlink1, wpane2, wlink2, wpane3, wmap2)
         columns = [sum(wcols[:i + 1]) for i in range(len(wcols))]
 
-        def get_child_prop_int(child, name):
-            prop = GObject.Value(int)
-            self.child_get_property(child, name, prop)
-            return prop.get_int()
-
-        def get_child_attach(child):
-            attach = [
-                get_child_prop_int(child, 'left-attach'),
-                get_child_prop_int(child, 'top-attach'),
-                get_child_prop_int(child, 'width'),
-                get_child_prop_int(child, 'height'),
-            ]
-            return attach
-
         def child_allocate(child):
             if not child.get_visible():
                 return
-            attach = get_child_attach(child)
-            left, top, width, height = attach
+            left, top, width, height = self.child_get(
+                child, 'left-attach', 'top-attach', 'width', 'height')
             # This is a copy, and we have to do this because there's no Python
             # access to Gtk.Allocation.
             child_alloc = self.get_allocation()
@@ -213,9 +204,9 @@ class DiffGrid(Gtk.Grid):
             self._handle2.move_resize(pos2, ydrag, wlink2, hdrag)
 
     def _get_min_sizes(self):
-        hrows = [0] * 3
+        hrows = [0] * 4
         wcols = [0] * 7
-        for row in range(0, 3):
+        for row in range(0, 4):
             for col in range(0, 7):
                 child = self.get_child_at(col, row)
                 if child and child.get_visible():
@@ -225,8 +216,14 @@ class DiffGrid(Gtk.Grid):
                     spanning = GObject.Value(int)
                     self.child_get_property(child, 'width', spanning)
                     spanning = spanning.get_int()
+                    # We ignore natural size when calculating required
+                    # width, but use it when doing required height. The
+                    # logic here is that height-for-width means that
+                    # minimum width requisitions mean more-than-minimum
+                    # heights. This is all extremely dodgy, but works
+                    # for now.
                     if spanning == 1:
-                        wcols[col] = max(wcols[col], msize.width, nsize.width)
+                        wcols[col] = max(wcols[col], msize.width)
                     hrows[row] = max(hrows[row], msize.height, nsize.height)
         return wcols, hrows
 

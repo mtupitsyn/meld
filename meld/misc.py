@@ -18,6 +18,7 @@
 """Module of commonly used helper classes and functions
 """
 
+import collections
 import os
 import errno
 import shutil
@@ -26,7 +27,6 @@ import subprocess
 
 from gi.repository import Gdk
 from gi.repository import GLib
-from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import GtkSource
 
@@ -160,6 +160,19 @@ def get_base_style_scheme():
     else:
         gtk_settings = Gtk.Settings.get_default()
         use_dark = gtk_settings.props.gtk_application_prefer_dark_theme
+
+    # As of 3.28, the global dark theme switch is going away.
+    if not use_dark:
+        from meld.sourceview import MeldSourceView
+        stylecontext = MeldSourceView().get_style_context()
+        background_set, rgba = (
+            stylecontext.lookup_color('theme_bg_color'))
+
+        # This heuristic is absolutely dire. I made it up. There's
+        # literally no basis to this.
+        if background_set and rgba.red + rgba.green + rgba.blue < 1.0:
+            use_dark = True
+
     base_scheme_name = (
         MELD_STYLE_SCHEME_DARK if use_dark else MELD_STYLE_SCHEME)
 
@@ -168,25 +181,15 @@ def get_base_style_scheme():
 
     return base_style_scheme
 
+
 base_style_scheme = None
-
-
-def parse_rgba(string):
-    """Parse a string to a Gdk.RGBA across different GTK+ APIs
-
-    Introspection changes broke this API in GTK+ 3.20; this function
-    is just a backwards-compatiblity workaround.
-    """
-    colour = Gdk.RGBA()
-    result = colour.parse(string)
-    return result[1] if isinstance(result, tuple) else colour
 
 
 def colour_lookup_with_fallback(name, attribute):
     from meld.settings import meldsettings
     source_style = meldsettings.style_scheme
 
-    style = source_style.get_style(name)
+    style = source_style.get_style(name) if source_style else None
     style_attr = getattr(style.props, attribute) if style else None
     if not style or not style_attr:
         base_style = get_base_style_scheme()
@@ -198,12 +201,14 @@ def colour_lookup_with_fallback(name, attribute):
 
     if not style_attr:
         import sys
-        print >> sys.stderr, _(
-            "Couldn't find colour scheme details for %s-%s; "
-            "this is a bad install") % (name, attribute)
+        print(_(
+            "Couldn’t find colour scheme details for %s-%s; "
+            "this is a bad install") % (name, attribute), file=sys.stderr)
         sys.exit(1)
 
-    return parse_rgba(style_attr)
+    colour = Gdk.RGBA()
+    colour.parse(style_attr)
+    return colour
 
 
 def get_common_theme():
@@ -213,6 +218,7 @@ def get_common_theme():
         "delete": lookup("meld:insert", "background"),
         "conflict": lookup("meld:conflict", "background"),
         "replace": lookup("meld:replace", "background"),
+        "error": lookup("meld:error", "background"),
         "current-chunk-highlight": lookup(
             "meld:current-chunk-highlight", "background")
     }
@@ -221,37 +227,9 @@ def get_common_theme():
         "delete": lookup("meld:insert", "line-background"),
         "conflict": lookup("meld:conflict", "line-background"),
         "replace": lookup("meld:replace", "line-background"),
+        "error": lookup("meld:error", "line-background"),
     }
     return fill_colours, line_colours
-
-
-def gdk_to_cairo_color(color):
-    return (color.red / 65535., color.green / 65535., color.blue / 65535.)
-
-
-def fallback_decode(bytes, encodings, lossy=False):
-    """Try and decode bytes according to multiple encodings
-
-    Generally, this should be used for best-effort decoding, when the
-    desired behaviour is "probably this, or UTF-8".
-
-    If lossy is True, then decode errors will be replaced. This may be
-    reasonable when the string is for display only.
-    """
-    if isinstance(bytes, unicode):
-        return bytes
-
-    for encoding in encodings:
-        try:
-            return bytes.decode(encoding)
-        except UnicodeDecodeError:
-            pass
-
-    if lossy:
-        return bytes.decode(encoding, errors='replace')
-
-    raise ValueError(
-        "Couldn't decode %r as one of %r" % (bytes, encodings))
 
 
 def all_same(lst):
@@ -262,7 +240,7 @@ def all_same(lst):
 def shorten_names(*names):
     """Remove redunant parts of a list of names (e.g. /tmp/foo{1,2} -> foo{1,2}
     """
-    # TODO: Update for different path separators
+    # TODO: Update for different path separators and URIs
     prefix = os.path.commonprefix(names)
     prefixslash = prefix.rfind("/") + 1
 
@@ -276,7 +254,7 @@ def shorten_names(*names):
     else:
         if all_same(basenames):
             def firstpart(alist):
-                if len(alist) > 1:
+                if len(alist) > 1 and alist[0]:
                     return "[%s] " % alist[0]
                 else:
                     return ""
@@ -306,10 +284,10 @@ def read_pipe_iter(command, workdir, errorstream, yield_interval=0.1):
                                   self.proc.wait())
 
         def __call__(self):
-            self.proc = subprocess.Popen(command, cwd=workdir,
-                                         stdin=subprocess.PIPE,
-                                         stdout=subprocess.PIPE,
-                                         stderr=subprocess.PIPE)
+            self.proc = subprocess.Popen(
+                command, cwd=workdir, stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                universal_newlines=True)
             self.proc.stdin.close()
             childout, childerr = self.proc.stdout, self.proc.stderr
             bits = []
@@ -408,12 +386,6 @@ def copytree(src, dst):
             raise
 
 
-def shell_escape(glob_pat):
-    # TODO: handle all cases
-    assert not re.compile(r"[][*?]").findall(glob_pat)
-    return glob_pat.replace('{', '[{]').replace('}', '[}]')
-
-
 def shell_to_regex(pat):
     """Translate a shell PATTERN to a regular expression.
 
@@ -480,12 +452,12 @@ def merge_intervals(interval_list):
     if len(interval_list) < 2:
         return interval_list
 
-    interval_list.sort()
-    merged_intervals = [interval_list.pop(0)]
+    interval_list = collections.deque(sorted(interval_list))
+    merged_intervals = [interval_list.popleft()]
     current_start, current_end = merged_intervals[-1]
 
     while interval_list:
-        new_start, new_end = interval_list.pop(0)
+        new_start, new_end = interval_list.popleft()
 
         if current_end >= new_end:
             continue
@@ -502,16 +474,18 @@ def merge_intervals(interval_list):
     return merged_intervals
 
 
-def apply_text_filters(txt, regexes, cutter=lambda txt, start, end:
-                       txt[:start] + txt[end:]):
+def apply_text_filters(txt, regexes, apply_fn=None):
     """Apply text filters
 
     Text filters "regexes", resolved as regular expressions are applied
-    to "txt".
+    to "txt". "txt" may be either strings or bytes, but the supplied
+    regexes must match the type.
 
-    "cutter" defines the way how to apply them. Default is to just cut
-    out the matches.
+    "apply_fn" is a callable run for each filtered interval
     """
+    empty_string = b"" if isinstance(txt, bytes) else ""
+    newline = b"\n" if isinstance(txt, bytes) else "\n"
+
     filter_ranges = []
     for r in regexes:
         for match in r.finditer(txt):
@@ -532,7 +506,44 @@ def apply_text_filters(txt, regexes, cutter=lambda txt, start, end:
 
     filter_ranges = merge_intervals(filter_ranges)
 
-    for (start, end) in reversed(filter_ranges):
-        txt = cutter(txt, start, end)
+    if apply_fn:
+        for (start, end) in reversed(filter_ranges):
+            apply_fn(start, end)
 
-    return txt
+    offset = 0
+    result_txts = []
+    for (start, end) in filter_ranges:
+        assert txt[start:end].count(newline) == 0
+        result_txts.append(txt[offset:start])
+        offset = end
+    result_txts.append(txt[offset:])
+    return empty_string.join(result_txts)
+
+
+def calc_syncpoint(adj):
+    """Calculate a cross-pane adjustment synchronisation point
+
+    Our normal syncpoint is the middle of the screen. If the
+    current position is within the first half screen of a
+    document, we scale the sync point linearly back to 0.0 (top
+    of the screen); if it's the the last half screen, we again
+    scale linearly to 1.0.
+
+    The overall effect of this is to make sure that the top and
+    bottom parts of documents with different lengths and chunk
+    offsets correctly scroll into view.
+    """
+
+    current = adj.get_value()
+    half_a_screen = adj.get_page_size() / 2
+
+    syncpoint = 0.0
+    # How far through the first half-screen our adjustment is
+    top_val = adj.get_lower()
+    first_scale = (current - top_val) / half_a_screen
+    syncpoint += 0.5 * min(1, first_scale)
+    # How far through the last half-screen our adjustment is
+    bottom_val = adj.get_upper() - 1.5 * adj.get_page_size()
+    last_scale = (current - bottom_val) / half_a_screen
+    syncpoint += 0.5 * max(0, last_scale)
+    return syncpoint

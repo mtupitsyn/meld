@@ -17,6 +17,7 @@
 
 import math
 
+from gi.repository import Gdk
 from gi.repository import Gtk
 
 from meld.misc import get_common_theme
@@ -33,6 +34,7 @@ class LinkMap(Gtk.DrawingArea):
 
     def __init__(self):
         self.filediff = None
+        self.views = []
         meldsettings.connect('changed', self.on_setting_changed)
 
     def associate(self, filediff, left_view, right_view):
@@ -49,11 +51,8 @@ class LinkMap(Gtk.DrawingArea):
             self.fill_colors, self.line_colors = get_common_theme()
 
     def do_draw(self, context):
-        if not self.filediff:
+        if not self.views:
             return
-
-        context.set_line_width(1.0)
-        allocation = self.get_allocation()
 
         pix_start = [t.get_visible_rect().y for t in self.views]
         y_offset = [
@@ -61,27 +60,32 @@ class LinkMap(Gtk.DrawingArea):
 
         clip_y = min(y_offset) - 1
         clip_height = max(t.get_visible_rect().height for t in self.views) + 2
-        context.rectangle(0, clip_y, allocation.width, clip_height)
-        context.clip()
+        allocation = self.get_allocation()
 
         stylecontext = self.get_style_context()
         Gtk.render_background(
             stylecontext, context, 0, clip_y, allocation.width, clip_height)
+        context.set_line_width(1.0)
 
         height = allocation.height
-        visible = [self.views[0].get_line_num_for_y(pix_start[0]),
-                   self.views[0].get_line_num_for_y(pix_start[0] + height),
-                   self.views[1].get_line_num_for_y(pix_start[1]),
-                   self.views[1].get_line_num_for_y(pix_start[1] + height)]
+        visible = [
+            self.views[0].get_line_num_for_y(pix_start[0]),
+            self.views[0].get_line_num_for_y(pix_start[0] + height),
+            self.views[1].get_line_num_for_y(pix_start[1]),
+            self.views[1].get_line_num_for_y(pix_start[1] + height),
+        ]
 
         wtotal = allocation.width
         # For bezier control points
-        x_steps = [-0.5, (1. / 3) * wtotal, (2. / 3) * wtotal, wtotal + 0.5]
+        x_steps = [-0.5, wtotal / 2, wtotal / 2, wtotal + 0.5]
         q_rad = math.pi / 2
 
         left, right = self.view_indices
-        view_offset_line = lambda v, l: (self.views[v].get_y_for_line_num(l) -
-                                         pix_start[v] + y_offset[v])
+
+        def view_offset_line(view_idx, line_num):
+            line_start = self.views[view_idx].get_y_for_line_num(line_num)
+            return line_start - pix_start[view_idx] + y_offset[view_idx]
+
         for c in self.filediff.linediffer.pair_changes(left, right, visible):
             # f and t are short for "from" and "to"
             f0, f1 = [view_offset_line(0, l) for l in c[1:3]]
@@ -116,39 +120,22 @@ class LinkMap(Gtk.DrawingArea):
                                  x_steps[0], f1 - 0.5)
                 context.close_path()
 
-            context.set_source_rgba(*self.fill_colors[c[0]])
+            Gdk.cairo_set_source_rgba(context, self.fill_colors[c[0]])
             context.fill_preserve()
 
             chunk_idx = self.filediff.linediffer.locate_chunk(left, c[1])[0]
             if chunk_idx == self.filediff.cursor.chunk:
                 highlight = self.fill_colors['current-chunk-highlight']
-                context.set_source_rgba(*highlight)
+                Gdk.cairo_set_source_rgba(context, highlight)
                 context.fill_preserve()
 
-            context.set_source_rgba(*self.line_colors[c[0]])
+            Gdk.cairo_set_source_rgba(context, self.line_colors[c[0]])
             context.stroke()
 
-    def do_scroll_event(self, event):
-        self.filediff.next_diff(event.direction)
 
-try:
-    LinkMap.set_css_name("link-map")
-except AttributeError:
-    # New API in 3.20
-    pass
+LinkMap.set_css_name("link-map")
 
 
 class ScrollLinkMap(Gtk.DrawingArea):
 
     __gtype_name__ = "ScrollLinkMap"
-
-    def __init__(self):
-        self.melddoc = None
-
-    def associate(self, melddoc):
-        self.melddoc = melddoc
-
-    def do_scroll_event(self, event):
-        if not self.melddoc:
-            return
-        self.melddoc.next_diff(event.direction)

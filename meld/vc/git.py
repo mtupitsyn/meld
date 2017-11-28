@@ -25,14 +25,13 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import codecs
 import errno
+import io
 import os
 import re
 import shutil
 import stat
-import subprocess
-import sys
-import StringIO
 import tempfile
 from collections import defaultdict
 
@@ -106,10 +105,6 @@ class Vc(_vc.Vc):
             label = ""
         return label
 
-    def run(self, *args):
-        cmd = (self.CMD,) + args
-        return subprocess.Popen(cmd, cwd=self.location, stdout=subprocess.PIPE)
-
     def get_commits_to_push(self):
         proc = self.run(
             "for-each-ref", "--format=%(refname:short) %(upstream:short)",
@@ -144,8 +139,8 @@ class Vc(_vc.Vc):
         if os.path.exists(commit_path):
             # If I have to deal with non-ascii, non-UTF8 pregenerated commit
             # messages, I'm taking up pig farming.
-            with open(commit_path) as f:
-                message = f.read().decode('utf8')
+            with open(commit_path, encoding='utf-8') as f:
+                message = f.read()
             return "\n".join(
                 (l for l in message.splitlines() if not l.startswith("#")))
         return None
@@ -192,8 +187,10 @@ class Vc(_vc.Vc):
         pre-merged result everywhere that has no conflict, and the
         common ancestor anywhere there *is* a conflict.
         """
-        proc = self.run("merge-file", "-p", "--diff3", local, base, remote)
-        vc_file = StringIO.StringIO(
+        proc = self.run(
+            "merge-file", "-p", "--diff3", local, base, remote,
+            use_locale_encoding=False)
+        vc_file = io.BytesIO(
             _vc.base_from_diff3(proc.stdout.read()))
 
         prefix = 'meld-tmp-%s-' % _vc.CONFLICT_MERGED
@@ -230,18 +227,9 @@ class Vc(_vc.Vc):
             path = path.replace("\\", "/")
 
         args = ["git", "show", ":%s:%s" % (self.conflict_map[conflict], path)]
-        process = subprocess.Popen(args,
-                                   cwd=self.location, stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
-        vc_file = process.stdout
-
-        # Error handling here involves doing nothing; in most cases, the only
-        # sane response is to return an empty temp file.
-
-        prefix = 'meld-tmp-%s-' % _vc.conflicts[conflict]
-        with tempfile.NamedTemporaryFile(prefix=prefix, delete=False) as f:
-            shutil.copyfileobj(vc_file, f)
-        return f.name, True
+        filename = _vc.call_temp_output(
+            args, cwd=self.location, file_id=_vc.conflicts[conflict])
+        return filename, True
 
     def get_path_for_repo_file(self, path, commit=None):
         if commit is None:
@@ -256,17 +244,8 @@ class Vc(_vc.Vc):
             path = path.replace("\\", "/")
 
         obj = commit + ":" + path
-        process = subprocess.Popen([self.CMD, "cat-file", "blob", obj],
-                                   cwd=self.root, stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
-        vc_file = process.stdout
-
-        # Error handling here involves doing nothing; in most cases, the only
-        # sane response is to return an empty temp file.
-
-        with tempfile.NamedTemporaryFile(prefix='meld-tmp', delete=False) as f:
-            shutil.copyfileobj(vc_file, f)
-        return f.name
+        args = [self.CMD, "cat-file", "blob", obj]
+        return _vc.call_temp_output(args, cwd=self.root)
 
     @classmethod
     def valid_repo(cls, path):
@@ -280,23 +259,22 @@ class Vc(_vc.Vc):
 
         # Get status differences between the index and the repo HEAD
         proc = self.run("diff-index", "--cached", "HEAD", "--relative", path)
-        entries = proc.stdout.read().split("\n")[:-1]
+        cached_entries = proc.stdout.read().split("\n")[:-1]
 
         # Get status differences between the index and files-on-disk
         proc = self.run("diff-files", "-0", "--relative", path)
-        entries += proc.stdout.read().split("\n")[:-1]
+        entries = proc.stdout.read().split("\n")[:-1]
 
         # Files can show up in both lists, e.g., if a file is modified,
-        # added to the index and changed again, so we uniquify.
-        # TODO: This doesn't work as expected for many cases; we should
-        # pick the last entry (diff to disk) based on filename.
-        return list(set(entries))
+        # added to the index and changed again. This is okay, and in
+        # fact the calling logic requires it for staging feedback.
+        return cached_entries, entries
 
     def _update_tree_state_cache(self, path):
         """ Update the state of the file(s) at self._tree_cache['path'] """
         while 1:
             try:
-                entries = self._get_modified_files(path)
+                cached_entries, entries = self._get_modified_files(path)
 
                 # Identify ignored files and folders
                 proc = self.run(
@@ -323,11 +301,12 @@ class Vc(_vc.Vc):
             # Unicode file names and file names containing quotes are
             # returned by git as quoted strings
             if name[0] == '"':
-                name = name[1:-1].decode('string_escape')
+                name = name.encode('latin1')
+                name = codecs.escape_decode(name[1:-1])[0].decode('utf-8')
             return os.path.abspath(
                 os.path.join(self.location, name))
 
-        if len(entries) == 0 and os.path.isfile(path):
+        if not cached_entries and not entries and os.path.isfile(path):
             # If we're just updating a single file there's a chance that it
             # was it was previously modified, and now has been edited so that
             # it is un-modified.  This will result in an empty 'entries' list,
@@ -340,7 +319,9 @@ class Vc(_vc.Vc):
             staged = set()
             unstaged = set()
 
-            for entry in entries:
+            # We iterate over both cached entries and entries, accumulating
+            # metadata from both, but using the state from entries.
+            for entry in cached_entries + entries:
                 columns = self.DIFF_RE.search(entry).groups()
                 old_mode, new_mode, old_sha, new_sha, statekey, path = columns
                 state = self.state_map.get(statekey.strip(), _vc.STATE_NONE)

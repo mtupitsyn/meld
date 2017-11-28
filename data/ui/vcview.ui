@@ -14,7 +14,7 @@
     </child>
     <child>
       <object class="GtkAction" id="VcCommit">
-        <property name="label" translatable="yes">Co_mmit...</property>
+        <property name="label" translatable="yes">Co_mmit…</property>
         <property name="tooltip" translatable="yes">Commit changes to version control</property>
         <property name="icon_name">vc-commit-24</property>
         <signal name="activate" handler="on_button_commit_clicked" swapped="no"/>
@@ -488,9 +488,10 @@
           </packing>
         </child>
         <child>
-          <object class="GtkVPaned" id="vc_console_vpaned">
+          <object class="GtkPaned" id="vc_console_vpaned">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
+            <property name="orientation">vertical</property>
             <property name="position">250</property>
             <style>
               <class name="meld-vc-console-pane"/>
@@ -607,7 +608,7 @@
               </object>
               <packing>
                 <property name="resize">True</property>
-                <property name="shrink">True</property>
+                <property name="shrink">False</property>
               </packing>
             </child>
           </object>

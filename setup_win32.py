@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import glob
 import os
@@ -37,9 +37,11 @@ missing_dll = [
     'libjasper-1.dll',
     'libjpeg-8.dll',
     'libpng16-16.dll',
-    'libgnutls-26.dll',
     'libxmlxpat.dll',
     'librsvg-2-2.dll',
+    'libtiff-5.dll',
+    'libepoxy-0.dll',
+    'libharfbuzz-0.dll',
     'libharfbuzz-gobject-0.dll',
     'libwebp-5.dll',
 ]
@@ -61,12 +63,12 @@ include_files = [(os.path.join(include_dll_path, path), path) for path in
                  missing_dll + gtk_libs]
 
 build_exe_options = {
-    "compressed": False,
-    "icon": "data/icons/meld.ico",
     "includes": ["gi"],
     "packages": ["gi", "weakref"],
     "include_files": include_files,
     "bin_path_excludes": [""],
+    "zip_exclude_packages": [],
+    "zip_include_packages": ["*"],
 }
 
 
@@ -123,6 +125,7 @@ setup(
         Executable(
             "bin/meld",
             base="Win32GUI",
+            icon="data/icons/meld.ico",
             targetName="Meld.exe",
             shortcutName="Meld",
             shortcutDir="ProgramMenuFolder",
@@ -130,8 +133,8 @@ setup(
     ],
     packages=[
         'meld',
+        'meld.matchers',
         'meld.ui',
-        'meld.util',
         'meld.vc',
     ],
     package_data={

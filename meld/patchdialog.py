@@ -23,19 +23,17 @@ from gi.repository import GLib
 from gi.repository import Gtk
 from gi.repository import GtkSource
 
-from .ui import gnomeglade
-
 from meld.conf import _
 from meld.misc import error_dialog
 from meld.settings import meldsettings
-from .util.compat import text_type
 from meld.sourceview import LanguageManager
+from meld.ui.gnomeglade import Component
 
 
-class PatchDialog(gnomeglade.Component):
+class PatchDialog(Component):
 
     def __init__(self, filediff):
-        gnomeglade.Component.__init__(self, "patch-dialog.ui", "patchdialog")
+        super().__init__("patch-dialog.ui", "patchdialog")
 
         self.widget.set_transient_for(filediff.widget.get_toplevel())
         self.filediff = filediff
@@ -84,23 +82,31 @@ class PatchDialog(gnomeglade.Component):
         texts = []
         for b in self.filediff.textbuffer:
             start, end = b.get_bounds()
-            text = text_type(b.get_text(start, end, False), 'utf8')
+            text = b.get_text(start, end, False)
             lines = text.splitlines(True)
+
+            # Ensure that the last line ends in a newline
+            barelines = text.splitlines(False)
+            if barelines and lines and barelines[-1] == lines[-1]:
+                # Final line lacks a line-break; add in a best guess
+                if len(lines) > 1:
+                    previous_linebreak = lines[-2][len(barelines[-2]):]
+                else:
+                    previous_linebreak = "\n"
+                lines[-1] += previous_linebreak
+
             texts.append(lines)
 
         names = [self.filediff.textbuffer[i].data.label for i in range(3)]
         prefix = os.path.commonprefix(names)
         names = [n[prefix.rfind("/") + 1:] for n in names]
-        # difflib doesn't handle getting unicode file labels
-        names = [n.encode('utf8') for n in names]
 
         buf = self.textview.get_buffer()
         text0, text1 = texts[indices[0]], texts[indices[1]]
         name0, name1 = names[indices[0]], names[indices[1]]
 
         diff = difflib.unified_diff(text0, text1, name0, name1)
-        unicodeify = lambda x: x.decode('utf8') if isinstance(x, str) else x
-        diff_text = "".join(unicodeify(d) for d in diff)
+        diff_text = "".join(d for d in diff)
         buf.set_text(diff_text)
 
     def save_patch(self, filename):
@@ -119,11 +125,10 @@ class PatchDialog(gnomeglade.Component):
         try:
             saver.save_finish(result)
         except GLib.Error as err:
-            filename = GLib.markup_escape_text(
-                gfile.get_parse_name()).decode('utf-8')
+            filename = GLib.markup_escape_text(gfile.get_parse_name())
             error_dialog(
                 primary=_("Could not save file %s.") % filename,
-                secondary=_("Couldn't save file due to:\n%s") % (
+                secondary=_("Couldn’t save file due to:\n%s") % (
                     GLib.markup_escape_text(str(err))),
             )
 

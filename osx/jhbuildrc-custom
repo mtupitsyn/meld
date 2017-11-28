@@ -3,7 +3,7 @@
 
 #prefix = "/tmp/meldroot"
 checkoutroot = os.path.expanduser("~/Source/gtk")
-setup_sdk(target="10.7", sdk_version="10.11", architectures=["x86_64"])
+setup_sdk(target="10.8", sdk_version=None, architectures=["x86_64"])
 #_gtk_osx_use_jhbuild_python = True
 
 # custom CFLAGS / environment pieces for the build
@@ -11,7 +11,7 @@ setup_sdk(target="10.7", sdk_version="10.11", architectures=["x86_64"])
 
 #skip.append("libiconv") # Lion issues
 skip.append("cups")
-skip.append("python3")
+#skip.append("python")
 skip.append("gnome-themes-standard")
 skip.append("berkeleydb")
 skip.append("berkeleydb-nonsrctree")

@@ -102,10 +102,7 @@ class DiffTreeStore(Gtk.TreeStore):
         return [self.value_path(it, i) for i in range(self.ntree)]
 
     def value_path(self, it, pane):
-        path = self.get_value(it, self.column_index(COL_PATH, pane))
-        if path is not None:
-            path = path.decode('utf8')
-        return path
+        return self.get_value(it, self.column_index(COL_PATH, pane))
 
     def is_folder(self, it, pane, path):
         # A folder may no longer exist, and is only tracked by VC.
@@ -209,7 +206,11 @@ class DiffTreeStore(Gtk.TreeStore):
 
     def _find_next_prev_diff(self, start_path):
         prev_path, next_path = None, None
-        start_iter = self.get_iter(start_path)
+        try:
+            start_iter = self.get_iter(start_path)
+        except ValueError:
+            # Invalid tree path
+            return None, None
 
         for it in self.inorder_search_up(start_iter):
             state = self.get_state(it, 0)
@@ -240,3 +241,14 @@ class DiffTreeStore(Gtk.TreeStore):
             if key in text:
                 return False
         return True
+
+    def state_rows(self, states):
+        """Generator of rows in one of the given states
+
+        Tree iterators are returned in depth-first tree order.
+        """
+        root = self.get_iter_first()
+        for it in self.inorder_search_down(root):
+            state = self.get_state(it, 0)
+            if state in states:
+                yield it

@@ -5,7 +5,7 @@
   <object class="GtkActionGroup" id="FilediffActions">
     <child>
       <object class="GtkAction" id="MakePatch">
-        <property name="label" translatable="yes">Format as Patch...</property>
+        <property name="label" translatable="yes">Format as Patch…</property>
         <property name="tooltip" translatable="yes">Create a patch using differences between files</property>
         <signal name="activate" handler="make_patch" swapped="no"/>
       </object>
@@ -185,7 +185,7 @@
     <property name="skip_taskbar_hint">True</property>
     <property name="message_type">warning</property>
     <property name="text" translatable="yes">Save changes to documents before closing?</property>
-    <property name="secondary_text" translatable="yes">If you don't save, changes will be permanently lost.</property>
+    <property name="secondary_text" translatable="yes">If you don’t save, changes will be permanently lost.</property>
     <child internal-child="vbox">
       <object class="GtkBox" id="dialog-vbox1">
         <property name="visible">True</property>
@@ -544,6 +544,7 @@
                     <property name="vexpand">True</property>
                     <property name="hexpand">True</property>
                     <property name="vscrollbar_policy">always</property>
+                    <property name="overlay-scrolling">False</property>
                     <property name="window_placement">top-right</property>
                     <property name="window_placement_set">True</property>
                     <signal name="size-allocate" handler="on_scrolledwindow_size_allocate" swapped="no"/>
@@ -594,6 +595,7 @@
                     <property name="vexpand">True</property>
                     <property name="hexpand">True</property>
                     <property name="vscrollbar_policy">always</property>
+                    <property name="overlay-scrolling">False</property>
                     <signal name="size-allocate" handler="on_scrolledwindow_size_allocate" swapped="no"/>
                     <child>
                       <object class="MeldSourceView" id="textview2">
@@ -642,6 +644,7 @@
                     <property name="vexpand">True</property>
                     <property name="hexpand">True</property>
                     <property name="vscrollbar_policy">always</property>
+                    <property name="overlay-scrolling">False</property>
                     <signal name="size-allocate" handler="on_scrolledwindow_size_allocate" swapped="no"/>
                     <child>
                       <object class="MeldSourceView" id="textview1">
@@ -716,6 +719,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="events">GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_KEY_PRESS_MASK | GDK_KEY_RELEASE_MASK | GDK_SCROLL_MASK</property>
+                <signal name="scroll-event" handler="on_linkmap_scroll_event" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">2</property>
@@ -772,10 +776,44 @@
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="events">GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_KEY_PRESS_MASK | GDK_KEY_RELEASE_MASK | GDK_SCROLL_MASK</property>
+                <signal name="scroll-event" handler="on_linkmap_scroll_event" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">4</property>
                 <property name="top_attach">1</property>
+                <property name="width">1</property>
+                <property name="height">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="MeldStatusBar" id="statusbar0">
+                <property name="visible">True</property>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">3</property>
+                <property name="width">1</property>
+                <property name="height">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="MeldStatusBar" id="statusbar1">
+                <property name="visible">True</property>
+              </object>
+              <packing>
+                <property name="left_attach">3</property>
+                <property name="top_attach">3</property>
+                <property name="width">1</property>
+                <property name="height">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="MeldStatusBar" id="statusbar2">
+                <property name="visible">True</property>
+              </object>
+              <packing>
+                <property name="left_attach">5</property>
+                <property name="top_attach">3</property>
                 <property name="width">1</property>
                 <property name="height">1</property>
               </packing>
@@ -785,17 +823,6 @@
             <property name="expand">True</property>
             <property name="fill">True</property>
             <property name="position">0</property>
-          </packing>
-        </child>
-        <child>
-          <object class="MeldStatusBar" id="statusbar">
-            <property name="visible">True</property>
-            <property name="margin-end">12</property>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">1</property>
           </packing>
         </child>
       </object>

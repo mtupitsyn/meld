@@ -1,4 +1,221 @@
 
+2017-09-10 meld 3.18.0
+======================
+
+  Fixes:
+
+   * Fix VC status not updating in some situations non-flattened mode (Kai
+     Willadsen)
+   * Command line errors when invoking a secondary instance will no longer
+     cause the second command to hang until the primary exits (Kai Willadsen)
+
+   * Bugs fixed: 786629
+
+  Translations:
+
+   * Emin Tufan Çetin (tr)
+
+
+2017-08-16 meld 3.17.4
+======================
+
+  Fixes:
+
+   * Rebuild source tarball without spurious files
+
+
+2017-08-13 meld 3.17.3
+======================
+
+  Fixes:
+
+   * Fix folder compare when using text filters (Alsan Wong)
+   * Make activity spinner show when inline comparisons are running (Kai
+     Willadsen)
+   * Migrate back from threads to multiprocessing for inline diffs; unusual
+     CPU contention caused this to harm interactivity (Kai Willadsen)
+   * Manually refreshing a file comparison sometimes caused diff navigation
+     to break (Kai Willadsen)
+   * Folder comparisons that update their state no longer break navigation
+     (Kai Willadsen)
+   * Version-control comparison on missing files now work again (Kai
+     Willadsen)
+   * Fix regression in initial focus for folder comparisons (Kai Willadsen)
+   * Fix handling for added, partially staged files in git (Kai Willadsen)
+
+   * Bugs fixed: 784436, 785603, 785859, 786043
+
+  Translations:
+
+   * Daniel Mustieles (es)
+   * Matej Urbančič (sl)
+
+
+2017-06-11 meld 3.17.2
+======================
+
+  UI changes:
+
+   * Significantly improve synchronisation of scroll bars between panes; we
+     now try much harder to scroll all of a chunk on screen at the top and
+     bottom of comparisons, and handle last-line-in-file cases better (Kai
+     Willadsen)
+   * Place the cursor at the start of a replaced chunk instead of after it;
+     this change should improve keyboard ergonomics when doing three-way
+     merges, but does change our existing behaviour (Kai Willadsen)
+   * Remove Shift-based scroll locking; this was already broken by a GTK+
+     change, so this is just making it official (Kai Willadsen)
+
+
+  Fixes:
+
+   * Show correct column offset in status bar for tab indents (Simon Marchi)
+   * Fix installation with a prefix for Python 3 changes (Ting-Wei Lan)
+   * Fix initial scroll-to-first-difference behaviour to avoid a race
+     condition if the first change was on the first line (Kai Willadsen)
+   * Improve text wrapping behaviour in information bars, and avoid too-large
+     allocations with long labels (Kai Willadsen)
+   * Work around infinite re-allocation problems and silence GTK+ allocation
+     warnings (Kai Willadsen)
+   * Fix bad UI state when closing a single-instance activated window (Kai
+     Willadsen)
+   * Fix bad function call when using internal git conflict resolution (Kai
+     Willadsen)
+
+
+  Translations:
+
+   * Anders Jonsson (sv)
+   * Andika Triwidada (id)
+   * Balázs Úr (hu)
+   * Daniel Korostil (uk)
+   * Emin Tufan Çetin (tr)
+   * Marek Černocký (cs)
+   * Milo Casagrande (it)
+
+
+2017-03-11 meld 3.17.1
+======================
+
+  Features:
+
+   * Improve version checking, and try to show users a nice error dialog when
+     Meld's requirements aren't installed (Vasily Galkin)
+
+
+  Fixes:
+
+   * Help and documentation fixes (Anders Jonsson, Kai Willadsen)
+   * Re-silence GTK+ logging with glib 2.46 structured logging changes (Kai
+     Willadsen)
+   * Fix chunk deletion at EOF with CRLF endings (Kai Willadsen)
+   * Note filter performance effects in folder preferences (Kai Willadsen)
+   * Fix button alignment for new chunk action buttons (Kai Willadsen)
+   * Improve use of the newer emblem in folder comparison by showing it only
+     when meaningful (Kai Willadsen)
+   * Fix crash caused by bad colour theme lookup (Kai Willadsen)
+
+
+  Translations:
+
+   * Alan Mortensen (da)
+   * Anders Jonsson (sv)
+   * Daniel Mustieles (es)
+   * Josef Andersson (sv)
+   * Marek Černocký (cs)
+   * Paul Seyfert (de)
+   * Piotr Drąg (pl)
+   * Rafael Fontenelle (pt_BR)
+   * Мирослав Николић (sr, sr@latin)
+
+
+2016-12-18 meld 3.17.0
+======================
+
+  Python 3 porting:
+
+   * Python 3 support; we now require Python 3.3 as a minimum
+   * Python 3 compatibility fixes; too many cases of bytes/string confusion,
+     syntax changes and other miscellany to mention individually (Vasily
+     Galkin, Kai Willadsen)
+   * Handle new unicode-escape behaviour and unicode/bytes confusion for
+     process interaction and version control plugins (Vasily Galkin, Kai
+     Willadsen)
+   * Add support for byte-based filters, to support directory vs. file
+     comparison filters (Kai Willadsen)
+
+
+  UI changes:
+
+   * The "Tabs" menu item has been removed, to better match up with more
+     modern GTK+ design. All of the actions are still available in the
+     expected key bindings, and there is a new per-tab context menu.
+   * The change action buttons in the central pane divider now correctly
+     render as flat buttons (Kai Willadsen)
+   * The curves in the central pane divider are now... smoother!
+
+
+  Internal changes:
+
+   * Handle reload notifications better in asynchronous saving (Vasily Galkin)
+   * Remove multi-process diff in favour of asynchronous (threaded, but
+     GIL-throttled) matching (Kai Willadsen)
+   * Performance improvements in rendering of multiple widgets, as well as for
+     initial text comparison (Kai Willadsen)
+   * Many updates for GTK+ 3.20 and 3.22 ABI changes (Kai Willadsen)
+   * NOTE: Windows support is currently untested
+
+
+  Fixes:
+
+   * Update supported version control list (Kai Willadsen)
+   * Update requirements and build requirements lists (Kai Willadsen)
+   * Don't create empty help/figures directories (Kai Willadsen)
+   * Translation maintenance (Piotr Drąg)
+
+
+  Fixes included in 3.16 releases:
+
+   * Handle themes with scrollbar steppers better (Kai Willadsen)
+   * Fix a traceback when pane has no file (Claude Paroz)
+   * Fix triggering "Delete Change" actions from menu (Kai Willadsen)
+   * Handle style theme not existing (Patrick Griffis)
+   * Fix bad scroll syncing and inability to move between comparison chunks in
+     file comparisons (Vasily Galkin)
+   * Improve version control view behaviour when opening missing paths (Vasily
+     Galkin)
+   * Fix saving of text created in blank comparison (Vasily Galkin)
+   * GTK+ 3.22 compatibility fixes for saving window size (Kai Willadsen)
+   * Fix formatted patches missing newlines in certain cases (Kai Willadsen)
+   * Silence GTK+ warning logging if not running in uninstalled (i.e.,
+     development) mode (Kai Willadsen)
+   * Update AppData (Kai Willadsen)
+   * Fix performance regression in text filtering (Kai Willadsen)
+   * Fix regression in respecting custom text encoding (Kai Willadsen)
+   * Fix regression in support for file comparisons from pipes (Kai Willadsen)
+   * Add open build service directories to the version control filter
+     (Dominique Leuenberger)
+   * Add darcs to list of loaded plugins (pbgc)
+   * Fix the dark style (Kai Willadsen)
+   * Windows build fixes (Kai Willadsen)
+
+
+  Translations:
+
+   * Anders Jonsson (sv)
+   * Andika Triwidada (id)
+   * Balázs Meskó (hu)
+   * Claude Paroz (fr)
+   * Daniel Mustieles (es)
+   * Jiri Grönroos (fi)
+   * Marek Černocký (cs)
+   * Mario Blättermann (de)
+   * Matej Urbančič (sl)
+   * Rafael Fontenelle (pt_BR)
+   * Tiago Santos (pt)
+   * Мирослав Николић (sr, sr@latin)
+
+
 2016-05-01 meld 3.16.0
 ======================
 

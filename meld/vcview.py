@@ -16,8 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import print_function
-
 import atexit
 import functools
 import logging
@@ -36,13 +34,13 @@ from gi.repository import Pango
 
 from meld import melddoc
 from meld import misc
-from meld import recent
 from meld import tree
 from meld import vc
 from meld.ui import gnomeglade
 from meld.ui import vcdialogs
 
 from meld.conf import _
+from meld.recent import RecentType
 from meld.settings import settings, bind_settings
 from meld.vc import _null
 from meld.vc._vc import Entry
@@ -120,7 +118,6 @@ class VcTreeStore(tree.DiffTreeStore):
         tree.DiffTreeStore.__init__(self, 1, [str] * 5)
 
     def get_file_path(self, it):
-        # Use instead of value_path; does not incorrectly decode
         return self.get_value(it, self.column_index(tree.COL_PATH, 0))
 
 
@@ -154,13 +151,6 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
         "unknown": ("VcShowNonVC", Entry.is_nonvc),
         "ignored": ("VcShowIgnored", Entry.is_ignored),
     }
-
-    file_encoding = sys.getfilesystemencoding()
-
-    @classmethod
-    def display_path(cls, bytes):
-        encodings = (cls.file_encoding,)
-        return misc.fallback_decode(bytes, encodings, lossy=True)
 
     def __init__(self):
         melddoc.MeldDoc.__init__(self)
@@ -239,30 +229,36 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
         vcs_model = self.combobox_vcs.get_model()
         vcs_model.clear()
 
-        # VC systems work at the directory level, so make sure we're checking
-        # for VC support there instead of on a specific file.
+        # VC systems can be executed at the directory level, so make sure
+        # we're checking for VC support there instead of
+        # on a specific file or on deleted/unexisting path inside vc
         location = os.path.abspath(location or ".")
-        if os.path.isfile(location):
-            location = os.path.dirname(location)
+        while not os.path.isdir(location):
+            parent_location = os.path.dirname(location)
+            if len(parent_location) >= len(location):
+                # no existing parent: for example unexisting drive on Windows
+                break
+            location = parent_location
+        else:
+            # existing parent directory was found
+            for avc in vc.get_vcs(location):
+                err_str = ''
+                vc_details = {'name': avc.NAME, 'cmd': avc.CMD}
 
-        for avc in vc.get_vcs(location):
-            err_str = ''
-            vc_details = {'name': avc.NAME, 'cmd': avc.CMD}
+                if not avc.is_installed():
+                    # Translators: This error message is shown when a version
+                    # control binary isn't installed.
+                    err_str = _("%(name)s (%(cmd)s not installed)")
+                elif not avc.valid_repo(location):
+                    # Translators: This error message is shown when a version
+                    # controlled repository is invalid.
+                    err_str = _("%(name)s (Invalid repository)")
 
-            if not avc.is_installed():
-                # Translators: This error message is shown when a version
-                # control binary isn't installed.
-                err_str = _("%(name)s (%(cmd)s not installed)")
-            elif not avc.valid_repo(location):
-                # Translators: This error message is shown when a version
-                # controlled repository is invalid.
-                err_str = _("%(name)s (Invalid repository)")
+                if err_str:
+                    vcs_model.append([err_str % vc_details, avc, False])
+                    continue
 
-            if err_str:
-                vcs_model.append([err_str % vc_details, avc, False])
-                continue
-
-            vcs_model.append([avc.NAME, avc(location), True])
+                vcs_model.append([avc.NAME, avc(location), True])
 
         valid_vcs = [(i, r[1].NAME) for i, r in enumerate(vcs_model) if r[2]]
         default_active = min(valid_vcs)[0] if valid_vcs else 0
@@ -315,6 +311,7 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
             return
 
         root = self.model.get_iter_first()
+        root_path = self.model.get_path(root)
 
         try:
             self.model.set_value(
@@ -323,23 +320,39 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
             pass
 
         self.scheduler.add_task(self.vc.refresh_vc_state)
-        self.scheduler.add_task(self._search_recursively_iter(root))
+        self.scheduler.add_task(self._search_recursively_iter(root_path))
         self.scheduler.add_task(self.on_treeview_selection_changed)
         self.scheduler.add_task(self.on_treeview_cursor_changed)
 
     def get_comparison(self):
-        return recent.TYPE_VC, [self.location]
+        uris = [Gio.File.new_for_path(self.location)]
+        return RecentType.VersionControl, uris
 
     def recompute_label(self):
-        location = self.display_path(self.location)
-        self.label_text = os.path.basename(location)
+        self.label_text = os.path.basename(self.location)
         # TRANSLATORS: This is the location of the directory being viewed
-        self.tooltip_text = _("%s: %s") % (_("Location"), location)
+        self.tooltip_text = _("%s: %s") % (_("Location"), self.location)
         self.label_changed()
 
-    def _search_recursively_iter(self, iterstart):
+    def _search_recursively_iter(self, start_path, replace=False):
+
+        # Initial yield so when we add this to our tasks, we don't
+        # create iterators that may be invalidated.
+        yield _("Scanning repository")
+
+        if replace:
+            # Replace the row at start_path with a new, empty row ready
+            # to be filled.
+            old_iter = self.model.get_iter(start_path)
+            file_path = self.model.get_file_path(old_iter)
+            new_iter = self.model.insert_after(None, old_iter)
+            self.model.set_value(new_iter, tree.COL_PATH, file_path)
+            self.model.set_path_state(new_iter, 0, tree.STATE_NORMAL, True)
+            self.model.remove(old_iter)
+
+        iterstart = self.model.get_iter(start_path)
         rootname = self.model.get_file_path(iterstart)
-        display_prefix = len(self.display_path(rootname)) + 1
+        display_prefix = len(rootname) + 1
         symlinks_followed = set()
         todo = [(self.model.get_path(iterstart), rootname)]
 
@@ -354,7 +367,7 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
             todo.sort()
             treepath, path = todo.pop(0)
             it = self.model.get_iter(treepath)
-            yield _("Scanning %s") % self.display_path(path)[display_prefix:]
+            yield _("Scanning %s") % path[display_prefix:]
 
             entries = self.vc.get_entries(path)
             entries = [e for e in entries if any(f(e) for f in filters)]
@@ -424,10 +437,10 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
 
     def run_diff(self, path):
         if os.path.isdir(path):
-            self.emit("create-diff", [path], {})
+            self.emit("create-diff", [Gio.File.new_for_path(path)], {})
             return
 
-        basename = self.display_path(os.path.basename(path))
+        basename = os.path.basename(path)
         meta = {
             'parent': self,
             'prompt_resolve': False,
@@ -480,7 +493,8 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
             os.chmod(temp_file, 0o444)
             _temp_files.append(temp_file)
 
-        self.emit("create-diff", diffs, kwargs)
+        self.emit("create-diff",
+                  [Gio.File.new_for_path(d) for d in diffs], kwargs)
 
     def do_popup_treeview_menu(self, widget, event):
         if event:
@@ -597,7 +611,20 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
         vc_command = self.command_map.get(command)
         return vc_command and hasattr(self.vc, vc_command)
 
-    def command(self, command, files):
+    def command(self, command, files, sync=False):
+        """
+        Run a command against this view's version control subsystem
+
+        This is the intended way for things outside of the VCView to
+        call in to version control methods, e.g., to mark a conflict as
+        resolved from a file comparison.
+
+        :param command: The version control command to run, taken from
+            keys in `VCView.command_map`.
+        :param files: File parameters to the command as paths
+        :param sync: If True, the command will be executed immediately
+            (as opposed to being run by the idle scheduler).
+        """
         if not self.has_command(command):
             log.error("Couldn't understand command %s", command)
             return
@@ -606,13 +633,19 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
             log.error("Invalid files argument to '%s': %r", command, files)
             return
 
+        runner = self.runner if not sync else self.sync_runner
         command = getattr(self.vc, self.command_map[command])
-        command(self.runner, files)
+        command(runner, files)
 
     def runner(self, command, files, refresh, working_dir):
         """Schedule a version control command to run as an idle task"""
         self.scheduler.add_task(
             self._command_iter(command, files, refresh, working_dir))
+
+    def sync_runner(self, command, files, refresh, working_dir):
+        """Run a version control command immediately"""
+        for it in self._command_iter(command, files, refresh, working_dir):
+            pass
 
     def on_button_update_clicked(self, obj):
         self.vc.update(self.runner)
@@ -689,17 +722,16 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
     def refresh_partial(self, where):
         if not self.actiongroup.get_action("VcFlatten").get_active():
             it = self.find_iter_by_name(where)
-            if it:
-                newiter = self.model.insert_after(None, it)
-                self.model.set_value(
-                    newiter, tree.COL_PATH, where)
-                self.model.set_path_state(newiter, 0, tree.STATE_NORMAL, True)
-                self.model.remove(it)
-                self.treeview.grab_focus()
-                self.treeview.get_selection().select_iter(newiter)
-                self.scheduler.add_task(self._search_recursively_iter(newiter))
-                self.scheduler.add_task(self.on_treeview_selection_changed)
-                self.scheduler.add_task(self.on_treeview_cursor_changed)
+            if not it:
+                return
+            path = self.model.get_path(it)
+
+            self.treeview.grab_focus()
+            self.vc.refresh_vc_state(where)
+            self.scheduler.add_task(
+                self._search_recursively_iter(path, replace=True))
+            self.scheduler.add_task(self.on_treeview_selection_changed)
+            self.scheduler.add_task(self.on_treeview_cursor_changed)
         else:
             # XXX fixme
             self.refresh()
@@ -806,3 +838,10 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
 
     def on_find_activate(self, *extra):
         self.treeview.emit("start-interactive-search")
+
+    def auto_compare(self):
+        modified_states = (tree.STATE_MODIFIED, tree.STATE_CONFLICT)
+        for it in self.model.state_rows(modified_states):
+            row_paths = self.model.value_paths(it)
+            paths = [p for p in row_paths if os.path.exists(p)]
+            self.run_diff(paths[0])

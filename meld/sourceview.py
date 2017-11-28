@@ -23,8 +23,7 @@ from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import GtkSource
 
-import meldbuffer
-
+from meld.meldbuffer import MeldBuffer
 from meld.misc import colour_lookup_with_fallback, get_common_theme
 from meld.settings import bind_settings, meldsettings, settings
 
@@ -48,6 +47,7 @@ def get_custom_encoding_candidates():
         # get_default_candidates() is only available in GtkSourceView 3.18
         # and we'd rather use their defaults than our old detect list.
         pass
+    return custom_candidates
 
 
 class LanguageManager(object):
@@ -144,14 +144,14 @@ class MeldSourceView(GtkSource.View):
         self.syncpoints = []
         self._show_line_numbers = None
 
-        buf = meldbuffer.MeldBuffer()
-        buf.create_tag("inline")
+        buf = MeldBuffer()
+        inline_tag = GtkSource.Tag.new("inline")
+        inline_tag.props.draw_spaces = True
+        buf.get_tag_table().add(inline_tag)
         buf.create_tag("dimmed")
         self.set_buffer(buf)
 
         meldsettings.connect('changed', self.on_setting_changed)
-        self.on_setting_changed(meldsettings, 'font')
-        self.on_setting_changed(meldsettings, 'style-scheme')
 
     def get_y_for_line_num(self, line):
         buf = self.get_buffer()
@@ -191,6 +191,8 @@ class MeldSourceView(GtkSource.View):
 
     def do_realize(self):
         bind_settings(self)
+        self.on_setting_changed(meldsettings, 'font')
+        self.on_setting_changed(meldsettings, 'style-scheme')
         return GtkSource.View.do_realize(self)
 
     def do_draw_layer(self, layer, context):

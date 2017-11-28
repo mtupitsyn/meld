@@ -263,6 +263,7 @@
                 <property name="can_focus">False</property>
                 <property name="events">GDK_SCROLL_MASK</property>
                 <property name="vexpand">True</property>
+                <signal name="scroll-event" handler="on_linkmap_scroll_event" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">4</property>
@@ -321,6 +322,7 @@
                 <property name="can_focus">False</property>
                 <property name="events">GDK_SCROLL_MASK</property>
                 <property name="vexpand">True</property>
+                <signal name="scroll-event" handler="on_linkmap_scroll_event" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">2</property>
@@ -353,6 +355,7 @@
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="vexpand">True</property>
+                    <property name="overlay-scrolling">False</property>
                     <property name="window_placement">top-right</property>
                     <property name="window_placement_set">True</property>
                     <child>
@@ -411,6 +414,7 @@
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="vexpand">True</property>
+                    <property name="overlay-scrolling">False</property>
                     <child>
                       <object class="GtkTreeView" id="treeview1">
                         <property name="visible">True</property>
@@ -467,6 +471,7 @@
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="vexpand">True</property>
+                    <property name="overlay-scrolling">False</property>
                     <child>
                       <object class="GtkTreeView" id="treeview2">
                         <property name="visible">True</property>

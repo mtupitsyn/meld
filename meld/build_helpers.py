@@ -18,8 +18,6 @@
 # Modified by Kai Willadsen for the Meld project
 # Copyright (C) 2013-2014 Kai Willadsen <kai.willadsen@gmail.com>
 
-from __future__ import print_function
-
 import distutils.cmd
 import distutils.command.build
 import distutils.command.build_py
@@ -115,7 +113,9 @@ class build_help(distutils.cmd.Command):
         if "LINGUAS" in os.environ:
             self.selected_languages = os.environ["LINGUAS"].split()
         else:
-            self.selected_languages = os.listdir(self.help_dir)
+            self.selected_languages = [
+                d for d in os.listdir(self.help_dir) if os.path.isdir(d)
+            ]
 
         if 'C' not in self.selected_languages:
             self.selected_languages.append('C')
@@ -156,8 +156,9 @@ class build_help(distutils.cmd.Command):
             path_help = os.path.join('share', 'help', lang, name)
             path_figures = os.path.join(path_help, 'figures')
             data_files.append((path_help, xml_files + mallard_files))
-            data_files.append(
-                (path_figures, glob.glob('%s/figures/*.png' % build_path)))
+            figures = glob.glob('%s/figures/*.png' % build_path)
+            if figures:
+                data_files.append((path_figures, figures))
 
         return data_files
 
@@ -227,7 +228,7 @@ class build_i18n(distutils.cmd.Command):
     # way except magically extracting them from self.distribution.data_files
     desktop_files = [('share/applications', glob.glob("data/*.desktop.in"))]
     xml_files = [
-        ('share/appdata', glob.glob("data/*.appdata.xml.in")),
+        ('share/metainfo', glob.glob("data/*.appdata.xml.in")),
         ('share/mime/packages', glob.glob("data/mime/*.xml.in"))
     ]
     schemas_files = []
@@ -337,10 +338,10 @@ class build_py(distutils.command.build_py.build_py):
                 contents = f.read()
 
             try:
-                iobj = self.distribution.command_obj['install']
-                prefix = iobj.prefix
+                options = self.distribution.get_option_dict('install')
+                prefix = options['prefix'][1]
             except KeyError as e:
-                print (e)
+                print(e)
                 prefix = sys.prefix
 
             datadir = os.path.join(prefix, 'share', 'meld')

@@ -16,6 +16,7 @@
 import math
 
 from gi.repository import Pango
+from gi.repository import Gdk
 from gi.repository import Gtk
 from gi.repository import GtkSource
 
@@ -23,11 +24,21 @@ from meld.conf import _
 from meld.const import MODE_REPLACE, MODE_DELETE, MODE_INSERT
 from meld.misc import get_common_theme
 from meld.settings import meldsettings
+from meld.ui.gtkcompat import get_style
 
 # Fixed size of the renderer. Ideally this would be font-dependent and
 # would adjust to other textview attributes, but that's both quite difficult
 # and not necessarily desirable.
 LINE_HEIGHT = 16
+
+GTK_RENDERER_STATE_MAPPING = {
+    GtkSource.GutterRendererState.NORMAL: Gtk.StateFlags.NORMAL,
+    GtkSource.GutterRendererState.CURSOR: Gtk.StateFlags.FOCUSED,
+    GtkSource.GutterRendererState.PRELIT: Gtk.StateFlags.PRELIGHT,
+    GtkSource.GutterRendererState.SELECTED: Gtk.StateFlags.SELECTED,
+}
+
+ALIGN_MODE_FIRST = GtkSource.GutterRendererAlignmentMode.FIRST
 
 
 def load(icon_name):
@@ -35,61 +46,105 @@ def load(icon_name):
     return icon_theme.load_icon(icon_name, LINE_HEIGHT, 0)
 
 
+def get_background_rgba(renderer):
+    '''Get and cache the expected background for the renderer widget
+
+    Current versions of GTK+ don't paint the background of text view
+    gutters with the actual expected widget background, which causes
+    them to look wrong when put next to any other widgets. This hack
+    just gets the background from the renderer's view, and then caches
+    it for performance, and on the basis that all renderers will be
+    assigned to similarly-styled views. This is fragile, but the
+    alternative is really significantly slower.
+    '''
+    global _background_rgba
+    if _background_rgba is None:
+        if renderer.props.view:
+            stylecontext = renderer.props.view.get_style_context()
+            background_set, _background_rgba = (
+                stylecontext.lookup_color('theme_bg_color'))
+    return _background_rgba
+
+
+_background_rgba = None
+
+
+def renderer_to_gtk_state(state):
+    gtk_state = Gtk.StateFlags(0)
+    for renderer_flag, gtk_flag in GTK_RENDERER_STATE_MAPPING.items():
+        if renderer_flag & state:
+            gtk_state |= gtk_flag
+    return gtk_state
+
+
 class MeldGutterRenderer(object):
+
+    def set_renderer_defaults(self):
+        self.set_alignment_mode(GtkSource.GutterRendererAlignmentMode.FIRST)
+        self.set_padding(3, 0)
+        self.set_alignment(0.5, 0.5)
 
     def on_setting_changed(self, meldsettings, key):
         if key == 'style-scheme':
-            # meldsettings.style_scheme
             self.fill_colors, self.line_colors = get_common_theme()
+            alpha = self.fill_colors['current-chunk-highlight'].alpha
+            self.chunk_highlights = {
+                state: Gdk.RGBA(*[alpha + c * (1.0 - alpha) for c in colour])
+                for state, colour in self.fill_colors.items()
+            }
 
     def draw_chunks(
             self, context, background_area, cell_area, start, end, state):
 
-        stylecontext = self.props.view.get_style_context()
-        background_set, background_rgba = (
-            stylecontext.lookup_color('theme_bg_color'))
+        chunk = self._chunk
+        if not chunk:
+            return
 
         line = start.get_line()
-        chunk_index = self.linediffer.locate_chunk(self.from_pane, line)[0]
+        is_first_line = line == chunk[1]
+        is_last_line = line == chunk[2] - 1
+        if not (is_first_line or is_last_line):
+            # Only paint for the first and last lines of a chunk
+            return
 
-        context.save()
+        x = background_area.x - 1
+        y = background_area.y
+        width = background_area.width + 2
+        height = 1 if chunk[1] == chunk[2] else background_area.height
+
         context.set_line_width(1.0)
+        Gdk.cairo_set_source_rgba(context, self.line_colors[chunk[0]])
+        if is_first_line:
+            context.move_to(x, y + 0.5)
+            context.rel_line_to(width, 0)
+        if is_last_line:
+            context.move_to(x, y - 0.5 + height)
+            context.rel_line_to(width, 0)
+        context.stroke()
 
-        context.rectangle(
-            background_area.x, background_area.y,
-            background_area.width, background_area.height)
-        context.set_source_rgba(*background_rgba)
-        context.fill()
+    def query_chunks(self, start, end, state):
+        line = start.get_line()
+        chunk_index = self.linediffer.locate_chunk(self.from_pane, line)[0]
+        in_chunk = chunk_index is not None
 
-        if chunk_index is not None:
+        chunk = None
+        if in_chunk:
             chunk = self.linediffer.get_chunk(
                 chunk_index, self.from_pane, self.to_pane)
 
-            if chunk:
-                x = background_area.x - 1
-                width = background_area.width + 2
-
-                height = 1 if chunk[1] == chunk[2] else background_area.height
-                y = background_area.y
-                context.rectangle(x, y, width, height)
-                context.set_source_rgba(*self.fill_colors[chunk[0]])
-
-                if self.props.view.current_chunk_check(chunk):
-                    context.fill_preserve()
-                    highlight = self.fill_colors['current-chunk-highlight']
-                    context.set_source_rgba(*highlight)
-                context.fill()
-
-                if line == chunk[1] or line == chunk[2] - 1:
-                    context.set_source_rgba(*self.line_colors[chunk[0]])
-                    if line == chunk[1]:
-                        context.move_to(x, y + 0.5)
-                        context.rel_line_to(width, 0)
-                    if line == chunk[2] - 1:
-                        context.move_to(x, y - 0.5 + height)
-                        context.rel_line_to(width, 0)
-                    context.stroke()
-        context.restore()
+        if chunk is not None:
+            if chunk[1] == chunk[2]:
+                background_rgba = get_background_rgba(self)
+            elif self.props.view.current_chunk_check(chunk):
+                background_rgba = self.chunk_highlights[chunk[0]]
+            else:
+                background_rgba = self.fill_colors[chunk[0]]
+        else:
+            # TODO: Remove when fixed in upstream GTK+
+            background_rgba = get_background_rgba(self)
+        self._chunk = chunk
+        self.set_background(background_rgba)
+        return in_chunk
 
 
 class GutterRendererChunkAction(
@@ -111,6 +166,7 @@ class GutterRendererChunkAction(
 
     def __init__(self, from_pane, to_pane, views, filediff, linediffer):
         super(GutterRendererChunkAction, self).__init__()
+        self.set_renderer_defaults()
         self.from_pane = from_pane
         self.to_pane = to_pane
         # FIXME: Views are needed only for editable checking; connect to this
@@ -124,6 +180,7 @@ class GutterRendererChunkAction(
         if self.views[0].get_direction() == Gtk.TextDirection.RTL:
             direction = 'LTR' if direction == 'RTL' else 'RTL'
 
+        self.is_action = False
         self.action_map = self.ACTION_MAP[direction]
         self.filediff = filediff
         self.filediff.connect("action-mode-changed",
@@ -151,7 +208,7 @@ class GutterRendererChunkAction(
             # TODO: Need a custom GtkMenuPositionFunc to position this next to
             # the clicked gutter, not where the cursor is
             copy_menu.popup(None, None, None, None, 0, event.time)
-        else:
+        elif action == MODE_REPLACE:
             self.filediff.replace_chunk(self.from_pane, self.to_pane, chunk)
 
     def _make_copy_menu(self, chunk):
@@ -174,11 +231,47 @@ class GutterRendererChunkAction(
         copy_down.connect('activate', copy_chunk, chunk, False)
         return copy_menu
 
+    def do_begin(self, *args):
+        self.views_editable = [v.get_editable() for v in self.views]
+
     def do_draw(self, context, background_area, cell_area, start, end, state):
+        GtkSource.GutterRendererPixbuf.do_draw(
+            self, context, background_area, cell_area, start, end, state)
+        if self.is_action:
+            # TODO: Fix padding and min-height in CSS and use
+            # draw_style_common
+            style_context = get_style(None, "button.flat.image-button")
+            style_context.set_state(renderer_to_gtk_state(state))
+
+            x = background_area.x + 1
+            y = background_area.y + 1
+            width = background_area.width - 2
+            height = background_area.height - 2
+
+            Gtk.render_background(style_context, context, x, y, width, height)
+            Gtk.render_frame(style_context, context, x, y, width, height)
+
+            pixbuf = self.props.pixbuf
+            pix_width, pix_height = pixbuf.props.width, pixbuf.props.height
+
+            xalign, yalign = self.get_alignment()
+            align_mode = self.get_alignment_mode()
+            if align_mode == GtkSource.GutterRendererAlignmentMode.CELL:
+                icon_x = x + (width - pix_width) // 2
+                icon_y = y + (height - pix_height) // 2
+            else:
+                line_iter = start if align_mode == ALIGN_MODE_FIRST else end
+                textview = self.get_view()
+                loc = textview.get_iter_location(line_iter)
+                line_x, line_y = textview.buffer_to_window_coords(
+                    self.get_window_type(), loc.x, loc.y)
+                icon_x = cell_area.x + (cell_area.width - pix_width) * xalign
+                icon_y = line_y + (loc.height - pix_height) * yalign
+
+            Gtk.render_icon(style_context, context, pixbuf, icon_x, icon_y)
+
         self.draw_chunks(
             context, background_area, cell_area, start, end, state)
-        return GtkSource.GutterRendererPixbuf.do_draw(
-            self, context, background_area, cell_area, start, end, state)
 
     def do_query_activatable(self, start, area, event):
         line = start.get_line()
@@ -191,20 +284,16 @@ class GutterRendererChunkAction(
         return False
 
     def do_query_data(self, start, end, state):
+        self.query_chunks(start, end, state)
         line = start.get_line()
-        chunk_index = self.linediffer.locate_chunk(self.from_pane, line)[0]
 
-        pixbuf = None
-        if chunk_index is not None:
-            chunk = self.linediffer.get_chunk(
-                chunk_index, self.from_pane, self.to_pane)
-            if chunk and chunk[1] == line:
-                action = self._classify_change_actions(chunk)
-                pixbuf = self.action_map.get(action)
-        if pixbuf:
-            self.set_pixbuf(pixbuf)
+        if self._chunk and self._chunk[1] == line:
+            action = self._classify_change_actions(self._chunk)
+            pixbuf = self.action_map.get(action)
         else:
-            self.props.pixbuf = None
+            pixbuf = None
+        self.is_action = bool(pixbuf)
+        self.props.pixbuf = pixbuf
 
     def on_container_mode_changed(self, container, mode):
         self.mode = mode
@@ -216,7 +305,7 @@ class GutterRendererChunkAction(
         Returns the action that can be performed given the content and
         context of the change.
         """
-        editable, other_editable = [v.get_editable() for v in self.views]
+        editable, other_editable = self.views_editable
 
         if not editable and not other_editable:
             return None
@@ -232,21 +321,16 @@ class GutterRendererChunkAction(
             else:
                 change_type = "replace"
 
-        action = None
-        if change_type == "delete":
-            if (editable and (self.mode == MODE_DELETE or not other_editable)):
-                action = MODE_DELETE
-            elif other_editable:
-                action = MODE_REPLACE
-        elif change_type == "replace":
-            if not editable:
-                if self.mode in (MODE_INSERT, MODE_REPLACE):
-                    action = self.mode
-            elif not other_editable:
-                action = MODE_DELETE
-            else:
-                action = self.mode
+        if change_type == 'insert':
+            return None
 
+        action = self.mode
+        if action == MODE_DELETE and not editable:
+            action = None
+        elif action == MODE_INSERT and change_type == 'delete':
+            action = MODE_REPLACE
+        if not other_editable:
+            action = MODE_DELETE
         return action
 
 
@@ -262,6 +346,7 @@ class GutterRendererChunkLines(
 
     def __init__(self, from_pane, to_pane, linediffer):
         super(GutterRendererChunkLines, self).__init__()
+        self.set_renderer_defaults()
         self.from_pane = from_pane
         self.to_pane = to_pane
         # FIXME: Don't pass in the linediffer; pass a generator like elsewhere
@@ -306,12 +391,13 @@ class GutterRendererChunkLines(
         self.set_size(width)
 
     def do_draw(self, context, background_area, cell_area, start, end, state):
+        GtkSource.GutterRendererText.do_draw(
+            self, context, background_area, cell_area, start, end, state)
         self.draw_chunks(
             context, background_area, cell_area, start, end, state)
-        return GtkSource.GutterRendererText.do_draw(
-            self, context, background_area, cell_area, start, end, state)
 
     def do_query_data(self, start, end, state):
+        self.query_chunks(start, end, state)
         line = start.get_line() + 1
         current_line = state & GtkSource.GutterRendererState.CURSOR
         markup = "<b>%d</b>" % line if current_line else str(line)
