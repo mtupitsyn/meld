@@ -264,6 +264,8 @@ class MeldWindow(gnomeglade.Component):
 
     def osx_menu_setup(self, widget, event, callback_data=None):
         if self.osx_ready == False:
+            import gi
+            gi.require_version('GtkosxApplication', '1.0') 
             from gi.repository import GtkosxApplication as gtkosx_application
             self.macapp = gtkosx_application.Application()
             prefs_item =self.menubar.get_children()[1].get_submenu().get_children()[1]
