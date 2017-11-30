@@ -12,7 +12,11 @@ glib-compile-schemas data
 python setup_py2app.py build
 python setup_py2app.py py2app
 
+# py2app copies all Python framework to target..
+# too busy to figure out how to solve this at the moment. Let's just 
+# delete the files after they've been copied.
 rm -fr $FRAMEWORKS/Python.framework
+
 # icon themes
 mkdir -p $RES/share/icons
 rsync -r -t --ignore-existing $INSTROOT/share/icons/Adwaita $RES/share/icons
