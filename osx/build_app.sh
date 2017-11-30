@@ -12,6 +12,7 @@ glib-compile-schemas data
 python setup_py2app.py build
 python setup_py2app.py py2app
 
+rm -fr $FRAMEWORKS/Python.framework
 # icon themes
 mkdir -p $RES/share/icons
 rsync -r -t --ignore-existing $INSTROOT/share/icons/Adwaita $RES/share/icons

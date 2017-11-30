@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import glob
 import os
 import site
-from setuptools import setup
-import meld.meldapp
+import meld.build_helpers
 import meld.conf
+from setuptools import setup
 
 APP_NAME = 'MeldMerge'
 VERSION_STRING = meld.conf.__version__
@@ -47,11 +47,12 @@ from modulegraph.find_modules import PY_SUFFIXES
 PY_SUFFIXES.append('')
 
 setup(
-    name='Meld',
+    name="Meld",
     version=meld.conf.__version__,
     description='Visual diff and merge tool',
-    author='Kai Willadsen',
-    author_email='kai.willadsen@gmail.com',
+    author='The Meld project',
+    author_email='meld-list@gnome.org',
+    maintainer='Kai Willadsen',
     url='http://meldmerge.org',
     license='GPLv2+',
     classifiers=[
@@ -68,8 +69,8 @@ setup(
     ],
     packages=[
         'meld',
+        'meld.matchers',
         'meld.ui',
-        'meld.util',
         'meld.vc',
     ],
     package_data={
