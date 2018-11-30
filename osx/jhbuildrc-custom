@@ -3,19 +3,39 @@
 
 #prefix = "/tmp/meldroot"
 checkoutroot = os.path.expanduser("~/Source/gtk")
-setup_sdk(target="10.8", sdk_version=None, architectures=["x86_64"])
-#_gtk_osx_use_jhbuild_python = True
+setup_sdk(target="10.9", sdk_version="native", architectures=["x86_64"])
+_gtk_osx_use_jhbuild_python = True
 
 # custom CFLAGS / environment pieces for the build
 # os.environ['CFLAGS'] = '-Wall -g -O0'
 
+os.environ["CC"] = "/usr/local/bin/ccache /usr/bin/clang"
+os.environ["CXX"] = "/usr/local/bin/ccache /usr/bin/clang++"
+os.environ["CXXFLAGS"] = "-std=c++11 -stdlib=libc++"
+os.environ["MACOSX_DEPLOYMENT_TARGET"] = "10.9"
+
 #skip.append("libiconv") # Lion issues
 skip.append("cups")
-#skip.append("python")
 skip.append("gnome-themes-standard")
 skip.append("berkeleydb")
 skip.append("berkeleydb-nonsrctree")
 skip.append("gnome-user-docs")
+skip.append("cmake")
+skip.append("openssl")
+skip.append("python")
+skip.append("python3")
+#skip.append("libxml2")
+#skip.append("gtk-doc")
+skip.append("itstool")
+skip.append("libxslt")
+skip.append("yelp-xsl")
+skip.append("yelp-tools")
+#skip.append("gobject-introspection")
+skip.append("pygobject")
+skip.append("xorg-util-macros")
+
+# moduleset="https://gitlab.gnome.org/GNOME/gtk-osx/raw/master/modulesets-unstable/gtk-osx.modules"
+
 
 # gtk-doc required to build pango. We generate nothing with it, though.
 #   libxslt
@@ -26,51 +46,58 @@ skip.append("gnome-user-docs")
 #
 
 modules = [
-  "zlib",
-  "meta-gtk-osx-bootstrap",
-  "meta-gtk-osx-freetype",
-  "meta-gtk-osx-gtk3",
+  "zlib", "libjpeg", "libtiff", "libpng",
   "glib",
-  "python",
-  "libxml2", "libxslt",
-  "libpng", "libjpeg", "libtiff",
-  "cairo", "gtk-doc", "pango", "gdk-pixbuf", "librsvg",
-  "py2cairo",
-  "meta-gtk-osx-python-gtk3",
+  "fribidi",
+  "gtk-doc", 
+  "pango", "gdk-pixbuf", "librsvg", "freetype-no-harfbuzz",
+  "meta-gtk-osx-gtk3",
+  "meta-gtk-osx-python3-gtk3",
   "gsettings-desktop-schemas",
   "gtksourceview3",
-  "adwaita-icon-theme",
-  "pygobject3"
+  "adwaita-icon-theme"
 ]
 
 #moduleset="http://git.gnome.org/browse/gtk-osx/plain/modulesets/gtk-osx.modules"
 
 #prefix = os.path.join(os.environ["HOME"], "meld")
-#append_autogenargs("libiconv", "--with-libintl-prefix=" + prefix)
-#branches["glib"] = (None, "glib-2-45")
-#branches["gtk+-3.0"] = "gtk+-3.17.9"    # Meld breaks on anything higher
-#branches["pango"] = "pango-1.37.3"
 
 global autogenargs
-autogenargs = autogenargs + ' --disable-documentation --disable-docs --enable-introspection '
-nogtkdoc = ' --enable-gtk-doc=no --enable-gtk-doc-html=no --enable-gtk-doc-pdf=no '
+autogenargs = autogenargs + ' --disable-documentation --disable-docs --enable-introspection --enable-gtk-doc=no --enable-gtk-doc-html=no --enable-gtk-doc-pdf=no'
+# autogenargs += ' --cache-file=' + checkoutroot + '/autoconf-cache '
 
 module_autogenargs['yelp'] = '--disable-Werror'
 module_autogenargs['zlib']= ''# + autogenargs
-module_autogenargs['librsvg'] = nogtkdoc + autogenargs
-module_autogenargs['glib'] = nogtkdoc + autogenargs
-module_autogenargs['gdk-pixbuf'] = '--with-included-loaders ' + nogtkdoc + autogenargs
+module_autogenargs['librsvg'] = autogenargs
+module_autogenargs['glib'] = autogenargs
+module_autogenargs['gdk-pixbuf'] = '--with-included-loaders ' + autogenargs
 module_autogenargs['pygobject3'] = '--disable-docs  --enable-cairo '
 #module_autogenargs['gtk-quartz-engine'] = 'CFLAGS=-Wuninitialized ' + autogenargs
-module_autogenargs['cairo'] = '--enable-full-testing=no ' + autogenargs
-module_autogenargs['pango']='--with-included-modules=yes --with-dynamic-modules=no' + nogtkdoc
-module_autogenargs['atk'] = nogtkdoc + autogenargs
-module_autogenargs['gobject-introspection']= '--with-cairo=yes ' + nogtkdoc + autogenargs
-module_autogenargs['gtk-mac-integration']='--enable-python=all --without-gtk2 --with-gtk3 --enable-introspection=yes ' + autogenargs
-module_autogenargs['tango-icon-theme']='--disable-nls --disable-icon-framing ' + nogtkdoc + autogenargs
-module_autogenargs['gtk+-3.0'] = '--enable-quartz-backend --enable-quartz-relocation --disable-cloudprint --with-included-immodules=am-et,cedilla,cyrillic-translit,inuktitut,ipa,multipress,thai,ti-er,ti-et,viqr --disable-modules ' + nogtkdoc + autogenargs  #--disable-schemas-compile ?
-module_autogenargs['gtksourceview3'] = '' + nogtkdoc + autogenargs
-module_autogenargs['gnome-themes-standard'] = '--disable-gtk2-engine ' + nogtkdoc + autogenargs
+module_autogenargs['cairo'] = '--disable-full-testing --enable-ft --enable-fc --enable-quartz-image --enable-quartz-font --enable-quartz  --enable-png --enable-svg --enable-tee --enable-xml --enable-gobject --enable-pthread --disable-valgrind --disable-gtk-doc ' + autogenargs
+module_autogenargs['pango']='--with-included-modules=yes --with-dynamic-modules=no --enable-introspection=yes'
+module_autogenargs['atk'] = autogenargs
+module_autogenargs['gobject-introspection']= '--with-cairo=yes ' + autogenargs
+#module_autogenargs['gtk-mac-integration']='--enable-python=all --without-gtk2 --with-gtk3 --enable-introspection=yes ' + autogenargs
+module_autogenargs['tango-icon-theme']='--disable-nls --disable-icon-framing ' + autogenargs
+module_autogenargs['gtk+-3.0'] = '--enable-quartz-backend --enable-quartz-relocation --disable-cloudprint --with-included-immodules=am-et,cedilla,cyrillic-translit,inuktitut,ipa,multipress,thai,ti-er,ti-et,viqr --disable-modules --disable-rpath --disable-cups --disable-papi --disable-cloudprint --disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --enable-debug=no ' + autogenargs  #--disable-schemas-compile ?
+# module_autogenargs['gtksourceview3'] = '' + autogenargs
+module_autogenargs['gnome-themes-standard'] = '--disable-gtk2-engine ' + autogenargs
+module_autogenargs['harfbuzz'] = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext ' + autogenargs
+module_autogenargs['root-harfbuzz'] = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext ' + autogenargs
+module_autogenargs['fontconfig'] = '--with-cache-dir=/var/tmp/fontconfig_cache_meld --enable-iconv ' + autogenargs
+module_autogenargs['python3'] = '--enable-optimizations --with-system-ffi --with-system-expat --without-lto --without-gcc  --disable-ipv6 --with-ensurepip=yes --without-tests --disable-tests ' + autogenargs
+
+
+
+
+
+
+#os.environ['CFLAGS'] += ' -I' + '/usr/include/'
+#os.environ['CPPFLAGS'] += ' -I' + '/usr/include/'
+#os.environ['LDFLAGS'] += ' -L' + '/usr/lib/'
+#os.environ['LDFLAGS'] += ' -Wl,--rpath -Wl,' + '/usr/lib/'
+#os.environ['LDFLAGS'] += ' -Wl,--rpath -Wl,' + '../lib/'
+#os.environ['LDFLAGS'] += ' -Wl,--rpath -Wl,' + '../lib_pypy/'
 
 # Can be usefull when tweaking modulesets to avoid jhbuild overwriting:
 # nonetwork=True

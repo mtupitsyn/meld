@@ -210,6 +210,14 @@ def get_base_style_scheme():
         gtk_settings = Gtk.Settings.get_default()
         use_dark = gtk_settings.props.gtk_application_prefer_dark_theme
 
+    try:
+        from Foundation import NSUserDefaults
+        standardUserDefaults = NSUserDefaults.standardUserDefaults()
+        if standardUserDefaults.stringForKey_("AppleInterfaceStyle") == 'Dark':
+            use_dark = True
+    except:
+        pass
+
     # As of 3.28, the global dark theme switch is going away.
     if not use_dark:
         from meld.sourceview import MeldSourceView

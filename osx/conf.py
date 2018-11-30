@@ -1,25 +1,36 @@
+
 import os
 import sys
 from Foundation import NSBundle
 
 __package__ = "meld"
-__version__ = "3.19.0"
+__version__ = "3.19.2"
+
+APPLICATION_ID = "org.gnome.meld"
 
 # START; these paths are clobbered on install by meld.build_helpers
 DATADIR = os.path.join(sys.prefix, "share", "meld")
 LOCALEDIR = os.path.join(sys.prefix, "share", "locale")
 # END
-UNINSTALLED = False
-UNINSTALLED_SCHEMA = False
+
+# Flag enabling some workarounds if data dir isn't installed in standard prefix
+DATADIR_IS_UNINSTALLED = False
 PYTHON_REQUIREMENT_TUPLE = (3, 3)
 
-# Installed from main script
-_ = lambda x: x
-ngettext = lambda x, *args: x
 
+# Installed from main script
+def no_translation(gettext_string, *args):
+    return gettext_string
+
+
+_ = no_translation
+ngettext = no_translation
+
+def is_darwin():
+    return True
 
 def frozen():
-    global DATADIR, LOCALEDIR, UNINSTALLED_SCHEMA
+    global DATADIR, LOCALEDIR, DATADIR_IS_UNINSTALLED
 
     bundle = NSBundle.mainBundle()
     resource_path =  bundle.resourcePath().fileSystemRepresentation().decode("utf-8")
@@ -83,14 +94,20 @@ def frozen():
     # meld specific
     DATADIR = os.path.join(share_path, "meld")
     LOCALEDIR = os.path.join(share_path, "mo")
-    UNINSTALLED_SCHEMA = True
+    DATADIR_IS_UNINSTALLED = True
+
 
 def uninstalled():
     # Always use frozen when building...
     return frozen()
 
+    global DATADIR, LOCALEDIR, DATADIR_IS_UNINSTALLED
+    melddir = os.path.abspath(os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), ".."))
+
+    DATADIR = os.path.join(melddir, "data")
+    LOCALEDIR = os.path.join(melddir, "build", "mo")
+    DATADIR_IS_UNINSTALLED = True
+
 def ui_file(filename):
     return os.path.join(DATADIR, "ui", filename)
-
-def is_darwin():
-    return sys.platform == "darwin"
