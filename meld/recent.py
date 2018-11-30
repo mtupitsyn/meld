@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013 Kai Willadsen <kai.willadsen@gmail.com>
+# Copyright (C) 2012-2013, 2017-2018 Kai Willadsen <kai.willadsen@gmail.com>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -35,7 +35,6 @@ from gi.repository import GLib
 from gi.repository import Gtk
 
 import meld.misc
-
 from meld.conf import _
 
 
@@ -46,15 +45,7 @@ class RecentType(enum.Enum):
     Merge = "Merge"
 
 
-def unicodeify(s):
-    if s is None:
-        return None
-    if isinstance(s, bytes):
-        return s.decode(sys.getfilesystemencoding(), 'replace')
-    return s
-
-
-class RecentFiles(object):
+class RecentFiles:
 
     mime_type = "application/x-meld-comparison"
     recent_path = os.path.join(GLib.get_user_data_dir(), "meld")
@@ -67,7 +58,7 @@ class RecentFiles(object):
         self.recent_manager = Gtk.RecentManager.get_default()
         self.recent_filter = Gtk.RecentFilter()
         self.recent_filter.add_mime_type(self.mime_type)
-        self._stored_comparisons = []
+        self._stored_comparisons = {}
         self.app_exec = os.path.abspath(sys.argv[0])
 
         if not os.path.exists(self.recent_path):
@@ -92,17 +83,15 @@ class RecentFiles(object):
 
         uris = [f.get_uri() for f in gfiles]
         names = [f.get_parse_name() for f in gfiles]
-        comp_type = recent_type.value
 
         # If a (type, uris) comparison is already registered, then re-add
         # the corresponding comparison file
-        comparison_key = (comp_type, tuple(uris))
-        uris = [unicodeify(u) for u in uris]
+        comparison_key = (recent_type, tuple(uris))
         if comparison_key in self._stored_comparisons:
             gfile = Gio.File.new_for_uri(
                 self._stored_comparisons[comparison_key])
         else:
-            recent_path = self._write_recent_file(comp_type, uris)
+            recent_path = self._write_recent_file(recent_type, uris)
             gfile = Gio.File.new_for_path(recent_path)
 
         if len(uris) > 1:
@@ -115,7 +104,8 @@ class RecentFiles(object):
                 display_path = "~" + display_path[len(userhome):]
             display_name = _("Version control:") + " " + display_path
         # FIXME: Should this be translatable? It's not actually used anywhere.
-        description = "%s comparison\n%s" % (comp_type, ", ".join(uris))
+        description = "{} comparison\n{}".format(
+            recent_type.value, ", ".join(uris))
 
         recent_metadata = Gtk.RecentData()
         recent_metadata.mime_type = self.mime_type
@@ -148,23 +138,22 @@ class RecentFiles(object):
         except (configparser.Error, AssertionError):
             raise ValueError("Invalid recent comparison file")
 
-        comp_type = config.get("Comparison", "type")
         try:
-            recent_type = RecentType(comp_type)
+            recent_type = RecentType(config.get("Comparison", "type"))
         except ValueError:
             raise ValueError("Invalid recent comparison file")
 
         if config.has_option("Comparison", "uris"):
-            gfiles = tuple([Gio.File.new_for_uri(u)
-                for u in tuple(config.get("Comparison", "uris").split(";"))])
+            uris = config.get("Comparison", "uris").split(";")
+            gfiles = tuple(Gio.File.new_for_uri(u) for u in uris)
         else:
-            gfiles = tuple([Gio.File.new_for_path(p)
-                for p in tuple(config.get("Comparison", "paths").split(";"))])
+            paths = config.get("Comparison", "paths").split(";")
+            gfiles = tuple(Gio.File.new_for_path(p) for p in paths)
         flags = tuple()
 
         return recent_type, gfiles, flags
 
-    def _write_recent_file(self, comp_type, uris):
+    def _write_recent_file(self, recent_type: RecentType, uris):
         # TODO: Use GKeyFile instead, and return a Gio.File. This is why we're
         # using ';' to join comparison paths.
         with tempfile.NamedTemporaryFile(
@@ -172,7 +161,7 @@ class RecentFiles(object):
                 dir=self.recent_path, delete=False) as f:
             config = configparser.RawConfigParser()
             config.add_section("Comparison")
-            config.set("Comparison", "type", comp_type)
+            config.set("Comparison", "type", recent_type.value)
             config.set("Comparison", "uris", ";".join(uris))
             config.write(f)
             name = f.name
@@ -207,13 +196,14 @@ class RecentFiles(object):
                                         self.recent_manager.get_items())
         item_uris = [item.get_uri() for item in meld_items if item.exists()]
         self._stored_comparisons = {}
-        for uri in item_uris:
+        for item_uri in item_uris:
             try:
-                comp = self.read(uri)
+                recent_type, gfiles, flags = self.read(item_uri)
             except (IOError, ValueError):
                 continue
             # Store and look up comparisons by type and paths, ignoring flags
-            self._stored_comparisons[comp[:2]] = uri
+            gfile_uris = tuple(gfile.get_uri() for gfile in gfiles)
+            self._stored_comparisons[recent_type, gfile_uris] = item_uri
 
     def _filter_items(self, recent_filter, items):
         getters = {Gtk.RecentFilterFlags.URI: "uri",

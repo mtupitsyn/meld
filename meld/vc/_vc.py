@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2002-2005 Stephen Kennedy <stevek@gnome.org>
 # Copyright (C) 2010, 2012-2015 Kai Willadsen <kai.willadsen@gmail.com>
 
@@ -63,7 +62,7 @@ def partition(pred, iterable):
             list(itertools.ifilter(pred, t2)))
 
 
-class Entry(object):
+class Entry:
     # These are labels for possible states of version controlled files;
     # not all states have a label to avoid visual clutter.
     state_names = {
@@ -125,11 +124,14 @@ class Entry(object):
         return entry.state == STATE_IGNORED or entry.isdir
 
 
-class Vc(object):
+class Vc:
 
     VC_DIR = None
+
+    #: Whether to walk the current location's parents to find a
+    #: repository root. Only used in legacy version control systems
+    #: (e.g., old SVN, CVS, RCS).
     VC_ROOT_WALK = True
-    VC_METADATA = None
 
     def __init__(self, path):
         # Save the requested comparison location. The location may be a
@@ -216,6 +218,10 @@ class Vc(object):
         # TODO: We can't do this; this shells out for each selection change...
         # if bool(self.get_commits_to_push()):
         valid_actions.add('push')
+
+        non_removeable_states = (STATE_NONE, STATE_IGNORED, STATE_REMOVED)
+        non_revertable_states = (STATE_NONE, STATE_NORMAL, STATE_IGNORED)
+
         # TODO: We can't disable this for NORMAL, because folders don't
         # inherit any state from their children, but committing a folder with
         # modified children is expected behaviour.
@@ -225,10 +231,10 @@ class Vc(object):
             valid_actions.add('add')
         if all(s == STATE_CONFLICT for s in states):
             valid_actions.add('resolve')
-        if (all(s not in (STATE_NONE, STATE_IGNORED, STATE_REMOVED) for s in states)
+        if (all(s not in non_removeable_states for s in states)
                 and self.root not in path_states.keys()):
             valid_actions.add('remove')
-        if all(s not in (STATE_NONE, STATE_NORMAL, STATE_IGNORED) for s in states):
+        if all(s not in non_revertable_states for s in states):
             valid_actions.add('revert')
         return valid_actions
 
@@ -273,7 +279,8 @@ class Vc(object):
     def get_entries(self, base):
         parent = Gio.File.new_for_path(base)
         enumerator = parent.enumerate_children(
-            'standard::*', Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, None)
+            'standard::name,standard::display-name,standard::type',
+            Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, None)
 
         for file_info in enumerator:
             if file_info.get_name() == self.VC_DIR:
@@ -333,7 +340,7 @@ class Vc(object):
         try:
             call([cls.CMD])
             return True
-        except:
+        except Exception:
             return False
 
     @classmethod
@@ -430,8 +437,8 @@ def call_temp_output(cmd, cwd, file_id=''):
 
 # Return the return value of a given command
 def call(cmd, cwd=None):
-    NULL = open(os.devnull, "wb")
-    return subprocess.call(cmd, cwd=cwd, stdout=NULL, stderr=NULL)
+    devnull = open(os.devnull, "wb")
+    return subprocess.call(cmd, cwd=cwd, stdout=devnull, stderr=devnull)
 
 
 base_re = re.compile(

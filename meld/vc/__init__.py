@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2002-2005 Stephen Kennedy <stevek@gnome.org>
 # Copyright (C) 2012 Kai Willadsen <kai.willadsen@gmail.com>
 
@@ -23,36 +22,11 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import importlib
-from . import _null
+from . import _null, bzr, darcs, git, mercurial, svn
 
-# FIXME: This is a horrible hack to help cx_Freeze pick up these plugins when
-# freezing the distributable package.
-from . import git, mercurial, bzr, svn, darcs
-
-# Tuple with module name and vc.NAME field, ordered according to best-guess
-# as to which VC a user is likely to want by default in a multiple-VC situation
-vc_names = (
-    "git",
-    "mercurial",
-    "bzr",
-    "svn",
-    "darcs",
-)
-
-_plugins = [importlib.import_module("." + vc, __name__) for vc in vc_names]
-
-
-def get_plugins_metadata():
-    ret = []
-    for p in _plugins:
-        # Some plugins have VC_DIR=None until instantiated
-        if p.Vc.VC_DIR:
-            ret.append(p.Vc.VC_DIR)
-        # Most plugins have VC_METADATA=None
-        if p.Vc.VC_METADATA:
-            ret.extend(p.Vc.VC_METADATA)
-    return ret
+# Tuple of plugins, ordered according to best-guess as to which VC a
+# user is likely to want by default in a multiple-VC situation.
+VC_PLUGINS = (git, mercurial, bzr, svn, darcs)
 
 
 def get_vcs(location):
@@ -69,7 +43,7 @@ def get_vcs(location):
 
     vcs = []
     max_depth = 0
-    for plugin in _plugins:
+    for plugin in VC_PLUGINS:
         root, location = plugin.Vc.is_in_repo(location)
         if not root:
             continue

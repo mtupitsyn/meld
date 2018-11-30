@@ -15,13 +15,13 @@
 
 import math
 
-from gi.repository import Pango
 from gi.repository import Gdk
 from gi.repository import Gtk
 from gi.repository import GtkSource
+from gi.repository import Pango
 
 from meld.conf import _
-from meld.const import MODE_REPLACE, MODE_DELETE, MODE_INSERT
+from meld.const import MODE_DELETE, MODE_INSERT, MODE_REPLACE
 from meld.misc import get_common_theme
 from meld.settings import meldsettings
 from meld.ui.gtkcompat import get_style
@@ -77,7 +77,7 @@ def renderer_to_gtk_state(state):
     return gtk_state
 
 
-class MeldGutterRenderer(object):
+class MeldGutterRenderer:
 
     def set_renderer_defaults(self):
         self.set_alignment_mode(GtkSource.GutterRendererAlignmentMode.FIRST)
@@ -165,7 +165,7 @@ class GutterRendererChunkAction(
     }
 
     def __init__(self, from_pane, to_pane, views, filediff, linediffer):
-        super(GutterRendererChunkAction, self).__init__()
+        super().__init__()
         self.set_renderer_defaults()
         self.from_pane = from_pane
         self.to_pane = to_pane
@@ -345,7 +345,7 @@ class GutterRendererChunkLines(
     __gtype_name__ = "GutterRendererChunkLines"
 
     def __init__(self, from_pane, to_pane, linediffer):
-        super(GutterRendererChunkLines, self).__init__()
+        super().__init__()
         self.set_renderer_defaults()
         self.from_pane = from_pane
         self.to_pane = to_pane

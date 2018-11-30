@@ -31,22 +31,22 @@ class FilterList(ListWidget):
 
     def __init__(self, key, filter_type):
         default_entry = [_("label"), False, _("pattern"), True]
-        ListWidget.__init__(self, "EditableList.ui",
-                            "list_vbox", ["EditableListStore"],
-                            "EditableList", default_entry)
+        super().__init__(
+            "EditableList.ui", "list_vbox", ["EditableListStore"],
+            "EditableList", default_entry)
         self.key = key
         self.filter_type = filter_type
 
-        self.pattern_column.set_cell_data_func(self.validity_renderer,
-                                               self.valid_icon_celldata)
+        self.pattern_column.set_cell_data_func(
+            self.validity_renderer, self.valid_icon_celldata)
 
         for filter_params in settings.get_value(self.key):
             filt = FilterEntry.new_from_gsetting(filter_params, filter_type)
             if filt is None:
                 continue
             valid = filt.filter is not None
-            self.model.append([filt.label, filt.active,
-                               filt.filter_string, valid])
+            self.model.append(
+                [filt.label, filt.active, filt.filter_string, valid])
 
         for signal in ('row-changed', 'row-deleted', 'row-inserted',
                        'rows-reordered'):
@@ -66,8 +66,7 @@ class FilterList(ListWidget):
         self.model[path][1] = not ren.get_active()
 
     def on_pattern_edited(self, ren, path, text):
-        filt = FilterEntry.compile_filter(text, self.filter_type)
-        valid = filt is not None
+        valid = FilterEntry.check_filter(text, self.filter_type)
         self.model[path][2] = text
         self.model[path][3] = valid
 
@@ -85,9 +84,9 @@ class ColumnList(ListWidget):
     }
 
     def __init__(self, key):
-        ListWidget.__init__(self, "EditableList.ui",
-                            "columns_ta", ["ColumnsListStore"],
-                            "columns_treeview")
+        super().__init__(
+            "EditableList.ui", "columns_ta", ["ColumnsListStore"],
+            "columns_treeview")
         self.key = key
 
         # Unwrap the variant
@@ -98,8 +97,10 @@ class ColumnList(ListWidget):
             column_vis[column_name] = bool(int(visibility))
             column_order[column_name] = sort_key
 
-        columns = [(column_vis.get(name, True), name, label) for
-                   name, label in self.available_columns.items()]
+        columns = [
+            (column_vis.get(name, True), name, label)
+            for name, label in self.available_columns.items()
+        ]
         columns = sorted(columns, key=lambda c: column_order.get(c[1], 0))
 
         for visibility, name, label in columns:
@@ -122,7 +123,7 @@ class ColumnList(ListWidget):
 class GSettingsComboBox(Gtk.ComboBox):
 
     def __init__(self):
-        Gtk.ComboBox.__init__(self)
+        super().__init__()
         self.connect('notify::gsettings-value', self._setting_changed)
         self.connect('notify::active', self._active_changed)
 
@@ -157,58 +158,59 @@ class GSettingsIntComboBox(GSettingsComboBox):
 
     __gtype_name__ = "GSettingsIntComboBox"
 
-    gsettings_column = GObject.property(type=int, default=0)
-    gsettings_value = GObject.property(type=int)
+    gsettings_column = GObject.Property(type=int, default=0)
+    gsettings_value = GObject.Property(type=int)
 
 
 class GSettingsBoolComboBox(GSettingsComboBox):
 
     __gtype_name__ = "GSettingsBoolComboBox"
 
-    gsettings_column = GObject.property(type=int, default=0)
-    gsettings_value = GObject.property(type=bool, default=False)
+    gsettings_column = GObject.Property(type=int, default=0)
+    gsettings_value = GObject.Property(type=bool, default=False)
 
 
 class GSettingsStringComboBox(GSettingsComboBox):
 
     __gtype_name__ = "GSettingsStringComboBox"
 
-    gsettings_column = GObject.property(type=int, default=0)
-    gsettings_value = GObject.property(type=str, default="")
+    gsettings_column = GObject.Property(type=int, default=0)
+    gsettings_value = GObject.Property(type=str, default="")
 
 
 class PreferencesDialog(Component):
 
     def __init__(self, parent):
-        Component.__init__(self, "preferences.ui", "preferencesdialog",
-                           ["adjustment1", "adjustment2", "fileorderstore",
-                            "sizegroup_editor", "timestampstore",
-                            "mergeorderstore", "sizegroup_file_order_labels",
-                            "sizegroup_file_order_combos",
-                            'syntaxschemestore'])
+        super().__init__(
+            "preferences.ui", "preferencesdialog", [
+                "adjustment1", "adjustment2", "fileorderstore",
+                "sizegroup_editor", "timestampstore", "mergeorderstore",
+                "sizegroup_file_order_labels", "sizegroup_file_order_combos",
+                "syntaxschemestore"
+            ])
         self.widget.set_transient_for(parent)
 
         bindings = [
             ('use-system-font', self.checkbutton_default_font, 'active'),
             ('custom-font', self.fontpicker, 'font'),
             ('indent-width', self.spinbutton_tabsize, 'value'),
-            ('insert-spaces-instead-of-tabs', self.checkbutton_spaces_instead_of_tabs, 'active'),
-            ('highlight-current-line', self.checkbutton_highlight_current_line, 'active'),
-            ('show-line-numbers', self.checkbutton_show_line_numbers, 'active'),
-            ('highlight-syntax', self.checkbutton_use_syntax_highlighting, 'active'),
+            ('insert-spaces-instead-of-tabs', self.checkbutton_spaces_instead_of_tabs, 'active'),  # noqa: E501
+            ('highlight-current-line', self.checkbutton_highlight_current_line, 'active'),  # noqa: E501
+            ('show-line-numbers', self.checkbutton_show_line_numbers, 'active'),  # noqa: E501
+            ('highlight-syntax', self.checkbutton_use_syntax_highlighting, 'active'),  # noqa: E501
             ('use-system-editor', self.system_editor_checkbutton, 'active'),
             ('custom-editor-command', self.custom_edit_command_entry, 'text'),
-            ('folder-shallow-comparison', self.checkbutton_shallow_compare, 'active'),
-            ('folder-filter-text', self.checkbutton_folder_filter_text, 'active'),
-            ('folder-ignore-symlinks', self.checkbutton_ignore_symlinks, 'active'),
-            ('vc-show-commit-margin', self.checkbutton_show_commit_margin, 'active'),
+            ('folder-shallow-comparison', self.checkbutton_shallow_compare, 'active'),  # noqa: E501
+            ('folder-filter-text', self.checkbutton_folder_filter_text, 'active'),  # noqa: E501
+            ('folder-ignore-symlinks', self.checkbutton_ignore_symlinks, 'active'),  # noqa: E501
+            ('vc-show-commit-margin', self.checkbutton_show_commit_margin, 'active'),  # noqa: E501
             ('vc-commit-margin', self.spinbutton_commit_margin, 'value'),
-            ('vc-break-commit-message', self.checkbutton_break_commit_lines, 'active'),
-            ('ignore-blank-lines', self.checkbutton_ignore_blank_lines, 'active'),
+            ('vc-break-commit-message', self.checkbutton_break_commit_lines, 'active'),  # noqa: E501
+            ('ignore-blank-lines', self.checkbutton_ignore_blank_lines, 'active'),  # noqa: E501
             # Sensitivity bindings must come after value bindings, or the key
             # writability in gsettings overrides manual sensitivity setting.
-            ('vc-show-commit-margin', self.spinbutton_commit_margin, 'sensitive'),
-            ('vc-show-commit-margin', self.checkbutton_break_commit_lines, 'sensitive'),
+            ('vc-show-commit-margin', self.spinbutton_commit_margin, 'sensitive'),  # noqa: E501
+            ('vc-show-commit-margin', self.checkbutton_break_commit_lines, 'sensitive'),  # noqa: E501
         ]
         for key, obj, attribute in bindings:
             settings.bind(key, obj, attribute, Gio.SettingsBindFlags.DEFAULT)
@@ -216,7 +218,7 @@ class PreferencesDialog(Component):
         invert_bindings = [
             ('use-system-editor', self.custom_edit_command_entry, 'sensitive'),
             ('use-system-font', self.fontpicker, 'sensitive'),
-            ('folder-shallow-comparison', self.checkbutton_folder_filter_text, 'sensitive'),
+            ('folder-shallow-comparison', self.checkbutton_folder_filter_text, 'sensitive'),  # noqa: E501
         ]
         for key, obj, attribute in invert_bindings:
             settings.bind(

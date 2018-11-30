@@ -31,10 +31,16 @@ def on_undo_button_pressed():
     s.undo()
 """
 
+import logging
+import weakref
+
 from gi.repository import GObject
 
 
-class GroupAction(object):
+log = logging.getLogger(__name__)
+
+
+class GroupAction:
     """A group action combines several actions into one logical action.
     """
     def __init__(self, seq):
@@ -61,47 +67,58 @@ class UndoSequence(GObject.GObject):
     """
 
     __gsignals__ = {
-        'can-undo': (GObject.SignalFlags.RUN_FIRST, None, (GObject.TYPE_BOOLEAN,)),
-        'can-redo': (GObject.SignalFlags.RUN_FIRST, None, (GObject.TYPE_BOOLEAN,)),
-        'checkpointed': (GObject.SignalFlags.RUN_FIRST, None, (GObject.TYPE_OBJECT, GObject.TYPE_BOOLEAN,)),
+        'can-undo': (
+            GObject.SignalFlags.RUN_FIRST,
+            None, (GObject.TYPE_BOOLEAN,)
+        ),
+        'can-redo': (
+            GObject.SignalFlags.RUN_FIRST,
+            None, (GObject.TYPE_BOOLEAN,)
+        ),
+        'checkpointed': (
+            GObject.SignalFlags.RUN_FIRST,
+            None, (GObject.TYPE_OBJECT, GObject.TYPE_BOOLEAN,)
+        ),
     }
 
-    def __init__(self):
-        """Create an empty UndoSequence.
+    def __init__(self, buffers):
+        """Create an empty UndoSequence
+
+        An undo sequence is tied to a collection of GtkTextBuffers, and
+        expects to maintain undo checkpoints for the same set of
+        buffers for the lifetime of the UndoSequence.
         """
-        GObject.GObject.__init__(self)
-        self.actions = []
-        self.next_redo = 0
-        self.checkpoints = {}
-        self.group = None
-        self.busy = False
+        super().__init__()
+        self.buffer_refs = [weakref.ref(buf) for buf in buffers]
+        self.clear()
 
     def clear(self):
         """Remove all undo and redo actions from this sequence
 
         If the sequence was previously able to undo and/or redo, the
         'can-undo' and 'can-redo' signals are emitted.
-
-        Raises an AssertionError if a group is in progress.
         """
-        assert self.group is None
         if self.can_undo():
             self.emit('can-undo', 0)
         if self.can_redo():
             self.emit('can-redo', 0)
         self.actions = []
         self.next_redo = 0
-        self.checkpoints = {}
+        self.checkpoints = {
+            # Each buffer's checkpoint starts at zero and has no end
+            ref(): [0, None] for ref in self.buffer_refs
+        }
+        self.group = None
+        self.busy = False
 
     def can_undo(self):
-        """Return if an undo is possible.
-        """
-        return self.next_redo > 0
+        """Return whether an undo is possible."""
+        return getattr(self, 'next_redo', 0) > 0
 
     def can_redo(self):
-        """Return if a redo is possible.
-        """
-        return self.next_redo < len(self.actions)
+        """Return whether a redo is possible."""
+        next_redo = getattr(self, 'next_redo', 0)
+        return next_redo < len(getattr(self, 'actions', []))
 
     def add_action(self, action):
         """Add an action to the undo list.
@@ -219,18 +236,26 @@ class UndoSequence(GObject.GObject):
         if self.group:
             self.group.begin_group()
         else:
-            self.group = UndoSequence()
+            buffers = [ref() for ref in self.buffer_refs]
+            self.group = UndoSequence(buffers)
 
     def end_group(self):
-        """End a logical group action. See also begin_group().
+        """End a logical group action
 
-        Raises an AssertionError if there was not a matching call to
-        begin_group().
+        This must always be paired with a begin_group() call. However,
+        we don't complain if this is not the case because we rely on
+        external libraries (i.e., GTK+ and GtkSourceView) also pairing
+        these correctly.
+
+        See also begin_group().
         """
         if self.busy:
             return
 
-        assert self.group is not None
+        if self.group is None:
+            log.warning('Tried to end a non-existent group')
+            return
+
         if self.group.group is not None:
             self.group.end_group()
         else:
@@ -243,15 +268,19 @@ class UndoSequence(GObject.GObject):
                 self.add_action(GroupAction(group))
 
     def abort_group(self):
-        """Revert the sequence to the state before begin_group() was called.
+        """Clear the currently grouped actions
 
-        Raises an AssertionError if there was no a matching call to
-        begin_group().
+        This discards all actions since the last begin_group() was
+        called. Note that it does not actually undo the actions
+        themselves.
         """
         if self.busy:
             return
 
-        assert self.group is not None
+        if self.group is None:
+            log.warning('Tried to abort a non-existent group')
+            return
+
         if self.group.group is not None:
             self.group.abort_group()
         else:

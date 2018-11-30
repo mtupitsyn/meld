@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2002-2005 Stephen Kennedy <stevek@gnome.org>
 # Copyright (C) 2015 Kai Willadsen <kai.willadsen@gmail.com>
 
@@ -47,7 +46,7 @@ class Vc(_vc.Vc):
 
     def commit(self, runner, files, message):
         command = [self.CMD, 'commit', '-m', message]
-        runner(command, [], refresh=True, working_dir=self.root)
+        runner(command, files, refresh=True, working_dir=self.root)
 
     def update(self, runner):
         command = [self.CMD, 'pull', '-u']

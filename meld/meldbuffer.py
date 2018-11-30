@@ -37,10 +37,9 @@ class MeldBuffer(GtkSource.Buffer):
     )
 
     def __init__(self):
-        GtkSource.Buffer.__init__(self)
+        super().__init__()
         bind_settings(self)
         self.data = MeldBufferData()
-        self.user_action_count = 0
         self.undo_sequence = None
         meldsettings.connect('changed', self.on_setting_changed)
         self.set_style_scheme(meldsettings.style_scheme)
@@ -50,27 +49,12 @@ class MeldBuffer(GtkSource.Buffer):
             self.set_style_scheme(meldsettings.style_scheme)
 
     def do_begin_user_action(self, *args):
-        self.user_action_count += 1
         if self.undo_sequence:
             self.undo_sequence.begin_group()
 
     def do_end_user_action(self, *args):
         if self.undo_sequence:
             self.undo_sequence.end_group()
-        self.user_action_count -= 1
-
-    def do_apply_tag(self, tag, start, end):
-        # Filthy, evil, horrible hack. What we're doing here is trying to
-        # figure out if a tag apply has come from a paste action, in which
-        # case GtkTextBuffer will 'helpfully' apply the existing tags in the
-        # copied selection. There appears to be no way to override this
-        # behaviour, or to hook in to the necessary paste mechanics to just
-        # request that we only get plain text or something. We're abusing the
-        # user_action notion here, because we only apply the tags we actually
-        # want in a callback.
-        if tag.props.name == 'inline' and self.user_action_count > 0:
-            return
-        return GtkSource.Buffer.do_apply_tag(self, tag, start, end)
 
     def get_iter_at_line_or_eof(self, line):
         """Return a Gtk.TextIter at the given line, or the end of the buffer.
@@ -107,14 +91,14 @@ class MeldBufferData(GObject.GObject):
         str('file-changed'): (GObject.SignalFlags.RUN_FIRST, None, ()),
     }
 
-    encoding = GObject.property(
+    encoding = GObject.Property(
         type=GtkSource.Encoding,
         nick="The file encoding of the linked GtkSourceFile",
         default=None,
     )
 
     def __init__(self):
-        GObject.GObject.__init__(self)
+        super().__init__()
         self._gfile = None
         self._label = None
         self._monitor = None
@@ -137,7 +121,7 @@ class MeldBufferData(GObject.GObject):
     @property
     def label(self):
         # TRANSLATORS: This is the label of a new, currently-unnamed file.
-        return self._label or _(u"<unnamed>")
+        return self._label or _("<unnamed>")
 
     @label.setter
     def label(self, value):
@@ -192,10 +176,6 @@ class MeldBufferData(GObject.GObject):
         self._sourcefile.bind_property(
             'encoding', self, 'encoding', GObject.BindingFlags.DEFAULT)
 
-        # This is aiming to maintain existing behaviour for filename. The
-        # behaviour is however wrong and should be fixed.
-        # FIXME: maintaining previous comment above; this is now wrong in different awful ways
-        self.filename = value.get_path() if value else None
         self.update_mtime()
         self.connect_monitor()
 
@@ -205,9 +185,7 @@ class MeldBufferData(GObject.GObject):
 
     @property
     def gfiletarget(self):
-        if self.savefile:
-            return Gio.File.new_for_path(self.savefile)
-        return self.gfile
+        return self.savefile or self.gfile
 
     @property
     def is_special(self):
@@ -240,7 +218,7 @@ class MeldBufferData(GObject.GObject):
         return self._mtime == self._disk_mtime
 
 
-class BufferLines(object):
+class BufferLines:
     """Gtk.TextBuffer shim with line-based access and optional filtering
 
     This class allows a Gtk.TextBuffer to be treated as a list of lines of
@@ -288,7 +266,7 @@ class BufferLines(object):
             if hi - lo != len(lines):
                 # These codepoints are considered line breaks by Python, but
                 # not by GtkTextStore.
-                additional_breaks = set(('\x0c', '\x85', u'\u2028'))
+                additional_breaks = set(('\x0c', '\x85', '\u2028'))
                 i = 0
                 while i < len(ends):
                     line, end = lines[i], ends[i]
@@ -321,7 +299,7 @@ class BufferLines(object):
         return self.buf.get_line_count()
 
 
-class BufferAction(object):
+class BufferAction:
     """A helper to undo/redo text insertion/deletion into/from a text buffer"""
 
     def __init__(self, buf, offset, text):

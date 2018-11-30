@@ -31,7 +31,7 @@ class CommitDialog(GObject.GObject, Component):
 
     __gtype_name__ = "CommitDialog"
 
-    break_commit_message = GObject.property(type=bool, default=False)
+    break_commit_message = GObject.Property(type=bool, default=False)
 
     def __init__(self, parent):
         GObject.GObject.__init__(self)
@@ -105,7 +105,7 @@ class CommitDialog(GObject.GObject, Component):
 class PushDialog(Component):
 
     def __init__(self, parent):
-        Component.__init__(self, "vcview.ui", "pushdialog")
+        super().__init__("vcview.ui", "pushdialog")
         self.widget.set_transient_for(parent.widget.get_toplevel())
         self.widget.show_all()
 

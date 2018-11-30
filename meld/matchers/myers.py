@@ -83,7 +83,7 @@ class MyersSequenceMatcher(difflib.SequenceMatcher):
         return self.matching_blocks
 
     def get_opcodes(self):
-        opcodes = difflib.SequenceMatcher.get_opcodes(self)
+        opcodes = super().get_opcodes()
         return [DiffChunk._make(chunk) for chunk in opcodes]
 
     def get_difference_opcodes(self):
@@ -349,13 +349,13 @@ class InlineMyersSequenceMatcher(MyersSequenceMatcher):
 class SyncPointMyersSequenceMatcher(MyersSequenceMatcher):
 
     def __init__(self, isjunk=None, a="", b="", syncpoints=None):
-        MyersSequenceMatcher.__init__(self, isjunk, a, b)
+        super().__init__(isjunk, a, b)
         self.isjunk = isjunk
         self.syncpoints = syncpoints
 
     def initialise(self):
         if self.syncpoints is None or len(self.syncpoints) == 0:
-            for i in MyersSequenceMatcher.initialise(self):
+            for i in super().initialise():
                 yield i
         else:
             chunks = []
@@ -376,15 +376,15 @@ class SyncPointMyersSequenceMatcher(MyersSequenceMatcher):
                 for i in matcher.initialise():
                     yield None
                 blocks = matcher.get_matching_blocks()
-                l = len(matching_blocks) - 1
-                if l >= 0 and len(blocks) > 1:
-                    aj = matching_blocks[l][0]
-                    bj = matching_blocks[l][1]
-                    bl = matching_blocks[l][2]
+                mb_len = len(matching_blocks) - 1
+                if mb_len >= 0 and len(blocks) > 1:
+                    aj = matching_blocks[mb_len][0]
+                    bj = matching_blocks[mb_len][1]
+                    bl = matching_blocks[mb_len][2]
                     if (aj + bl == ai and bj + bl == bi and
                             blocks[0][0] == 0 and blocks[0][1] == 0):
                         block = blocks.pop(0)
-                        matching_blocks[l] = (aj, bj, bl + block[2])
+                        matching_blocks[mb_len] = (aj, bj, bl + block[2])
                 for x, y, l in blocks[:-1]:
                     matching_blocks.append((ai + x, bi + y, l))
                 self.matching_blocks.extend(matching_blocks)

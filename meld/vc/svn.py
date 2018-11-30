@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2002-2005 Stephen Kennedy <stevek@gnome.org>
 # Copyright (C) 2011-2013, 2015 Kai Willadsen <kai.willadsen@gmail.com>
 
@@ -30,6 +29,9 @@ import xml.etree.ElementTree as ElementTree
 
 from meld.conf import _
 from . import _vc
+
+#: Simple enum constants for differentiating conflict cases.
+CONFLICT_TYPE_MERGE, CONFLICT_TYPE_UPDATE = 1, 2
 
 
 class Vc(_vc.Vc):
@@ -100,9 +102,6 @@ class Vc(_vc.Vc):
         # If this is merged, we just return the merged output
         if conflict == _vc.CONFLICT_MERGED:
             return path, False
-
-        CONFLICT_TYPE_MERGE = 1
-        CONFLICT_TYPE_UPDATE = 2
 
         # First fine what type of conflict this is by looking at the base
         # we can possibly return straight away!

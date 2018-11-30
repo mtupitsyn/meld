@@ -19,7 +19,7 @@ class MatcherWorker(multiprocessing.Process):
     matcher_class = myers.InlineMyersSequenceMatcher
 
     def __init__(self, tasks, results):
-        super(MatcherWorker, self).__init__()
+        super().__init__()
         self.tasks = tasks
         self.results = results
         self.daemon = True
@@ -35,12 +35,10 @@ class MatcherWorker(multiprocessing.Process):
                 self.results.put((task_id, matcher.get_opcodes()))
             except Exception as e:
                 log.error("Exception while running diff: %s", e)
-            finally:
-                self.tasks.task_done()
             time.sleep(0)
 
 
-class CachedSequenceMatcher(object):
+class CachedSequenceMatcher:
     """Simple class for caching diff results, with LRU-based eviction
 
     Results from the SequenceMatcher are cached and timestamped, and
@@ -48,7 +46,7 @@ class CachedSequenceMatcher(object):
     eviction is overly simplistic, but is okay for our usage pattern.
     """
 
-    TASK_GRACE_PERIOD = 5
+    TASK_GRACE_PERIOD = 1
 
     def __init__(self, scheduler):
         """Create a new caching sequence matcher
@@ -58,12 +56,14 @@ class CachedSequenceMatcher(object):
         """
         self.scheduler = scheduler
         self.cache = {}
-        self.tasks = multiprocessing.JoinableQueue()
+        self.tasks = multiprocessing.Queue()
+        self.tasks.cancel_join_thread()
         # Limiting the result queue here has the effect of giving us
         # much better interactivity. Without this limit, the
         # result-checker tends to get starved and all highlights get
         # delayed until we're almost completely finished.
-        self.results = multiprocessing.JoinableQueue(5)
+        self.results = multiprocessing.Queue(5)
+        self.results.cancel_join_thread()
         self.thread = MatcherWorker(self.tasks, self.results)
         self.task_id = 1
         self.queued_matches = {}

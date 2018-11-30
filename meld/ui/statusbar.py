@@ -23,15 +23,6 @@ from meld.ui.bufferselectors import EncodingSelector
 from meld.ui.bufferselectors import SourceLangSelector
 
 
-Gtk.rc_parse_string(
-    """
-    style "meld-statusbar-style" {
-        GtkStatusbar::shadow-type = GTK_SHADOW_NONE
-    }
-    class "MeldStatusBar" style "meld-statusbar-style"
-    """)
-
-
 class MeldStatusMenuButton(Gtk.MenuButton):
     """Compact menu button with arrow indicator for use in a status bar
 
@@ -60,7 +51,7 @@ class MeldStatusMenuButton(Gtk.MenuButton):
             return
         self._label.set_markup(markup)
 
-    label = GObject.property(
+    label = GObject.Property(
         type=str,
         nick="The GtkSourceLanguage displayed in the status bar",
         default=None,
@@ -69,7 +60,7 @@ class MeldStatusMenuButton(Gtk.MenuButton):
     )
 
     def __init__(self):
-        Gtk.MenuButton.__init__(self)
+        super().__init__()
 
         style_context = self.get_style_context()
         style_context.add_provider(
@@ -111,19 +102,19 @@ class MeldStatusBar(Gtk.Statusbar):
             GObject.SignalFlags.RUN_FIRST, None, (GtkSource.Encoding,)),
     }
 
-    cursor_position = GObject.property(
+    cursor_position = GObject.Property(
         type=object,
         nick="The position of the cursor displayed in the status bar",
         default=None,
     )
 
-    source_encoding = GObject.property(
+    source_encoding = GObject.Property(
         type=GtkSource.Encoding,
         nick="The file encoding displayed in the status bar",
         default=None,
     )
 
-    source_language = GObject.property(
+    source_language = GObject.Property(
         type=GtkSource.Language,
         nick="The GtkSourceLanguage displayed in the status bar",
         default=None,
@@ -218,7 +209,6 @@ class MeldStatusBar(Gtk.Statusbar):
 
     def construct_encoding_selector(self):
         def change_encoding(selector, encoding):
-            self.props.source_encoding = encoding
             self.emit('encoding-changed', encoding)
             pop.hide()
 
@@ -244,6 +234,11 @@ class MeldStatusBar(Gtk.Statusbar):
 
     def construct_highlighting_selector(self):
         def change_language(selector, lang):
+            # TODO: Our other GObject properties are expected to be
+            # updated through a bound state from our parent. This is
+            # the only place where we assign to them instead of
+            # emitting a signal, and it makes the class logic as a
+            # whole kind of confusing.
             self.props.source_language = lang
             pop.hide()
 

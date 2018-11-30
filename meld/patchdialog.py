@@ -24,6 +24,7 @@ from gi.repository import Gtk
 from gi.repository import GtkSource
 
 from meld.conf import _
+from meld.iohelpers import prompt_save_filename
 from meld.misc import error_dialog
 from meld.settings import meldsettings
 from meld.sourceview import LanguageManager
@@ -109,10 +110,9 @@ class PatchDialog(Component):
         diff_text = "".join(d for d in diff)
         buf.set_text(diff_text)
 
-    def save_patch(self, filename):
+    def save_patch(self, targetfile: Gio.File):
         buf = self.textview.get_buffer()
         sourcefile = GtkSource.File.new()
-        targetfile = Gio.File.new_for_path(filename)
         saver = GtkSource.FileSaver.new_with_target(
             buf, sourcefile, targetfile)
         saver.save_async(
@@ -149,10 +149,8 @@ class PatchDialog(Component):
             clip.store()
         # Save patch as a file
         else:
-            # FIXME: These filediff methods are actually general utility.
-            filename = self.filediff._get_filename_for_saving(
-                _("Save Patch"))
-            if filename:
-                self.save_patch(filename)
+            gfile = prompt_save_filename(_("Save Patch"))
+            if gfile:
+                self.save_patch(gfile)
 
         self.widget.hide()

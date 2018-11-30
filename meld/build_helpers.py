@@ -23,13 +23,12 @@ import distutils.command.build
 import distutils.command.build_py
 import distutils.command.install
 import distutils.command.install_data
-import distutils.dist
 import distutils.dir_util
+import distutils.dist
 import glob
 import os.path
 import platform
 import sys
-
 from distutils.log import info
 
 
@@ -66,7 +65,7 @@ class MeldDistribution(distutils.dist.Distribution):
     def __init__(self, *args, **kwargs):
         self.no_update_icon_cache = False
         self.no_compile_schemas = False
-        distutils.dist.Distribution.__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
 
 
 class build_data(distutils.cmd.Command):
@@ -259,7 +258,10 @@ class build_i18n(distutils.cmd.Command):
 
         # Update po(t) files and print a report
         # We have to change the working dir to the po dir for intltool
-        cmd = ["intltool-update", (self.merge_po and "-r" or "-p"), "-g", self.domain]
+        cmd = [
+            "intltool-update",
+            (self.merge_po and "-r" or "-p"), "-g", self.domain
+        ]
         wd = os.getcwd()
         os.chdir(self.po_dir)
         self.spawn(cmd)
@@ -275,7 +277,8 @@ class build_i18n(distutils.cmd.Command):
                 os.makedirs(mo_dir)
             cmd = [msgfmt, po_file, "-o", mo_file]
             po_mtime = os.path.getmtime(po_file)
-            mo_mtime = os.path.exists(mo_file) and os.path.getmtime(mo_file) or 0
+            mo_mtime = (
+                os.path.exists(mo_file) and os.path.getmtime(mo_file) or 0)
             if po_mtime > max_po_mtime:
                 max_po_mtime = po_mtime
             if po_mtime > mo_mtime:
@@ -315,7 +318,8 @@ class build_i18n(distutils.cmd.Command):
                     mtime_merged = (os.path.exists(file_merged) and
                                     os.path.getmtime(file_merged) or 0)
                     mtime_file = os.path.getmtime(file)
-                    if mtime_merged < self.max_po_mtime or mtime_merged < mtime_file:
+                    if (mtime_merged < self.max_po_mtime or
+                            mtime_merged < mtime_file):
                         # Only build if output is older than input (.po,.in)
                         self.spawn(cmd)
                     files_merged.append(file_merged)
@@ -373,7 +377,7 @@ class build_py(distutils.command.build_py.build_py):
 class install(distutils.command.install.install):
 
     def finalize_options(self):
-        special_cases = ('debian', 'ubuntu')
+        special_cases = ('debian', 'ubuntu', 'linuxmint')
         if (platform.system() == 'Linux' and
                 platform.linux_distribution()[0].lower() in special_cases):
             # Maintain an explicit install-layout, but use deb by default

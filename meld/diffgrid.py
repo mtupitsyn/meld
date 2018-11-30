@@ -13,16 +13,16 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from gi.repository import Gdk
 from gi.repository import GObject
 from gi.repository import Gtk
-from gi.repository import Gdk
 
 
 class DiffGrid(Gtk.Grid):
     __gtype_name__ = "DiffGrid"
 
     def __init__(self):
-        Gtk.Grid.__init__(self)
+        super().__init__()
         self._in_drag = False
         self._drag_pos = -1
         self._drag_handle = None

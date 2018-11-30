@@ -19,11 +19,13 @@
 """
 
 import collections
-import os
 import errno
+import functools
+import os
 import shutil
-import re
 import subprocess
+from pathlib import PurePath
+from typing import List
 
 from gi.repository import Gdk
 from gi.repository import GLib
@@ -43,7 +45,28 @@ else:
         return rlist, wlist, xlist
 
 
-def error_dialog(primary, secondary):
+def with_focused_pane(function):
+    @functools.wraps(function)
+    def wrap_function(*args, **kwargs):
+        pane = args[0]._get_focused_pane()
+        if pane == -1:
+            return
+        return function(args[0], pane, *args[1:], **kwargs)
+    return wrap_function
+
+
+def get_modal_parent(widget: Gtk.Widget = None) -> Gtk.Window:
+    if not widget:
+        from meld.meldapp import app
+        parent = app.get_active_window()
+    elif not isinstance(widget, Gtk.Window):
+        parent = widget.get_toplevel()
+    else:
+        parent = widget
+    return parent
+
+
+def error_dialog(primary, secondary) -> Gtk.ResponseType:
     """A common error dialog handler for Meld
 
     This should only ever be used as a last resort, and for errors that
@@ -59,7 +82,7 @@ def error_dialog(primary, secondary):
 
 def modal_dialog(
         primary, secondary, buttons, parent=None,
-        messagetype=Gtk.MessageType.WARNING):
+        messagetype=Gtk.MessageType.WARNING) -> Gtk.ResponseType:
     """A common message dialog handler for Meld
 
     This should only ever be used for interactions that must be resolved
@@ -68,19 +91,13 @@ def modal_dialog(
     Primary must be plain text. Secondary must be valid markup.
     """
 
-    if not parent:
-        from meld.meldapp import app
-        parent = app.get_active_window()
-    elif not isinstance(parent, Gtk.Window):
-        parent = parent.get_toplevel()
-
     if isinstance(buttons, Gtk.ButtonsType):
         custom_buttons = []
     else:
         custom_buttons, buttons = buttons, Gtk.ButtonsType.NONE
 
     dialog = Gtk.MessageDialog(
-        transient_for=parent,
+        transient_for=get_modal_parent(parent),
         modal=True,
         destroy_with_parent=True,
         message_type=messagetype,
@@ -94,6 +111,36 @@ def modal_dialog(
     response = dialog.run()
     dialog.destroy()
     return response
+
+
+def user_critical(primary, message):
+    """Decorator for when the user must be told about failures
+
+    The use case here is for e.g., saving a file, where even if we
+    don't handle errors, the user *still* needs to know that something
+    failed. This should be extremely sparingly used, but anything where
+    the user might not otherwise see a problem and data loss is a
+    potential side effect should be considered a candidate.
+    """
+
+    def wrap(function):
+        @functools.wraps(function)
+        def wrap_function(locked, *args, **kwargs):
+            try:
+                return function(locked, *args, **kwargs)
+            except Exception:
+                error_dialog(
+                    primary=primary,
+                    secondary=_(
+                        "{}\n\n"
+                        "Meld encountered a critical error while running:\n"
+                        "<tt>{}</tt>").format(
+                            message, GLib.markup_escape_text(str(function))
+                    ),
+                )
+                raise
+        return wrap_function
+    return wrap
 
 
 # Taken from epiphany
@@ -145,9 +192,11 @@ def make_tool_button_widget(label):
     return hbox
 
 
+MELD_STYLE_SCHEME = "meld-base"
+MELD_STYLE_SCHEME_DARK = "meld-dark"
+
+
 def get_base_style_scheme():
-    MELD_STYLE_SCHEME = "meld-base"
-    MELD_STYLE_SCHEME_DARK = "meld-dark"
 
     global base_style_scheme
 
@@ -219,6 +268,7 @@ def get_common_theme():
         "conflict": lookup("meld:conflict", "background"),
         "replace": lookup("meld:replace", "background"),
         "error": lookup("meld:error", "background"),
+        "focus-highlight": lookup("meld:current-line-highlight", "foreground"),
         "current-chunk-highlight": lookup(
             "meld:current-chunk-highlight", "background")
     }
@@ -232,36 +282,46 @@ def get_common_theme():
     return fill_colours, line_colours
 
 
-def all_same(lst):
+def all_same(iterable):
     """Return True if all elements of the list are equal"""
-    return not lst or lst.count(lst[0]) == len(lst)
+    sample, has_no_sample = None, True
+    for item in iterable or ():
+        if has_no_sample:
+            sample, has_no_sample = item, False
+        elif sample != item:
+            return False
+    return True
 
 
-def shorten_names(*names):
-    """Remove redunant parts of a list of names (e.g. /tmp/foo{1,2} -> foo{1,2}
+def shorten_names(*names) -> List[str]:
+    """Remove common parts of a list of paths
+
+    For example, `('/tmp/foo1', '/tmp/foo2')` would be summarised as
+    `('foo1', 'foo2')`. Paths that share a basename are distinguished
+    by prepending an indicator, e.g., `('/a/b/c', '/a/d/c')` would be
+    summarised to `['[b] c', '[d] c']`.
     """
-    # TODO: Update for different path separators and URIs
-    prefix = os.path.commonprefix(names)
-    prefixslash = prefix.rfind("/") + 1
 
-    names = [n[prefixslash:] for n in names]
-    paths = [n.split("/") for n in names]
+    paths = [PurePath(n) for n in names]
 
-    try:
-        basenames = [p[-1] for p in paths]
-    except IndexError:
-        pass
-    else:
-        if all_same(basenames):
-            def firstpart(alist):
-                if len(alist) > 1 and alist[0]:
-                    return "[%s] " % alist[0]
-                else:
-                    return ""
-            roots = [firstpart(p) for p in paths]
-            base = basenames[0].strip()
-            return [r + base for r in roots]
-    # no common path. empty names get changed to "[None]"
+    # Identify the longest common path among the list of path
+    common = set(paths[0].parents)
+    common = common.intersection(*(p.parents for p in paths))
+    if not common:
+        return list(names)
+    common_parent = sorted(common, key=lambda p: -len(p.parts))[0]
+
+    paths = [p.relative_to(common_parent) for p in paths]
+    basenames = [p.name for p in paths]
+
+    if all_same(basenames):
+        def firstpart(path: PurePath):
+            if len(path.parts) > 1 and path.parts[0]:
+                return "[%s] " % path.parts[0]
+            else:
+                return ""
+        return [firstpart(p) + p.name for p in paths]
+
     return [name or _("[None]") for name in basenames]
 
 
@@ -272,7 +332,8 @@ def read_pipe_iter(command, workdir, errorstream, yield_interval=0.1):
     this function yields None.
     When all the data is read, the entire string is yielded.
     """
-    class sentinel(object):
+    class Sentinel:
+
         def __init__(self):
             self.proc = None
 
@@ -319,7 +380,8 @@ def read_pipe_iter(command, workdir, errorstream, yield_interval=0.1):
             if status:
                 errorstream.error("Exit code: %i\n" % status)
             yield status, "".join(bits)
-    return sentinel()()
+
+    return Sentinel()()
 
 
 def write_pipe(command, text, error=None):
@@ -384,59 +446,6 @@ def copytree(src, dst):
     except OSError as e:
         if e.errno != errno.EPERM:
             raise
-
-
-def shell_to_regex(pat):
-    """Translate a shell PATTERN to a regular expression.
-
-    Based on fnmatch.translate().
-    We also handle {a,b,c} where fnmatch does not.
-    """
-
-    i, n = 0, len(pat)
-    res = ''
-    while i < n:
-        c = pat[i]
-        i += 1
-        if c == '\\':
-            try:
-                c = pat[i]
-            except IndexError:
-                pass
-            else:
-                i += 1
-                res += re.escape(c)
-        elif c == '*':
-            res += '.*'
-        elif c == '?':
-            res += '.'
-        elif c == '[':
-            try:
-                j = pat.index(']', i)
-            except ValueError:
-                res += r'\['
-            else:
-                stuff = pat[i:j]
-                i = j + 1
-                if stuff[0] == '!':
-                    stuff = '^%s' % stuff[1:]
-                elif stuff[0] == '^':
-                    stuff = r'\^%s' % stuff[1:]
-                res += '[%s]' % stuff
-        elif c == '{':
-            try:
-                j = pat.index('}', i)
-            except ValueError:
-                res += '\\{'
-            else:
-                stuff = pat[i:j]
-                i = j + 1
-                res += '(%s)' % "|".join(
-                    [shell_to_regex(p)[:-1] for p in stuff.split(",")]
-                )
-        else:
-            res += re.escape(c)
-    return res + "$"
 
 
 def merge_intervals(interval_list):

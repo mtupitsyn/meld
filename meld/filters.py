@@ -13,12 +13,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
 import re
 
-from . import misc
+log = logging.getLogger(__name__)
 
 
-class FilterEntry(object):
+def try_compile(regex, flags=0):
+    try:
+        compiled = re.compile(regex, flags)
+    except re.error:
+        log.warning(
+            'Error compiling regex {!r} with flags {!r}'.format(regex, flags))
+        compiled = None
+    return compiled
+
+
+class FilterEntry:
 
     __slots__ = ("label", "active", "filter", "byte_filter", "filter_string")
 
@@ -32,86 +43,48 @@ class FilterEntry(object):
         self.filter_string = filter_string
 
     @classmethod
-    def _compile_regex(cls, regex):
-        try:
-            compiled = re.compile(regex + "(?m)")
-        except re.error:
-            compiled = None
-        return compiled
-
-    @classmethod
-    def _compile_byte_regex(cls, regex):
-        if not isinstance(regex, bytes):
+    def compile_regex(cls, regex, byte_regex=False):
+        if byte_regex and not isinstance(regex, bytes):
             # TODO: Register a custom error handling function to replace
             # encoding errors with '.'?
             regex = regex.encode('utf8', 'replace')
-
-        try:
-            compiled = re.compile(regex + b"(?m)")
-        except re.error:
-            compiled = None
-        return compiled
+        return try_compile(regex, re.M)
 
     @classmethod
-    def _compile_shell_pattern(cls, pattern):
+    def compile_shell_pattern(cls, pattern):
         bits = pattern.split()
-        if len(bits) > 1:
-            regexes = [misc.shell_to_regex(b)[:-1] for b in bits]
-            regex = "(%s)$" % "|".join(regexes)
-        elif len(bits):
-            regex = misc.shell_to_regex(bits[0])
-        else:
+        if not bits:
             # An empty pattern would match everything, so skip it
             return None
-
-        try:
-            compiled = re.compile(regex)
-        except re.error:
-            compiled = None
-
-        return compiled
-
-    @classmethod
-    def parse(cls, string, filter_type):
-        elements = string.split("\t")
-        if len(elements) < 3:
-            return None
-        name, active = elements[0], bool(int(elements[1]))
-        filter_string = " ".join(elements[2:])
-        compiled = FilterEntry.compile_filter(filter_string, filter_type)
-        if compiled is None:
-            active = False
-        byte_filt = FilterEntry.compile_byte_filter(filter_string, filter_type)
-        return FilterEntry(name, active, compiled, byte_filt, filter_string)
+        elif len(bits) > 1:
+            regexes = [shell_to_regex(b)[:-1] for b in bits]
+            regex = "(%s)$" % "|".join(regexes)
+        else:
+            regex = shell_to_regex(bits[0])
+        return try_compile(regex)
 
     @classmethod
     def new_from_gsetting(cls, elements, filter_type):
         name, active, filter_string = elements
-        compiled = FilterEntry.compile_filter(filter_string, filter_type)
-        if compiled is None:
-            active = False
-        byte_filt = FilterEntry.compile_byte_filter(filter_string, filter_type)
-        return FilterEntry(name, active, compiled, byte_filt, filter_string)
-
-    @classmethod
-    def compile_filter(cls, filter_string, filter_type):
-        if filter_type == FilterEntry.REGEX:
-            compiled = FilterEntry._compile_regex(filter_string)
-        elif filter_type == FilterEntry.SHELL:
-            compiled = FilterEntry._compile_shell_pattern(filter_string)
+        if filter_type == cls.REGEX:
+            str_re = cls.compile_regex(filter_string)
+            bytes_re = cls.compile_regex(filter_string, byte_regex=True)
+        elif filter_type == cls.SHELL:
+            str_re = cls.compile_shell_pattern(filter_string)
+            bytes_re = None
         else:
             raise ValueError("Unknown filter type")
-        return compiled
+
+        active = active and bool(str_re)
+        return cls(name, active, str_re, bytes_re, filter_string)
 
     @classmethod
-    def compile_byte_filter(cls, filter_string, filter_type):
-        if filter_type == FilterEntry.REGEX:
-            compiled = FilterEntry._compile_byte_regex(filter_string)
-        elif filter_type == FilterEntry.SHELL:
-            compiled = None
-        else:
-            raise ValueError("Unknown filter type")
-        return compiled
+    def check_filter(cls, filter_string, filter_type):
+        if filter_type == cls.REGEX:
+            compiled = cls.compile_regex(filter_string)
+        elif filter_type == cls.SHELL:
+            compiled = cls.compile_shell_pattern(filter_string)
+        return compiled is not None
 
     def __copy__(self):
         new = type(self)(
@@ -122,3 +95,56 @@ class FilterEntry(object):
             new.byte_filter = re.compile(
                 self.byte_filter.pattern, self.byte_filter.flags)
         return new
+
+
+def shell_to_regex(pat):
+    """Translate a shell PATTERN to a regular expression.
+
+    Based on fnmatch.translate().
+    We also handle {a,b,c} where fnmatch does not.
+    """
+
+    i, n = 0, len(pat)
+    res = ''
+    while i < n:
+        c = pat[i]
+        i += 1
+        if c == '\\':
+            try:
+                c = pat[i]
+            except IndexError:
+                pass
+            else:
+                i += 1
+                res += re.escape(c)
+        elif c == '*':
+            res += '.*'
+        elif c == '?':
+            res += '.'
+        elif c == '[':
+            try:
+                j = pat.index(']', i)
+            except ValueError:
+                res += r'\['
+            else:
+                stuff = pat[i:j]
+                i = j + 1
+                if stuff[0] == '!':
+                    stuff = '^%s' % stuff[1:]
+                elif stuff[0] == '^':
+                    stuff = r'\^%s' % stuff[1:]
+                res += '[%s]' % stuff
+        elif c == '{':
+            try:
+                j = pat.index('}', i)
+            except ValueError:
+                res += '\\{'
+            else:
+                stuff = pat[i:j]
+                i = j + 1
+                res += '(%s)' % "|".join(
+                    [shell_to_regex(p)[:-1] for p in stuff.split(",")]
+                )
+        else:
+            res += re.escape(c)
+    return res + "$"

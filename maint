@@ -5,8 +5,11 @@ import datetime
 import os
 import re
 import subprocess
+import urllib.parse
 
 import click
+import keyring
+import requests
 from jinja2 import Environment
 
 import meld.conf
@@ -16,6 +19,9 @@ HELP_DIR = "help"
 RELEASE_BRANCH_RE = r'%s-\d+-\d+' % meld.conf.__package__
 VERSION_RE = r'__version__\s*=\s*"(?P<version>.*)"'
 UPLOAD_SERVER = 'master.gnome.org'
+GITLAB_API_BASE = 'https://gitlab.gnome.org/api/v4'
+GITLAB_PROJECT_ID = 'GNOME/meld'
+APPVEYOR_BUILD_ENDPOINT = "https://ci.appveyor.com/api/builds"
 
 NEWS_TEMPLATE = """
 {{ [date, app, version]|join(' ') }}
@@ -153,8 +159,13 @@ def get_translator_langs(folders=[PO_DIR, HELP_DIR]):
 def get_non_translation_commits():
     last_release = get_last_release_tag()
     revspec = "%s..HEAD" % last_release
-    # FIXME: Use the Git 1.9 spec to negate logging translation commits
-    cmd = ['git', 'log', '--pretty=format:%s (%an)', revspec]
+    cmd = [
+        'git', 'log', '--pretty=format:%s (%an)', revspec,
+        # Exclude commits that only cover the po/ or help/ folders,
+        # except commits in help/C. Basically, we want to separate
+        # translation-only commits from everything else.
+        '--', '.', ":!po/", ':(glob,exclude)help/[!C]*/**',
+    ]
     commits = subprocess.check_output(cmd).strip().splitlines()
     return [c.decode('utf-8') for c in commits]
 
@@ -233,7 +244,7 @@ def render_template(template):
 
 def call_with_output(
         cmd, stdin_text=None, echo_stdout=True, abort_on_fail=True,
-        timeout=10):
+        timeout=30):
     PIPE = subprocess.PIPE
     with subprocess.Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE) as proc:
         stdout, stderr = proc.communicate(stdin_text, timeout=timeout)
@@ -254,6 +265,26 @@ def check_release_branch():
             '\nBranch "%s" doesn\'t appear to be a release branch.\n' % branch)
         click.confirm('Are you sure you wish to continue?', abort=True)
     return branch
+
+
+def get_tag_sha(tag):
+    # We want the object ID for the commit, not the tag
+    rev = "{}^0".format(tag)
+    output = subprocess.check_output(
+        ["git", "rev-parse", rev], encoding="utf-8")
+    return output.strip()
+
+
+def get_branch_for_tag(tag):
+    output = subprocess.check_output([
+        "git", "branch", "--contains", tag,
+        "--sort=-committerdate", "--format=%(refname:short)",
+    ], encoding="utf-8")
+    branches = output.splitlines()
+    if not branches:
+        raise click.ClickException(
+            "No branches found containing tag {}".format(tag))
+    return branches[0].strip()
 
 
 def pull():
@@ -287,6 +318,49 @@ def push():
 
     cmd = ['git', 'push']
     call_with_output(cmd, echo_stdout=True)
+
+
+def gitlab_release_tag(tag):
+    auth_token = keyring.get_password('gitlab-api', GITLAB_PROJECT_ID)
+    if not auth_token:
+        raise click.ClickException(
+            "No password in keychain for {id}\n\n"
+            "Set password using the Python `keyring` package. "
+            "From the command line:\n"
+            "  $ keyring set gitlab-api {id}\n"
+            "and enter your secret token from the Gitlab UI.\n".format(
+                id=GITLAB_PROJECT_ID)
+        )
+
+    cmd = ['git', 'tag', '-l', "--format=%(contents)", tag]
+    description = subprocess.check_output(cmd).decode('utf-8')
+
+    endpoint = '{base}/projects/{id}/repository/tags/{tag_name}/release'
+    release_url = endpoint.format(
+        base=GITLAB_API_BASE,
+        id=urllib.parse.quote_plus(GITLAB_PROJECT_ID),
+        tag_name=tag,
+    )
+    release_data = {
+        "tag_name": tag,
+        "description": description
+    }
+
+    # TODO: Should probably sanity-check that it's not already a
+    # release tag.
+
+    response = requests.post(
+        release_url,
+        json=release_data,
+        headers={
+            'Private-Token': auth_token,
+        },
+    )
+    try:
+        response.raise_for_status()
+    except Exception as e:
+        click.secho(
+            'Error making release: {}\n{}'.format(e, response.text), fg='red')
 
 
 @click.group()
@@ -379,6 +453,17 @@ def tag():
     call_with_output(cmd, echo_stdout=True)
 
 
+@cli.command('gitlab-release')
+def gitlab_release():
+    last_release = get_last_release_tag()
+    confirm = click.confirm(
+        'Annotate {} as a Gitlab release?'.format(last_release), default=True)
+    if not confirm:
+        return
+
+    gitlab_release_tag(last_release)
+
+
 @cli.command()
 @click.argument('path', type=click.Path(exists=True))
 def upload(path):
@@ -391,7 +476,7 @@ def upload(path):
     call_with_output(cmd, timeout=120)
 
 
-@cli.command()
+@cli.command('version-bump')
 def version_bump():
     with open(meld.conf.__file__) as f:
         conf_data = f.read().splitlines()
@@ -419,7 +504,62 @@ def version_bump():
         f.write('\n'.join(conf_data) + '\n')
 
 
-@cli.command()
+def get_token(appveyor_account):
+    # FIXME: copy-paste from gitlab_release_tag()
+    auth_token = keyring.get_password('appveyor-token', appveyor_account)
+    if not auth_token:
+        raise click.ClickException(
+            "No password in keychain for {id}\n\n"
+            "Set password using the Python `keyring` package. "
+            "From the command line:\n"
+            "  $ keyring set appveyor-token {id}\n"
+            "and enter your secret token from the Gitlab UI.\n".format(
+                id=appveyor_account)
+        )
+    return auth_token
+
+
+@cli.command(
+    'appveyor-build',
+    help=(
+        'Start a build on an Appveyor account. This requires you to have '
+        'an account with a "meld" project set up.'
+    ),
+)
+@click.argument('account', type=str)
+@click.argument('tag', type=str)
+def appveyor_build(account, tag):
+
+    token = get_token(account)
+    branch = get_branch_for_tag(tag)
+    sha = get_tag_sha(tag)
+
+    if not click.confirm('Start build of {} ({}:{}) on account {}'.format(
+            tag, branch, sha, account)):
+        raise click.Abort()
+
+    response = requests.post(
+        APPVEYOR_BUILD_ENDPOINT,
+        headers={
+            'Authorization': 'Bearer {}'.format(token),
+        },
+        json={
+            'accountName': account,
+            'projectSlug': 'meld',
+            'branch': branch,
+            'commitId': sha,
+        },
+    )
+    try:
+        response.raise_for_status()
+    except Exception as e:
+        click.secho(
+            'Error queuing build: {}\n{}'.format(e, response.text), fg='red')
+    else:
+        click.echo('Build started')
+
+
+@cli.command('release')
 @click.pass_context
 def make_release(ctx):
     pull()
@@ -428,13 +568,15 @@ def make_release(ctx):
     push()
     archive_path = ctx.forward(dist)
     ctx.forward(tag)
-    ctx.forward(upload, path=archive_path)
+    ctx.forward(gitlab_release)
     file_prefix = '%s-%s' % (meld.conf.__package__, meld.conf.__version__)
     ctx.forward(email, filename=file_prefix + '-email')
     ctx.forward(markdown, filename=file_prefix + '.md')
     ctx.forward(version_bump)
     commit(message='Post-release version bump')
     push()
+
+    ctx.forward(upload, path=archive_path)
 
     # TODO: ssh in and run ftpadmin install
     click.echo('\nNow run:')

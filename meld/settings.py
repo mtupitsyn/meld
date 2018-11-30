@@ -15,14 +15,11 @@
 
 from gi.repository import Gio
 from gi.repository import GObject
-from gi.repository import Pango
 from gi.repository import GtkSource
+from gi.repository import Pango
 
 import meld.conf
 import meld.filters
-
-
-MELD_SCHEMA = 'org.gnome.meld'
 
 
 class MeldSettings(GObject.GObject):
@@ -35,7 +32,7 @@ class MeldSettings(GObject.GObject):
     }
 
     def __init__(self):
-        GObject.GObject.__init__(self)
+        super().__init__()
         self.on_setting_changed(settings, 'filename-filters')
         self.on_setting_changed(settings, 'text-filters')
         self.on_setting_changed(settings, 'use-system-font')
@@ -79,7 +76,7 @@ class MeldSettings(GObject.GObject):
 
 
 def load_settings_schema(schema_id):
-    if meld.conf.UNINSTALLED_SCHEMA:
+    if meld.conf.DATADIR_IS_UNINSTALLED:
         schema_source = Gio.SettingsSchemaSource.new_from_directory(
             meld.conf.DATADIR,
             Gio.SettingsSchemaSource.get_default(),
@@ -96,7 +93,7 @@ def load_settings_schema(schema_id):
 def create_settings():
     global settings, interface_settings, meldsettings
 
-    settings = load_settings_schema(MELD_SCHEMA)
+    settings = load_settings_schema(meld.conf.APPLICATION_ID)
     interface_settings = Gio.Settings.new('org.gnome.desktop.interface')
     meldsettings = MeldSettings()
 

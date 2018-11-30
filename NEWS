@@ -1,4 +1,175 @@
 
+2018-11-21 meld 3.19.1
+======================
+
+  Features:
+
+   * Support comparing remote files (Kai Willadsen; initial work by Chris Mayo)
+   * Significantly improve folder comparison performance when comparing large
+     trees (Hugo Sena Ribeiro)
+   * Improve folder comparison IO and memory use (Hugo Sena Ribeiro)
+   * Add recursive collapse/expand actions to folder comparisons (Jesus Arroyo)
+   * Add OARS metadata for software management (Nick Richards)
+   * Support file drag-and-drop directly on to textviews (Kai Willadsen)
+   * Refresh the application icon and add a processing pipeline (Kai Willadsen)
+
+   * Windows build improvements:
+     * Build using msys2 on GNOME Gitlab infrastructure and update to using
+       current GTK+ (Vasily Galkin)
+     * Add simple zip-based Windows build output to pipeline (Vasily Galkin)
+     * Improve Windows logging behaviour (Vasily Galkin)
+     * Help launching now works (Vasily Galkin)
+     * Shortcuts now work in non-English keyboard layouts (via GTK+)
+     * Windows paths are shortened correctly (Kai Willadsen)
+
+
+  Fixes:
+
+   * Next/Previous Change actions correctly account for text filters (Heikki
+     Ketoharju)
+   * Fix blank line ignoring in folder comparisons (Hugo Sena Ribeiro)
+   * Miscellaneous performance improvements (Hugo Sena Ribeiro)
+   * Fix initial focus pane for two-pane comparison (Kai Willadsen)
+   * Handle encoding failures on file load (Kai Willadsen)
+   * Fix surrogate problems in on-save encoding check (Kai Willadsen)
+   * Fix display of some encoding errors in folder comparisons (Kai Willadsen)
+   * Fix Git unpushed commit check for ambiguous filenames (Kai Willadsen)
+   * Fix committing a folder in Git (Kai Willadsen)
+   * Show errors for critical unhandled application failures, such as failed
+     saves (Kai Willadsen)
+   * Work around GTK+ shortcut activation issues; see GNOME/gtk#140 (Kai
+     Willadsen)
+   * Update Up/Down/Delete shortcuts to support numpad (Kai Willadsen)
+   * Fix copy-paste of GtkSourceView-highlighted text into Meld (Kai Willadsen)
+   * Don't open additional blank comparison tabs when using the --diff CLI
+     argument (Kai Willadsen)
+   * Fix installation on Mint (Kai Willadsen)
+
+
+  Internal changes:
+
+   * File comparisons and CLI argument handling now use Gio.File and support
+     URIs (Kai Willadsen; initial work by Chris Mayo)
+   * Many Python 3 deprecation cleanups (Claude Paroz)
+   * Rename icon/desktop/appdata for consistency with appid (Mathieu Bridon)
+   * Flatpak build updates (Mathieu Bridon, Kai Willadsen)
+   * Make XDG application ID match other application IDs (Kai Willadsen)
+   * Multiple pygobject/GTK+ deprecation cleanups (Kai Willadsen)
+   * Python 3.7 support (Kai Willadsen)
+   * PEP8 and style compliance (Jesus Arroyo, Stefan Erichsen)
+
+   * Bugs fixed: 152, 175, 177, 179, 193, 196, 197, 197, 203, 217, 225, 233,
+     235, 239
+
+
+  Translations:
+
+   * Alan Mortensen (da)
+   * Anders Jonsson (sv)
+   * Claude Paroz (fr)
+   * Daniel Mustieles (es)
+   * Emin Tufan Çetin (tr)
+   * Jiri Grönroos (fi)
+   * Kukuh Syafaat (id)
+   * Marek Černocký (cs)
+   * Mario Blättermann (de)
+   * Matej Urbančič (sl)
+   * Mathieu Bridon ()
+   * Milo Casagrande (it)
+   * Piotr Drąg (pl)
+   * Rafael Fontenelle (pt_BR)
+   * Reginaldo Izidório (pt_BR)
+   * Yi-Jyun Pan (zh_TW)
+
+
+2018-03-28 meld 3.19.0
+======================
+
+  Features:
+
+   * Initial Windows build pipeline using Appveyor (Vasily Galkin)
+   * Add new per-pane status bar with selectors for syntax highlighting and
+     text encoding (Kai Willadsen, with extensive testing by Vasily Galkin)
+   * Allow text encoding to be chosen from file selectors (Kai Willadsen)
+   * Add new go-to-line action and UI (Kai Willadsen)
+   * Folder comparison now explicitly indicates symlinks in the tree, and
+     shows the symlink target (Kai Willadsen)
+   * Inline highlighting now draws whitespace in any changes it covers (Kai
+     Willadsen)
+   * Improved contrast in dark theme support (Vitalii Dmitriev)
+   * Navigating between changes in file comparison now briefly animates the
+     outline, to make it easier to keep track of the focus in busy
+     comparisons (Kai Willadsen)
+
+
+  Fixes:
+
+   * Find bar now hides when pressing Escape (Vladimir Panteleev)
+   * Handle file deletion where we can't move to trash (e.g., network mounts)
+     (Kai Willadsen)
+   * Guess whether we're running a dark theme, for supporting Tweak Tool
+     changes (Kai Willadsen)
+   * Keybindings for notebook switching work again (Kai Willadsen)
+   * Significantly speed up folder and version control comparisons by limiting
+     the file metadata we request (Kai Willadsen)
+   * Threading fixes for more responsive highlighting and better exit handling
+     (Kai Willadsen)
+   * Fix memory and file handle leakage for closed comparisons (Kai Willadsen)
+   * Make the --auto-compare command line flag work again (Kai Willadsen)
+   * Make multiple --diff command line options work again (Kai Willadsen)
+   * Fix committing selected files in Mercurial (Kai Willadsen)
+   * Fix Bazaar support for our Python 3 port (Kai Willadsen)
+   * Avoid a race conditon that made the "Resolve conflict" prompt unreliable
+     (Kai Willadsen)
+   * Fix invalid-iter crash when refreshing version control view (Kai
+     Willadsen)
+   * Make non-existent files writable by default (Kai Willadsen)
+   * Several fixes for translations, unicode typography, and typos (Piotr Drąg)
+   * Windows compatibility updates (Vasily Galkin, Kai Willadsen)
+   * Windows build fixes (Vasily Galkin)
+   * Add Gitlab CI for Python styling and lint, and update a lot of old code
+     to match (Kai Willadsen)
+   * Packaging fixes for AppStream (Balint Reczey)
+
+
+  Internal changes:
+
+   * Update GTK+ and GtkSourceView requirements to 3.20
+   * Migrate recently-used handling, comparison launching, and file
+     comparisons to use Gio for URI support (Chris Mayo, Kai Willadsen)
+   * Migrated to GNOME Gitlab for hosting and issue tracking
+
+   * Bugs fixed (bugzilla): 589366, 783989, 785313, 785630, 786629, 786867,
+     787256, 788455, 788487, 790335, 791173
+   * Issues fixed (gitlab): 46, 97, 133, 146, 151, 152, 158, 159, 161, 165
+
+
+  Translations:
+
+   * Alan Mortensen (da)
+   * Anders Jonsson (sv)
+   * Andika Triwidada (id)
+   * Andre Klapper (cs, de)
+   * Ask Hjorth Larsen (da)
+   * Balázs Úr (hu)
+   * Daniel Mustieles (es)
+   * Daniel Șerbănescu (ro)
+   * Emin Tufan Çetin (tr)
+   * Enrico Nicoletto (pt_BR)
+   * Jiri Grönroos (fi)
+   * Joe Hansen (da)
+   * Jordi Mas (ca)
+   * Kristjan SCHMIDT (eo)
+   * Kukuh Syafaat (id)
+   * Marcos Lans (gl)
+   * Marek Černocký (cs)
+   * Mario Blättermann (de)
+   * Matej Urbančič (sl)
+   * Milo Casagrande (it)
+   * Piotr Drąg (pl)
+   * Rafael Fontenelle (pt_BR)
+
+
 2017-09-10 meld 3.18.0
 ======================
 
@@ -915,7 +1086,7 @@
         distinguish commands, output and errors (Kai Willadsen)
       * Support better sensitivity handling in VC comparisons, currently
         implemented by Git (Kai Willadsen)
-  
+
     * Sundry minor UI improvements:
       * Much HIG-ification and better wording for actions, dialogs and
         labels (Kai Willadsen, with diligent bug reporting from Adam Dingle)
@@ -1491,7 +1662,7 @@
 	* Added quick patch viewer via filediff context menu
 
 	* Smarter abbreviation for tab labels.
-	
+
 	* Add svn directory hide rule. Bug 306093.
 
 	* Fix inline highlighting for non-ascii encodings. Bug 304988.
@@ -1658,14 +1829,14 @@
 	* CVS Partial tree refreshing.
 
 	* Better parsing of CVS/Entries
-	
+
 	* CVS updates status when files are edited.
 
 	* Dirdiff now has case insensitive option.
 
 	* CVS warns if the patch is empty.
 
-	* Fix CVS modification times when UTC != localtime. 
+	* Fix CVS modification times when UTC != localtime.
 	  Thanks to and Martin Pool (report+patch) and Mike Grant (report)
 
 	* Initial i18n support.
@@ -1699,7 +1870,7 @@
 
 	* Add parent to dialogs. Improves window manager interaction.
 
-	* Poup new.. now behaves like normal popups. 
+	* Poup new.. now behaves like normal popups.
 
 2003-06-21 meld-0.8.2
 =====================
@@ -1749,14 +1920,14 @@
 2003-03-24 meld-0.7.9
 =====================
 
-	* Diff update is now incremental; That is updates happen on each 
+	* Diff update is now incremental; That is updates happen on each
 	  keypress instead of after a short timeout. This makes meld usable
 	  on large files with many differences.
 
 	* Much better loading interaction. The text is immediately visible
 	  and scrollable - the diffs are computed in an idle callback.
 
-	* CVS browser should now be considered beta not alpha. It works 
+	* CVS browser should now be considered beta not alpha. It works
 	  with any location without needing to run 'meld .'
 
 	* Right click on the tabs now pops up a tab menu.
@@ -1840,11 +2011,11 @@
 
 	* Add missing pixmaps for directory diff.
 
-	* Set about dialog properties correctly.  
+	* Set about dialog properties correctly.
 
 	* Fail if new style pygtk not present. (pygtk.require())
 
-	* Remove #! from non executable files. 
+	* Remove #! from non executable files.
 
 	* Set copyright correctly.
 
@@ -1895,7 +2066,7 @@
 =====================
 
 	* diff3 now fully functional (merging buttons etc)
-	 
+
 	* new cvs icons. Thanks to Jakub "Jimmac" Steiner for
 	  the icons and to Ross Burton for the suggestion.
 
@@ -1927,7 +2098,7 @@
 
 	* Tabbed interface - open many diffs at once
 
-	* Next/prev diff 
+	* Next/prev diff
 
 	* Unlimited undo
 
@@ -1946,7 +2117,7 @@
 	* Added file/save plus accelerators.
 
 	* Allow app to be run from different directory.
-	
+
 	* Add groups to undo.  Undo/redo works properly for merging.
 
 	* Added undo/redo for single doc.  Added timeouts for updating diff delay.

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2002-2005 Stephen Kennedy <stevek@gnome.org>
 # Copyright (C) 2005 Aaron Bentley <aaron.bentley@utoronto.ca>
 # Copyright (C) 2007 José Fonseca <j_r_fonseca@yahoo.co.uk>
@@ -36,7 +35,6 @@ import tempfile
 from collections import defaultdict
 
 from meld.conf import _, ngettext
-
 from . import _vc
 
 
@@ -79,9 +77,9 @@ class Vc(_vc.Vc):
             return False
 
     @classmethod
-    def check_repo_root(self, location):
+    def check_repo_root(cls, location):
         # Check exists instead of isdir, since .git might be a git-file
-        return os.path.exists(os.path.join(location, self.VC_DIR))
+        return os.path.exists(os.path.join(location, cls.VC_DIR))
 
     def get_commits_to_push_summary(self):
         branch_refs = self.get_commits_to_push()
@@ -118,7 +116,7 @@ class Vc(_vc.Vc):
             except ValueError:
                 continue
 
-            proc = self.run("rev-list", branch, "^" + remote)
+            proc = self.run("rev-list", branch, "^" + remote, "--")
             revisions = proc.stdout.read().split("\n")[:-1]
             branch_revisions[branch] = revisions
         return branch_revisions
@@ -127,8 +125,11 @@ class Vc(_vc.Vc):
         files = []
         for p in paths:
             if os.path.isdir(p):
-                entries = self._get_modified_files(p)
-                names = [self.DIFF_RE.search(e).groups()[5] for e in entries]
+                cached_entries, entries = self._get_modified_files(p)
+                all_entries = set(entries + cached_entries)
+                names = [
+                    self.DIFF_RE.search(e).groups()[5] for e in all_entries
+                ]
                 files.extend(names)
             else:
                 files.append(os.path.relpath(p, self.root))

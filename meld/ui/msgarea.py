@@ -31,7 +31,7 @@ def layout_text_and_icon(stockid, primary_text, secondary_text=None):
     vbox = Gtk.VBox(homogeneous=False, spacing=6)
 
     primary_label = Gtk.Label(
-        "<b>{}</b>".format(primary_text),
+        label="<b>{}</b>".format(primary_text),
         wrap=True,
         use_markup=True,
         xalign=0,
@@ -62,7 +62,7 @@ class MsgAreaController(Gtk.HBox):
     __gtype_name__ = "MsgAreaController"
 
     def __init__(self):
-        super(MsgAreaController, self).__init__()
+        super().__init__()
 
         self.__msgarea = None
         self.__msgid = None
@@ -83,13 +83,14 @@ class MsgAreaController(Gtk.HBox):
             self.__msgarea = None
         self.__msgid = None
 
-    def new_from_text_and_icon(self, stockid, primary, secondary=None,
-                               buttons=[]):
+    def new_from_text_and_icon(
+            self, stockid, primary, secondary=None, buttons=None):
         self.clear()
         msgarea = self.__msgarea = Gtk.InfoBar()
 
-        for (text, respid) in buttons:
-            self.add_button(text, respid)
+        if buttons:
+            for (text, respid) in buttons:
+                self.add_button(text, respid)
 
         content = layout_text_and_icon(stockid, primary, secondary)
 

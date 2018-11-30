@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
+from enum import Enum
 
 from gi.repository import Gdk
 from gi.repository import Gio
@@ -50,7 +51,7 @@ def get_custom_encoding_candidates():
     return custom_candidates
 
 
-class LanguageManager(object):
+class LanguageManager:
 
     manager = GtkSource.LanguageManager()
 
@@ -70,17 +71,23 @@ class LanguageManager(object):
         return cls.manager.guess_language(None, content_type)
 
 
-class TextviewLineAnimation(object):
-    __slots__ = ("start_mark", "end_mark", "start_rgba", "end_rgba",
-                 "start_time", "duration")
+class TextviewLineAnimationType(Enum):
+    fill = 'fill'
+    stroke = 'stroke'
 
-    def __init__(self, mark0, mark1, rgba0, rgba1, duration):
+
+class TextviewLineAnimation:
+    __slots__ = ("start_mark", "end_mark", "start_rgba", "end_rgba",
+                 "start_time", "duration", "anim_type")
+
+    def __init__(self, mark0, mark1, rgba0, rgba1, duration, anim_type):
         self.start_mark = mark0
         self.end_mark = mark1
         self.start_rgba = rgba0
         self.end_rgba = rgba1
         self.start_time = GLib.get_monotonic_time()
         self.duration = duration
+        self.anim_type = anim_type
 
 
 class MeldSourceView(GtkSource.View):
@@ -97,7 +104,7 @@ class MeldSourceView(GtkSource.View):
     )
 
     # Named so as not to conflict with the GtkSourceView property
-    highlight_current_line_local = GObject.property(type=bool, default=False)
+    highlight_current_line_local = GObject.Property(type=bool, default=False)
 
     def get_show_line_numbers(self):
         return self._show_line_numbers
@@ -112,7 +119,7 @@ class MeldSourceView(GtkSource.View):
         self._show_line_numbers = bool(show)
         self.notify("show-line-numbers")
 
-    show_line_numbers = GObject.property(
+    show_line_numbers = GObject.Property(
         type=bool, default=False, getter=get_show_line_numbers,
         setter=set_show_line_numbers)
 
@@ -125,8 +132,12 @@ class MeldSourceView(GtkSource.View):
         # We replace the default line movement behaviour of Alt+Up/Down
         (Gdk.KEY_Up, Gdk.ModifierType.MOD1_MASK),
         (Gdk.KEY_KP_Up, Gdk.ModifierType.MOD1_MASK),
+        (Gdk.KEY_KP_Up, Gdk.ModifierType.MOD1_MASK |
+            Gdk.ModifierType.SHIFT_MASK),
         (Gdk.KEY_Down, Gdk.ModifierType.MOD1_MASK),
         (Gdk.KEY_KP_Down, Gdk.ModifierType.MOD1_MASK),
+        (Gdk.KEY_KP_Down, Gdk.ModifierType.MOD1_MASK |
+            Gdk.ModifierType.SHIFT_MASK),
         # ...and Alt+Left/Right
         (Gdk.KEY_Left, Gdk.ModifierType.MOD1_MASK),
         (Gdk.KEY_KP_Left, Gdk.ModifierType.MOD1_MASK),
@@ -135,7 +146,10 @@ class MeldSourceView(GtkSource.View):
     )
 
     def __init__(self, *args, **kwargs):
-        super(MeldSourceView, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
+
+        self.drag_dest_add_uri_targets()
+
         binding_set = Gtk.binding_set_find('GtkSourceView')
         for key, modifiers in self.replaced_entries:
             Gtk.binding_entry_remove(binding_set, key, modifiers)
@@ -153,6 +167,22 @@ class MeldSourceView(GtkSource.View):
 
         meldsettings.connect('changed', self.on_setting_changed)
 
+    def do_paste_clipboard(self, *args):
+        # This is an awful hack to replace another awful hack. The idea
+        # here is to sanitise the clipboard contents so that it doesn't
+        # contain GtkTextTags, by requesting and setting plain text.
+
+        def text_received_cb(clipboard, text, *user_data):
+            # Manual encoding is required here, or the length will be
+            # incorrect, and the API requires a UTF-8 bytestring.
+            utf8_text = text.encode('utf-8')
+            clipboard.set_text(text, len(utf8_text))
+            self.get_buffer().paste_clipboard(
+                clipboard, None, self.get_editable())
+
+        clipboard = self.get_clipboard(Gdk.SELECTION_CLIPBOARD)
+        clipboard.request_text(text_received_cb)
+
     def get_y_for_line_num(self, line):
         buf = self.get_buffer()
         it = buf.get_iter_at_line(line)
@@ -164,12 +194,19 @@ class MeldSourceView(GtkSource.View):
     def get_line_num_for_y(self, y):
         return self.get_line_at_y(y)[0].get_line()
 
-    def add_fading_highlight(self, mark0, mark1, colour_name, duration):
+    def add_fading_highlight(
+            self, mark0, mark1, colour_name, duration,
+            anim_type=TextviewLineAnimationType.fill, starting_alpha=1.0):
+
+        if not self.get_realized():
+            return
+
         rgba0 = self.fill_colors[colour_name].copy()
         rgba1 = self.fill_colors[colour_name].copy()
-        rgba0.alpha = 1.0
+        rgba0.alpha = starting_alpha
         rgba1.alpha = 0.0
-        anim = TextviewLineAnimation(mark0, mark1, rgba0, rgba1, duration)
+        anim = TextviewLineAnimation(
+            mark0, mark1, rgba0, rgba1, duration, anim_type)
         self.animating_chunks.append(anim)
 
     def on_setting_changed(self, settings, key):
@@ -196,28 +233,25 @@ class MeldSourceView(GtkSource.View):
         return GtkSource.View.do_realize(self)
 
     def do_draw_layer(self, layer, context):
-        if layer != Gtk.TextViewLayer.BELOW:
+        if layer != Gtk.TextViewLayer.BELOW_TEXT:
             return GtkSource.View.do_draw_layer(self, layer, context)
 
         context.save()
         context.set_line_width(1.0)
 
         _, clip = Gdk.cairo_get_clip_rectangle(context)
-        _, buffer_y = self.window_to_buffer_coords(
-            Gtk.TextWindowType.WIDGET, 0, clip.y)
-        _, buffer_y_end = self.window_to_buffer_coords(
-            Gtk.TextWindowType.WIDGET, 0, clip.y + clip.height)
-        bounds = (self.get_line_num_for_y(buffer_y),
-                  self.get_line_num_for_y(buffer_y_end))
+        bounds = (
+            self.get_line_num_for_y(clip.y),
+            self.get_line_num_for_y(clip.y + clip.height),
+        )
 
-        visible = self.get_visible_rect()
         x = clip.x - 0.5
         width = clip.width + 1
 
         # Paint chunk backgrounds and outlines
         for change in self.chunk_iter(bounds):
-            ypos0 = self.get_y_for_line_num(change[1]) - visible.y
-            ypos1 = self.get_y_for_line_num(change[2]) - visible.y
+            ypos0 = self.get_y_for_line_num(change[1])
+            ypos1 = self.get_y_for_line_num(change[2])
             height = max(0, ypos1 - ypos0 - 1)
 
             context.rectangle(x, ypos0 + 0.5, width, height)
@@ -238,12 +272,9 @@ class MeldSourceView(GtkSource.View):
         if self.props.highlight_current_line_local and self.is_focus():
             it = textbuffer.get_iter_at_mark(textbuffer.get_insert())
             ypos, line_height = self.get_line_yrange(it)
-            context.save()
-            context.rectangle(x, ypos - visible.y, width, line_height)
-            context.clip()
+            context.rectangle(x, ypos, width, line_height)
             context.set_source_rgba(*self.highlight_color)
-            context.paint_with_alpha(0.25)
-            context.restore()
+            context.fill()
 
         # Draw syncpoint indicator lines
         for syncpoint in self.syncpoints:
@@ -251,7 +282,7 @@ class MeldSourceView(GtkSource.View):
                 continue
             syncline = textbuffer.get_iter_at_mark(syncpoint).get_line()
             if bounds[0] <= syncline <= bounds[1]:
-                ypos = self.get_y_for_line_num(syncline) - visible.y
+                ypos = self.get_y_for_line_num(syncline)
                 context.rectangle(x, ypos - 0.5, width, 1)
                 context.set_source_rgba(*self.syncpoint_color)
                 context.stroke()
@@ -273,8 +304,11 @@ class MeldSourceView(GtkSource.View):
                 ystart -= 1
 
             context.set_source_rgba(*rgba)
-            context.rectangle(x, ystart - visible.y, width, yend - ystart)
-            context.fill()
+            context.rectangle(x, ystart, width, yend - ystart)
+            if c.anim_type == TextviewLineAnimationType.stroke:
+                context.stroke()
+            else:
+                context.fill()
 
             if current_time <= c.start_time + c.duration:
                 new_anim_chunks.append(c)

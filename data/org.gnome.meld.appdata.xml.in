@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Copyright 2013-2014 Kai Willadsen <kai.willadsen@gmail.com> -->
 <component type="desktop">
-  <id>meld.desktop</id>
+  <id>org.gnome.meld.desktop</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-2.0+ and CC-BY-SA-3.0</project_license>
   <_name>Meld</_name>
@@ -39,11 +39,12 @@
   </screenshots>
   <url type="homepage">http://meldmerge.org</url>
   <url type="help">http://meldmerge.org/help/</url>
-  <url type="bugtracker">https://bugzilla.gnome.org/enter_bug.cgi?product=meld</url>
+  <url type="bugtracker">https://gitlab.gnome.org/GNOME/meld/issues</url>
   <url type="donation">http://www.gnome.org/friends/</url>
   <url type="translate">https://wiki.gnome.org/TranslationProject</url>
   <update_contact>kai.willadsen@gmail.com</update_contact>
   <project_group>GNOME</project_group>
   <_developer_name>The GNOME Project</_developer_name>
   <translation type="gettext">meld</translation>
+  <content_rating type="oars-1.1" />
 </component>

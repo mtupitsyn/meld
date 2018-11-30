@@ -19,16 +19,17 @@ import logging
 import optparse
 import os
 
+from gi.repository import Gdk
 from gi.repository import Gio
 from gi.repository import GLib
-from gi.repository import Gdk
 from gi.repository import Gtk
 
 import meld.conf
 import meld.preferences
 import meld.ui.util
-
 from meld.conf import _
+from meld.filediff import FileDiff
+from meld.meldwindow import MeldWindow
 
 log = logging.getLogger(__name__)
 
@@ -42,10 +43,12 @@ optparse._ = _
 class MeldApp(Gtk.Application):
 
     def __init__(self):
-        Gtk.Application.__init__(self)
-        self.set_flags(Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
-        self.set_application_id("org.gnome.meld")
+        super().__init__(
+          application_id=meld.conf.APPLICATION_ID,
+          flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE,
+        )
         GLib.set_application_name("Meld")
+        GLib.set_prgname(meld.conf.APPLICATION_ID)
         Gtk.Window.set_default_icon_name("meld")
 
     def do_startup(self):
@@ -78,6 +81,7 @@ class MeldApp(Gtk.Application):
         if isinstance(tab, int):
             return tab
         elif tab:
+
             def done(tab, status):
                 self.release()
                 tab.command_line.set_exit_status(status)
@@ -109,12 +113,12 @@ class MeldApp(Gtk.Application):
         meld.preferences.PreferencesDialog(self.get_active_window())
 
     def help_callback(self, action, parameter):
-        if meld.conf.UNINSTALLED:
+        if meld.conf.DATADIR_IS_UNINSTALLED:
             uri = "http://meldmerge.org/help/"
         else:
             uri = "help:meld"
-        Gtk.show_uri(Gdk.Screen.get_default(), uri,
-                     Gtk.get_current_event_time())
+        Gtk.show_uri(
+            Gdk.Screen.get_default(), uri, Gtk.get_current_event_time())
 
     def about_callback(self, action, parameter):
         about = meld.ui.util.get_widget("application.ui", "aboutdialog")
@@ -125,15 +129,15 @@ class MeldApp(Gtk.Application):
 
     def quit_callback(self, action, parameter):
         for window in self.get_windows():
-            cancelled = window.emit("delete-event",
-                                    Gdk.Event.new(Gdk.EventType.DELETE))
+            cancelled = window.emit(
+                "delete-event", Gdk.Event.new(Gdk.EventType.DELETE))
             if cancelled:
                 return
             window.destroy()
         self.quit()
 
     def new_window(self):
-        window = meldwindow.MeldWindow()
+        window = MeldWindow()
         self.add_window(window.widget)
         window.widget.meldwindow = window
         return window
@@ -198,7 +202,7 @@ class MeldApp(Gtk.Application):
                 self.should_exit = False
                 self.output = io.StringIO()
                 self.exit_status = 0
-                optparse.OptionParser.__init__(self, *args, **kwargs)
+                super().__init__(*args, **kwargs)
 
             def exit(self, status=0, msg=None):
                 self.should_exit = True
@@ -207,7 +211,7 @@ class MeldApp(Gtk.Application):
                 try:
                     self.command_line.do_print_literal(
                         self.command_line, self.output.getvalue())
-                except:
+                except Exception:
                     print(self.output.getvalue())
                 self.exit_status = status
 
@@ -317,11 +321,21 @@ class MeldApp(Gtk.Application):
                 if relative.query_exists(cancellable=None):
                     return relative
                 # Return the original arg for a better error message
+
+            if f.get_uri() is None:
+                raise ValueError(_("invalid path or URI “%s”") % arg)
+
+            # TODO: support for directories specified by URIs
+            file_type = f.query_file_type(Gio.FileQueryInfoFlags.NONE, None)
+            if not f.is_native() and file_type == Gio.FileType.DIRECTORY:
+                raise ValueError(
+                    _("remote folder “{}” not supported").format(arg))
+
             return f
 
         tab = None
         error = None
-        comparisons = [args] + options.diff
+        comparisons = [c for c in [args] + options.diff if c]
 
         # Every Meld invocation creates at most one window. If there is
         # no existing application, a window is created in do_startup().
@@ -339,17 +353,12 @@ class MeldApp(Gtk.Application):
             close_on_error = True
 
         for i, paths in enumerate(comparisons):
-            files = [make_file_from_command_line(p) for p in paths]
             auto_merge = options.auto_merge and i == 0
             try:
-                for p, f in zip(paths, files):
-                    # TODO: support for directories specified by URIs
-                    if f.get_uri() is None or (not f.is_native() and
-                        f.query_file_type(Gio.FileQueryInfoFlags.NONE, None) ==
-                            Gio.FileType.DIRECTORY):
-                        raise ValueError(_("invalid path or URI “%s”") % p)
+                files = [make_file_from_command_line(p) for p in paths]
                 tab = self.open_files(
-                    files, window=window,
+                    files,
+                    window=window,
                     close_on_error=close_on_error,
                     auto_compare=options.auto_compare,
                     auto_merge=auto_merge,
@@ -365,9 +374,9 @@ class MeldApp(Gtk.Application):
                 if options.label:
                     tab.set_labels(options.label)
 
-                if options.outfile and isinstance(tab, filediff.FileDiff):
+                if options.outfile and isinstance(tab, FileDiff):
                     outfile = make_file_from_command_line(options.outfile)
-                    tab.set_merge_output_file(outfile.get_path())
+                    tab.set_merge_output_file(outfile)
 
         if error:
             if not tab:
@@ -387,6 +396,3 @@ class MeldApp(Gtk.Application):
 
 
 app = MeldApp()
-
-from . import filediff
-from . import meldwindow

@@ -1,5 +1,3 @@
-# coding=UTF-8
-
 # Copyright (C) 2002-2006 Stephen Kennedy <stevek@gnome.org>
 # Copyright (C) 2010-2015 Kai Willadsen <kai.willadsen@gmail.com>
 #
@@ -19,30 +17,29 @@
 import atexit
 import functools
 import logging
-import tempfile
-import shutil
 import os
+import shutil
 import stat
 import sys
+import tempfile
 
 from gi.repository import Gdk
-from gi.repository import GLib
 from gi.repository import Gio
+from gi.repository import GLib
 from gi.repository import GObject
 from gi.repository import Gtk
 from gi.repository import Pango
 
-from meld import melddoc
-from meld import misc
 from meld import tree
-from meld import vc
-from meld.ui import gnomeglade
-from meld.ui import vcdialogs
-
 from meld.conf import _
+from meld.iohelpers import trash_or_confirm
+from meld.melddoc import MeldDoc
+from meld.misc import error_dialog, read_pipe_iter
 from meld.recent import RecentType
-from meld.settings import settings, bind_settings
-from meld.vc import _null
+from meld.settings import bind_settings, settings
+from meld.ui.gnomeglade import Component, ui_file
+from meld.ui.vcdialogs import CommitDialog, PushDialog
+from meld.vc import _null, get_vcs
 from meld.vc._vc import Entry
 
 log = logging.getLogger(__name__)
@@ -60,7 +57,7 @@ def cleanup_temp():
             if os.name == "nt":
                 os.chmod(f, stat.S_IWRITE)
             os.remove(f)
-        except:
+        except Exception:
             except_str = "{0[0]}: \"{0[1]}\"".format(sys.exc_info())
             print("File \"{0}\" not removed due to".format(f), except_str,
                   file=sys.stderr)
@@ -69,16 +66,17 @@ def cleanup_temp():
             assert (os.path.exists(f) and os.path.isabs(f) and
                     os.path.dirname(f) == temp_location)
             shutil.rmtree(f, ignore_errors=1)
-        except:
+        except Exception:
             except_str = "{0[0]}: \"{0[1]}\"".format(sys.exc_info())
             print("Directory \"{0}\" not removed due to".format(f), except_str,
                   file=sys.stderr)
+
 
 _temp_dirs, _temp_files = [], []
 atexit.register(cleanup_temp)
 
 
-class ConsoleStream(object):
+class ConsoleStream:
 
     def __init__(self, textview):
         self.textview = textview
@@ -115,13 +113,13 @@ COL_LOCATION, COL_STATUS, COL_OPTIONS, COL_END = \
 
 class VcTreeStore(tree.DiffTreeStore):
     def __init__(self):
-        tree.DiffTreeStore.__init__(self, 1, [str] * 5)
+        super().__init__(1, [str] * 5)
 
     def get_file_path(self, it):
         return self.get_value(it, self.column_index(tree.COL_PATH, 0))
 
 
-class VcView(melddoc.MeldDoc, gnomeglade.Component):
+class VcView(MeldDoc, Component):
 
     __gtype_name__ = "VcView"
 
@@ -131,13 +129,13 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
         ('vc-merge-file-order', 'merge-file-order'),
     )
 
-    status_filters = GObject.property(
+    status_filters = GObject.Property(
         type=GObject.TYPE_STRV,
         nick="File status filters",
         blurb="Files with these statuses will be shown by the comparison.",
     )
-    left_is_local = GObject.property(type=bool, default=False)
-    merge_file_order = GObject.property(type=str, default="local-merge-remote")
+    left_is_local = GObject.Property(type=bool, default=False)
+    merge_file_order = GObject.Property(type=str, default="local-merge-remote")
 
     # Map for inter-tab command() calls
     command_map = {
@@ -153,12 +151,12 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
     }
 
     def __init__(self):
-        melddoc.MeldDoc.__init__(self)
-        gnomeglade.Component.__init__(self, "vcview.ui", "vcview",
-                                      ["VcviewActions", 'liststore_vcs'])
+        MeldDoc.__init__(self)
+        Component.__init__(
+            self, "vcview.ui", "vcview", ["VcviewActions", 'liststore_vcs'])
         bind_settings(self)
 
-        self.ui_file = gnomeglade.ui_file("vcview-ui.xml")
+        self.ui_file = ui_file("vcview-ui.xml")
         self.actiongroup = self.VcviewActions
         self.actiongroup.set_translation_domain("meld")
         self.model = VcTreeStore()
@@ -167,8 +165,7 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
         self.treeview.set_model(self.model)
         self.treeview.get_selection().connect(
             "changed", self.on_treeview_selection_changed)
-        self.treeview.set_search_equal_func(
-            self.model.treeview_search_cb, None)
+        self.treeview.set_search_equal_func(tree.treeview_search_cb, None)
         self.current_path, self.prev_path, self.next_path = None, None, None
 
         self.name_column.set_attributes(
@@ -216,13 +213,13 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
             pass
 
     def on_container_switch_in_event(self, ui):
-        super(VcView, self).on_container_switch_in_event(ui)
+        super().on_container_switch_in_event(ui)
         self._set_external_action_sensitivity(True)
         self.scheduler.add_task(self.on_treeview_cursor_changed)
 
     def on_container_switch_out_event(self, ui):
         self._set_external_action_sensitivity(False)
-        super(VcView, self).on_container_switch_out_event(ui)
+        super().on_container_switch_out_event(ui)
 
     def populate_vcs_for_location(self, location):
         """Display VC plugin(s) that can handle the location"""
@@ -241,7 +238,7 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
             location = parent_location
         else:
             # existing parent directory was found
-            for avc in vc.get_vcs(location):
+            for avc in get_vcs(location):
                 err_str = ''
                 vc_details = {'name': avc.NAME, 'cmd': avc.CMD}
 
@@ -450,8 +447,8 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
         vc_entry = self.vc.get_entry(path)
         if vc_entry and vc_entry.state == tree.STATE_CONFLICT and \
                 hasattr(self.vc, 'get_path_for_conflict'):
-            local_label = _(u"%s — local") % basename
-            remote_label = _(u"%s — remote") % basename
+            local_label = _("%s — local") % basename
+            remote_label = _("%s — remote") % basename
 
             # We create new temp files for other, base and this, and
             # then set the output to the current file.
@@ -459,33 +456,33 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
                 conflicts = (tree.CONFLICT_THIS, tree.CONFLICT_MERGED,
                              tree.CONFLICT_OTHER)
                 meta['labels'] = (local_label, None, remote_label)
-                meta['tablabel'] = _(u"%s (local, merge, remote)") % basename
+                meta['tablabel'] = _("%s (local, merge, remote)") % basename
             else:
                 conflicts = (tree.CONFLICT_OTHER, tree.CONFLICT_MERGED,
                              tree.CONFLICT_THIS)
                 meta['labels'] = (remote_label, None, local_label)
-                meta['tablabel'] = _(u"%s (remote, merge, local)") % basename
+                meta['tablabel'] = _("%s (remote, merge, local)") % basename
             diffs = [self.vc.get_path_for_conflict(path, conflict=c)
                      for c in conflicts]
             temps = [p for p, is_temp in diffs if is_temp]
             diffs = [p for p, is_temp in diffs]
             kwargs = {
                 'auto_merge': False,
-                'merge_output': path,
+                'merge_output': Gio.File.new_for_path(path),
             }
             meta['prompt_resolve'] = True
         else:
-            remote_label = _(u"%s — repository") % basename
+            remote_label = _("%s — repository") % basename
             comp_path = self.vc.get_path_for_repo_file(path)
             temps = [comp_path]
             if self.props.left_is_local:
                 diffs = [path, comp_path]
                 meta['labels'] = (None, remote_label)
-                meta['tablabel'] = _(u"%s (working, repository)") % basename
+                meta['tablabel'] = _("%s (working, repository)") % basename
             else:
                 diffs = [comp_path, path]
                 meta['labels'] = (remote_label, None)
-                meta['tablabel'] = _(u"%s (repository, working)") % basename
+                meta['tablabel'] = _("%s (repository, working)") % basename
             kwargs = {}
         kwargs['meta'] = meta
 
@@ -528,9 +525,10 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
         return False
 
     def on_filter_state_toggled(self, button):
-        active_action = lambda a: self.actiongroup.get_action(a).get_active()
         active_filters = [
-            k for k, v in self.state_actions.items() if active_action(v[0])]
+            k for k, (action_name, fn) in self.state_actions.items()
+            if self.actiongroup.get_action(action_name).get_active()
+        ]
 
         if set(active_filters) == set(self.props.status_filters):
             return
@@ -583,7 +581,7 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
         files = [os.path.relpath(f, working_dir) for f in files]
         msg = shelljoin(command + files) + " (in %s)\n" % working_dir
         self.consolestream.command(msg)
-        readiter = misc.read_pipe_iter(
+        readiter = read_pipe_iter(
             command + files, workdir=working_dir,
             errorstream=self.consolestream)
         try:
@@ -592,7 +590,7 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
                 yield 1
                 result = next(readiter)
         except IOError as err:
-            misc.error_dialog(
+            error_dialog(
                 "Error running command",
                 "While running '%s'\nError: %s" % (msg, err))
             result = (1, "")
@@ -651,12 +649,12 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
         self.vc.update(self.runner)
 
     def on_button_push_clicked(self, obj):
-        response = vcdialogs.PushDialog(self).run()
+        response = PushDialog(self).run()
         if response == Gtk.ResponseType.OK:
             self.vc.push(self.runner)
 
     def on_button_commit_clicked(self, obj):
-        response, commit_msg = vcdialogs.CommitDialog(self).run()
+        response, commit_msg = CommitDialog(self).run()
         if response == Gtk.ResponseType.OK:
             self.vc.commit(
                 self.runner, self._get_selected_files(), commit_msg)
@@ -696,11 +694,17 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
     def on_button_delete_clicked(self, obj):
         files = self._get_selected_files()
         for name in files:
+            gfile = Gio.File.new_for_path(name)
+
             try:
-                gfile = Gio.File.new_for_path(name)
-                gfile.trash(None)
-            except GLib.GError as e:
-                misc.error_dialog(_("Error removing %s") % name, str(e))
+                trash_or_confirm(gfile)
+            except Exception as e:
+                error_dialog(
+                    _("Error deleting {}").format(
+                        GLib.markup_escape_text(gfile.get_parse_name()),
+                    ),
+                    str(e),
+                )
 
         workdir = os.path.dirname(os.path.commonprefix(files))
         self.refresh_partial(workdir)
@@ -778,9 +782,9 @@ class VcView(melddoc.MeldDoc, gnomeglade.Component):
 
     def on_consoleview_populate_popup(self, textview, menu):
         buf = textview.get_buffer()
-        clear_cb = lambda *args: buf.delete(*buf.get_bounds())
         clear_action = Gtk.MenuItem.new_with_label(_("Clear"))
-        clear_action.connect("activate", clear_cb)
+        clear_action.connect(
+            "activate", lambda *args: buf.delete(*buf.get_bounds()))
         menu.insert(clear_action, 0)
         menu.insert(Gtk.SeparatorMenuItem(), 1)
         menu.show_all()
