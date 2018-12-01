@@ -1,35 +1,32 @@
 Meld for OS X
 ===========
 
-This README should help you build Meld for OS X.
+	This README should help you build Meld for OS X.
 
-> :bulb:**Tip:** A lot of people are asking how to use this package as a git difftool.
-> Once installed, edit your ```~/.gitconfig```, and add the following lines
-> ```
-	[diff]
-		tool = meld
-	[difftool]
-		prompt = false
-	[difftool "meld"]
-		trustExitCode = true
-		cmd = /Applications/Meld.app/Contents/MacOS/Meld \"$LOCAL\" \"$PWD/$REMOTE\"
-  ```
+	:bulb:**Tip:** A lot of people are asking how to use this package as a git difftool.
+	Once installed, edit your ```~/.gitconfig```, and add the following lines
+	 ```
+		[diff]
+			tool = meld
+		[difftool]
+			prompt = false
+		[difftool "meld"]
+			trustExitCode = true
+			cmd = /Applications/Meld.app/Contents/MacOS/Meld \"$LOCAL\" \"$PWD/$REMOTE\"
+	  ```
 
 ### Preparing JHBuild Environment ###
 
-JHBuild is the build system that we will be using to build Meld. This step should really be done once and further builds should not require updating the build environment unless there have been some updates to the libraries that you'd like to do.
+	JHBuild is the build system that we will be using to build Meld. This step should really be done once and further builds should not require updating the build environment unless there have been some updates to the libraries that you'd like to do.
 
----
 #### Preparation ####
 
 To ensure that we don't hit some issue with python not able to determine locales on OSX, let's do the following
-```
-export LC_ALL=en_US.UTF-8
-export LANG=en_US.UTF-8
-```
 
-> :bulb:**Tip:** Renaming /opt/local (MacPorts) during the initial build of the the build
-environment proved to reduce collisions later on. You might want to consider doing this..
+	```
+	export LC_ALL=en_US.UTF-8
+	export LANG=en_US.UTF-8
+	```
 
 #### Initial Phase ####
 
@@ -76,7 +73,7 @@ environment proved to reduce collisions later on. You might want to consider doi
 
 #### Output ####
 
-> :bulb:**Output:** Find the output dmg file in osx/Archives after you're done building.
+	> :bulb:**Output:** Find the output dmg file in osx/Archives after you're done building.
 
 #### FAQ ####
 
