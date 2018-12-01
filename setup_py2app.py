@@ -33,12 +33,13 @@ PLIST = {
     'CFBundleSignature': '???',
     'CFBundleVersion': VERSION_STRING,
     'LSPrefersPPC': FORCE_32_BIT,
-    'NSHumanReadableCopyright': u'Copyright © 2016',
+    'NSHumanReadableCopyright': u'Copyright © 2018',
     'CFBundleDisplayName': 'Meld',
     'CFBundleName': 'Meld',
     'NSHighResolutionCapable': True,
     'LSApplicationCategoryType': 'public.app-category.productivity',
     'LSRequiresNativeExecution': True,
+    'NSRequiresAquaSystemAppearance': False
 }
 
 #find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"])
@@ -80,8 +81,9 @@ setup(
     app=['bin/meld'],
     setup_requires=["py2app"],
     options={'py2app': {
-                'includes': '',
+                'includes': 'pango, cairo, pangocairo, atk, gobject, gio, encodings',
                 'frameworks':
+                'libpython3.6m.dylib,'
                 'libatk-1.0.0.dylib,'
                 'libcairo-gobject.2.dylib,'
                 'libcairo-script-interpreter.2.dylib,'
@@ -125,8 +127,18 @@ setup(
          glob.glob("data/icons/*.png") +
          glob.glob("data/icons/COPYING*")
          ),
+        ('share/meld/styles',
+         glob.glob("data/styles/*.xml")
+         ),
         ('share/meld/ui',
          glob.glob("data/ui/*.ui") + glob.glob("data/ui/*.xml")
          ),
     ],
+    cmdclass={
+        "build_i18n": meld.build_helpers.build_i18n,
+        "build_help": meld.build_helpers.build_help,
+        "build_icons": meld.build_helpers.build_icons,
+        "build_data": meld.build_helpers.build_data,
+        "install_data": meld.build_helpers.install_data,
+    },
 )
