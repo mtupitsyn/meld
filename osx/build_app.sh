@@ -9,8 +9,8 @@ INSTROOT="$HOME/gtk/inst/"
 cp osx/conf.py meld/conf.py
 
 glib-compile-schemas data
-python setup_py2app.py build
-python setup_py2app.py py2app
+python3 setup_py2app.py build
+python3 setup_py2app.py py2app
 
 # py2app copies all Python framework to target..
 # too busy to figure out how to solve this at the moment. Let's just 
@@ -24,6 +24,8 @@ rsync -r -t --ignore-existing $INSTROOT/share/icons/hicolor $RES/share/icons
 
 # glib schemas
 rsync -r -t  $INSTROOT/share/glib-2.0/schemas $RES/share/glib-2.0
+cp data/org.gnome.meld.gschema.xml $RES/share/glib-2.0/schemas
+(cd $RES/share/glib-2.0 && glib-compile-schemas schemas)
 rsync -r -t  $INSTROOT/share/GConf/gsettings $RES/share/GConf
 
 # pango
@@ -136,6 +138,7 @@ done
 #done
 popd
 
+
 # Create the dmg file..
 hdiutil create -size 250m -fs HFS+ -volname "Meld Merge" myimg.dmg
 hdiutil attach myimg.dmg
@@ -143,8 +146,7 @@ DEVS=$(hdiutil attach myimg.dmg | cut -f 1)
 DEV=$(echo $DEVS | cut -f 1 -d ' ')
 rsync  -avzh  $APP /Volumes/Meld\ Merge/
 pushd .
-cd /Volumes/Meld\ Merge/
-ln -sf /Applications "Drag Meld Here"
+(cd /Volumes/Meld\ Merge/ && ln -sf /Applications "Drag Meld Here")
 popd
 
 # Compress the dmg file..

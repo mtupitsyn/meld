@@ -39,6 +39,20 @@ if sys.executable.endswith("pythonw.exe") or sys.stdout is None:
 # This allows skipping '__name__ == "main"' guard, but freezed case is special.
 freeze_support()
 
+# Auto dark theme support for Mac
+gtk_theme= os.environ.get('GTK_THEME')
+if gtk_theme is None:
+    try:
+        from Foundation import NSUserDefaults
+        standardUserDefaults = NSUserDefaults.standardUserDefaults()
+        if standardUserDefaults.stringForKey_("AppleInterfaceStyle") == 'Dark':
+            os.environ['GTK_THEME'] = "Adwaita:dark"
+    except:
+        pass
+else:
+    os.environ['GTK_THEME'] = gtk_theme
+
+
 
 def disable_stdout_buffering():
 

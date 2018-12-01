@@ -46,10 +46,11 @@ environment proved to reduce collisions later on. You might want to consider doi
 	```
 	You can exit the shell once you determine that it works properly
 
- 3. Prepare paths and build the bootstrap
+ 3. Prepare build environment
 	```
 	export PATH="~/.local/bin/:$PATH"
-	jhbuild bootstrap
+	brew install ccache
+	(cd osx && ./build_env.sh)
 	```
 
  4. Checkout meld and start the initial phase
@@ -62,27 +63,6 @@ environment proved to reduce collisions later on. You might want to consider doi
 	```
 
 #### Building Meld ####
-
-This can probably be done in the meld.modules file. Unfortunately I don't have
-the time to fix the order/dependencies. So let's do it one by one. The following
-is the list of the exact steps followed during the build to reduce conflicts
-
- 1. Build python - with libxml2 support
-	```
-	jhbuild -m osx/meld.modules build python-withxml2
-	```
-
- 2. Build graphics dependencies
- 	```
- 	jhbuild  -m osx/meld.modules build graphics-dependencies
- 	```
-
- 3. Build the rest of meld dependencies (rebuilding previous dependencies as well)
-	```
-	jhbuild  -m osx/meld.modules build meld-deps -f
-	```
-
- 4. You're now ready to build Meld.
 	```
 	chmod +x osx/build_app.sh
 	jhbuild run osx/build_app.sh

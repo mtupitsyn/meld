@@ -26,9 +26,6 @@ def no_translation(gettext_string, *args):
 _ = no_translation
 ngettext = no_translation
 
-def is_darwin():
-    return True
-
 def frozen():
     global DATADIR, LOCALEDIR, DATADIR_IS_UNINSTALLED
 
@@ -40,10 +37,6 @@ def frozen():
     etc_path = os.path.join(resource_path , "etc")
     lib_path = os.path.join(resource_path , "lib")
     share_path = os.path.join(resource_path , "share")
-
-    # Default to Adwaita GTK Theme or override with user's environment var
-    gtk_theme= os.environ.get('GTK_THEME', "Adwaita")
-    os.environ['GTK_THEME'] = gtk_theme
 
     # Main libraries environment variables
     #dyld_library_path = os.environ.get('DYLD_LIBRARY_PATH', '').split(':')

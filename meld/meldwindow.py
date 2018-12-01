@@ -22,7 +22,7 @@ from gi.repository import GLib
 from gi.repository import Gtk
 
 import meld.ui.util
-from meld.conf import _, is_darwin
+from meld.conf import _
 from meld.dirdiff import DirDiff
 from meld.filediff import FileDiff
 from meld.filemerge import FileMerge
@@ -36,6 +36,12 @@ from meld.ui.notebooklabel import NotebookLabel
 from meld.vcview import VcView
 from meld.windowstate import SavedWindowState
 
+is_native = False
+try:
+    from Foundation import NSUserDefaults
+    is_native = True
+except:
+    pass
 
 class MeldWindow(Component):
 
@@ -138,7 +144,7 @@ class MeldWindow(Component):
 
         # Manually handle shells that don't show an application menu
         gtk_settings = Gtk.Settings.get_default()
-        if not gtk_settings.props.gtk_shell_shows_app_menu or is_darwin():
+        if not gtk_settings.props.gtk_shell_shows_app_menu or is_native:
             from meld.meldapp import app
 
             def make_app_action(name):
@@ -254,7 +260,7 @@ class MeldWindow(Component):
         self.widget.connect('focus_in_event', self.on_focus_change)
         self.widget.connect('focus_out_event', self.on_focus_change)
 
-        if is_darwin():
+        if is_native:
             self.osx_ready = False
             self.widget.connect('window_state_event', self.osx_menu_setup)
             
