@@ -1,5 +1,7 @@
 #!/bin/sh
 
+export PATH=$HOME/.local/bin:$HOME/gtk/inst/bin:$PATH
+
 APP="$PWD/dist/Meld.app"
 MAIN="$APP/"
 RES="$MAIN/Contents/Resources/"
@@ -92,7 +94,7 @@ rsync -t $INSTROOT/lib/libgtkmacintegration-gtk3.2.dylib $FRAMEWORKS/libgtkmacin
 
 # rename script, use wrapper
 mv $MAIN/Contents/MacOS/Meld $MAIN/Contents/MacOS/Meld-bin
-rsync -t osx/Meld $MAIN/Contents/MacOS/meld_wrapper
+rsync -t osx/meld.applescript $MAIN/Contents/MacOS/meld_wrapper
 mv $MAIN/Contents/MacOS/meld_wrapper $MAIN/Contents/MacOS/Meld
 chmod +x $MAIN/Contents/MacOS/Meld
 chmod +x $MAIN/Contents/MacOS/Meld-bin

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export MACOSX_DEPLOYMENT_TARGET=10.9
-export PATH=$HOME/.local/bin:$PATH
+export PATH=$HOME/.local/bin:$HOME/gtk/inst/bin:$PATH
 
 pushd . > /dev/null
 jhbuild bootstrap
@@ -9,8 +9,10 @@ jhbuild buildone libffi openssl python3 libxml2
 $HOME/gtk/inst/bin/python3 -m ensurepip
 $HOME/gtk/inst/bin/pip3 install six
 PYTHON=$HOME/gtk/inst/bin/python3 jhbuild build
-~/gtk/inst/bin/pip3 install pyobjc-core
-~/gtk/inst/bin/pip3 install pyobjc-framework-Cocoa
+$HOME/gtk/inst/bin/pip3 install pyobjc-core
+$HOME/gtk/inst/bin/pip3 install pyobjc-framework-Cocoa
+$HOME/gtk/inst/bin/pip3 install py2app
+(cd $HOME/gtk/inst/lib && ln -s libpython3.6m.dylib libpython3.6.dylib)
 
 exit
 

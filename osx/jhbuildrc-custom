@@ -11,8 +11,10 @@ _gtk_osx_use_jhbuild_python = True
 
 os.environ["CC"] = "/usr/local/bin/ccache /usr/bin/clang"
 os.environ["CXX"] = "/usr/local/bin/ccache /usr/bin/clang++"
-os.environ["CXXFLAGS"] = "-std=c++11 -stdlib=libc++"
+os.environ['CFLAGS'] = '-O2'
+os.environ["CXXFLAGS"] = "-std=c++11 -stdlib=libc++ -O2"
 os.environ["MACOSX_DEPLOYMENT_TARGET"] = "10.9"
+os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = "@executable_path/../Frameworks/:@executable_path/../Resources/lib"
 
 #skip.append("libiconv") # Lion issues
 skip.append("cups")
@@ -66,6 +68,7 @@ global autogenargs
 autogenargs = autogenargs + ' --disable-documentation --disable-docs --enable-introspection --enable-gtk-doc=no --enable-gtk-doc-html=no --enable-gtk-doc-pdf=no'
 # autogenargs += ' --cache-file=' + checkoutroot + '/autoconf-cache '
 
+module_autogenargs['gettext-tools'] = 'CFLAGS=-O0'
 module_autogenargs['yelp'] = '--disable-Werror'
 module_autogenargs['zlib']= ''# + autogenargs
 module_autogenargs['librsvg'] = autogenargs

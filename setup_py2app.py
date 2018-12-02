@@ -39,7 +39,8 @@ PLIST = {
     'NSHighResolutionCapable': True,
     'LSApplicationCategoryType': 'public.app-category.productivity',
     'LSRequiresNativeExecution': True,
-    'NSRequiresAquaSystemAppearance': False
+    'NSRequiresAquaSystemAppearance': False,
+    'NSUIElement': 1
 }
 
 #find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"])
@@ -103,6 +104,7 @@ setup(
                 'librsvg-2.2.dylib,'
                 ,
                 'argv_emulation': True,
+                'no_chdir': True,
                 'iconfile': 'osx/meld.icns',
                 'plist': PLIST,
                 'prefer_ppc': False,
