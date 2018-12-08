@@ -38,7 +38,7 @@ from meld.windowstate import SavedWindowState
 
 is_native = False
 try:
-    from Foundation import NSUserDefaults
+    from Cocoa import NSApp
     is_native = True
 except:
     pass
@@ -293,6 +293,7 @@ class MeldWindow(Component):
             self.macapp.insert_app_menu_item(prefs_item, 2)
             self.macapp.insert_app_menu_item(Gtk.SeparatorMenuItem(), 3)
             #self.macapp.ready()
+            NSApp.activateIgnoringOtherApps_(True)
             self.osx_ready = True
 
     def _on_recentmenu_map(self, recentmenu):
