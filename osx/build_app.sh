@@ -38,6 +38,7 @@ echo "[Pango]\nModuleFiles=./etc/pango/pango.modules\n" > $RES/etc/pango/pangorc
 # gdk-pixbuf
 rsync -r -t $INSTROOT/lib/gdk-pixbuf-2.0 $RES/lib
 gdk-pixbuf-query-loaders |perl -i -pe 's/^[^#].*\/(lib\/.*")$/"..\/Resources\/$1/' > $RES/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache
+(cd $MAIN/Contents && ln -sf Resources/lib .)
 
 # GTK themes
 mkdir -p $RES/share/themes
@@ -139,7 +140,6 @@ done
 #  install_name_tool -add_rpath "@executable_path/../Frameworks/$dylib" $MAIN/Contents/MacOS/Meld
 #done
 popd
-
 
 # Create the dmg file..
 hdiutil create -size 250m -fs HFS+ -volname "Meld Merge" myimg.dmg

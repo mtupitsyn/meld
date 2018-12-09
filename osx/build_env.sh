@@ -1,5 +1,7 @@
 #!/bin/bash
 
+trap "exit" INT
+
 export MACOSX_DEPLOYMENT_TARGET=10.9
 export PATH=$HOME/.local/bin:$HOME/gtk/inst/bin:$PATH
 
