@@ -37,7 +37,7 @@ echo "[Pango]\nModuleFiles=./etc/pango/pango.modules\n" > $RES/etc/pango/pangorc
 
 # gdk-pixbuf
 rsync -r -t $INSTROOT/lib/gdk-pixbuf-2.0 $RES/lib
-gdk-pixbuf-query-loaders |perl -i -pe 's/^[^#].*\/(lib\/.*")$/"..\/Resources\/$1/' > $RES/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache
+gdk-pixbuf-query-loaders  | sed s=\".*/lib/gdk-pixbuf-2.0=\"@executable_path/\.\./Resources/lib/gdk-pixbuf-2.0=  > $RES/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache
 (cd $MAIN/Contents && ln -sf Resources/lib .)
 
 # GTK themes
