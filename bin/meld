@@ -47,6 +47,8 @@ if gtk_theme is None:
         standardUserDefaults = NSUserDefaults.standardUserDefaults()
         if standardUserDefaults.stringForKey_("AppleInterfaceStyle") == 'Dark':
             os.environ['GTK_THEME'] = "Adwaita:dark"
+        else:
+            os.environ['GTK_THEME'] = "Adwaita:light"
     except:
         pass
 else:
