@@ -12,7 +12,7 @@ cp osx/conf.py meld/conf.py
 
 glib-compile-schemas data
 python3 setup_py2app.py build
-python3 setup_py2app.py py2app --use-faulthandler -a
+python3 setup_py2app.py py2app --use-faulthandler
 
 # py2app copies all Python framework to target..
 # too busy to figure out how to solve this at the moment. Let's just 
@@ -163,7 +163,7 @@ rm -fr ${WORKDIR}
 #  install_name_tool -add_rpath "@executable_path/../Frameworks/$dylib" $MAIN/Contents/MacOS/Meld
 #done
 popd
-exit
+
 # Create the dmg file..
 hdiutil create -size 250m -fs HFS+ -volname "Meld Merge" myimg.dmg
 hdiutil attach myimg.dmg
