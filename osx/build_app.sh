@@ -12,7 +12,7 @@ cp osx/conf.py meld/conf.py
 
 glib-compile-schemas data
 python3 setup_py2app.py build
-python3 setup_py2app.py py2app --use-faulthandler
+python3 setup_py2app.py py2app --use-faulthandler -a
 
 # py2app copies all Python framework to target..
 # too busy to figure out how to solve this at the moment. Let's just 
@@ -45,6 +45,12 @@ mkdir -p $RES/share/themes
 rsync -r -t $INSTROOT/share/themes/Default/ $RES/share/themes/Default
 rsync -r -t $INSTROOT/share/themes/Mac/ $RES/share/themes/Mac
 rsync -r -t $INSTROOT/share/gtksourceview-3.0 $RES/share
+mkdir -p $RES/share/themes/Meld-Mojave-dark/gtk-3.0
+mkdir -p $RES/share/themes/Meld-Mojave-light/gtk-3.0
+rsync -r -t --ignore-existing $INSTROOT/share/themes/Mojave-dark-solid-alt/gtk-3.0 $RES/share/themes/Meld-Mojave-dark
+rsync -r -t --ignore-existing $INSTROOT/share/themes/Mojave-light-solid-alt/gtk-3.0 $RES/share/themes/Meld-Mojave-light
+cp $INSTROOT/share/themes/Mac/gtk-3.0/gtk-keys.css $RES/share/themes/Meld-Mojave-dark/gtk-3.0/gtk-keys.css
+cp $INSTROOT/share/themes/Mac/gtk-3.0/gtk-keys.css $RES/share/themes/Meld-Mojave-light/gtk-3.0/gtk-keys.css
 
 # meld specific resources
 mkdir $RES/share/meld
