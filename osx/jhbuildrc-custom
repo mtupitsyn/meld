@@ -85,7 +85,7 @@ module_autogenargs['gtk+-3.0'] = '--enable-quartz-backend --enable-quartz-reloca
 module_autogenargs['gnome-themes-standard'] = '--disable-gtk2-engine ' + autogenargs
 module_autogenargs['harfbuzz'] = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext ' + autogenargs
 module_autogenargs['root-harfbuzz'] = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext ' + autogenargs
-module_autogenargs['fontconfig'] = '--with-cache-dir=/var/tmp/fontconfig_cache_meld --enable-iconv ' + autogenargs
+module_autogenargs['fontconfig'] = '--with-cache-dir="~/Library/Caches/org.gnome.meld.fontconfig" --with-default-fonts=/System/Library/Fonts --with-add-fonts=/Library/Fonts,/Network/Library/Fonts,/System/Library/Fonts ' + autogenargs
 module_autogenargs['python3'] = '--enable-optimizations --with-system-ffi --with-system-expat --without-lto --without-gcc  --disable-ipv6 --with-ensurepip=yes --without-tests --disable-tests ' + autogenargs
 
 
