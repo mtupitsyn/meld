@@ -275,6 +275,7 @@ class MeldWindow(Component):
     def osx_menu_setup(self, widget, event, callback_data=None):
         if self.osx_ready == False:
             import gi
+            from gi.repository import Pango
             gi.require_version('GtkosxApplication', '1.0') 
             from gi.repository import GtkosxApplication as gtkosx_application
             self.macapp = gtkosx_application.Application()
@@ -294,6 +295,7 @@ class MeldWindow(Component):
             self.macapp.insert_app_menu_item(Gtk.SeparatorMenuItem(), 3)
             #self.macapp.ready()
             NSApp.activateIgnoringOtherApps_(True)
+            self.widget.modify_font(Pango.FontDescription("Lucida Grande 10"))
             self.osx_ready = True
 
     def _on_recentmenu_map(self, recentmenu):
