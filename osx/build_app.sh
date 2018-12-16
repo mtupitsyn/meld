@@ -71,6 +71,14 @@ cd $RES/share/icons/hicolor
 gtk-update-icon-cache -f .
 popd
 
+pushd .
+mkdir -p $RES/etc/fontconfig/conf.d
+cp $INSTROOT/etc/fonts/fonts.conf $RES/etc/fontconfig
+for i in $(find $INSTROOT/etc/fonts/conf.d); do
+  cp $INSTROOT/share/fontconfig/conf.avail/$(basename $i) $RES/etc/fontconfig/conf.d
+done
+popd
+
 # DIRTY HACK FOR NOW
 #pushd .
 #cd $MAIN/Contents/MacOS
