@@ -128,6 +128,14 @@ class MeldStatusBar(Gtk.Statusbar):
         self.props.margin = 0
         self.props.spacing = 6
 
+        try:
+            from AppKit import NSFont
+            from gi.repository import Pango
+            system_font = NSFont.systemFontOfSize_(10)
+            self.modify_font(Pango.FontDescription(system_font.displayName() + " 9"))
+        except:
+            pass
+
         hbox = self.get_message_area()
         label = hbox.get_children()[0]
         hbox.props.spacing = 6
