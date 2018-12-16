@@ -12,7 +12,7 @@ cp osx/conf.py meld/conf.py
 
 glib-compile-schemas data
 python3 setup_py2app.py build
-python3 setup_py2app.py py2app
+python3 setup_py2app.py py2app --use-faulthandler
 
 # py2app copies all Python framework to target..
 # too busy to figure out how to solve this at the moment. Let's just 
@@ -94,11 +94,11 @@ rsync -t $INSTROOT/lib/libgtksourceview-3.0.1.dylib $FRAMEWORKS/libgtksourceview
 rsync -t $INSTROOT/lib/libgtkmacintegration-gtk3.2.dylib $FRAMEWORKS/libgtkmacintegration-gtk3.2.dylib
 
 # rename script, use wrapper
-mv $MAIN/Contents/MacOS/Meld $MAIN/Contents/MacOS/Meld-bin
-rsync -t osx/meld.applescript $MAIN/Contents/MacOS/meld_wrapper
-mv $MAIN/Contents/MacOS/meld_wrapper $MAIN/Contents/MacOS/Meld
+#mv $MAIN/Contents/MacOS/Meld $MAIN/Contents/MacOS/Meld-bin
+#rsync -t osx/meld.applescript $MAIN/Contents/MacOS/meld_wrapper
+#mv $MAIN/Contents/MacOS/meld_wrapper $MAIN/Contents/MacOS/Meld
 chmod +x $MAIN/Contents/MacOS/Meld
-chmod +x $MAIN/Contents/MacOS/Meld-bin
+#chmod +x $MAIN/Contents/MacOS/Meld-bin
 
 # unroot the library path
 pushd .
@@ -135,12 +135,29 @@ while [ $newlibs -gt 0 ]; do
   done
 done
 
+WORKDIR=$(mktemp -d)
+
+for i in $(find $HOME/gtk/inst/share/gir-1.0 -name *.gir); do
+    gir=$(echo $(basename $i))
+    typelib=${gir%.*}.typelib
+    echo Processing $gir to ${WORKDIR}/$typelib
+
+    cat $i | sed s_"$HOME/gtk/inst/lib"_"@executable\_path/../Frameworks"_g > ${WORKDIR}/$gir
+    $HOME/gtk/inst/bin/g-ir-compiler ${WORKDIR}/$gir -o ${WORKDIR}/$typelib
+
+done
+
+cp ${WORKDIR}/*.typelib ${RES}/lib/girepository-1.0
+
+rm -fr ${WORKDIR}
+
+
 #for dylib in $(find . -name "*.dylib"); do
 #  echo "Adding @executable_path/../Frameworks/$dylib to Meld"
 #  install_name_tool -add_rpath "@executable_path/../Frameworks/$dylib" $MAIN/Contents/MacOS/Meld
 #done
 popd
-
+exit
 # Create the dmg file..
 hdiutil create -size 250m -fs HFS+ -volname "Meld Merge" myimg.dmg
 hdiutil attach myimg.dmg
