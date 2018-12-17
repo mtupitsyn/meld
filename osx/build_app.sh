@@ -61,6 +61,10 @@ rsync -r -t data/styles/meld-base.xml $RES/share/gtksourceview-3.0/styles
 
 # update icon cache for Adwaita
 pushd .
+rm -fr $RES/share/icons/Adwaita/cursors
+rm -fr $RES/share/icons/Adwaita/256x256
+rm -fr $RES/share/icons/Adwaita/512x512
+rm -fr $RES/share/icons/Adwaita/96x96
 cd $RES/share/icons/Adwaita
 gtk-update-icon-cache -f .
 popd
