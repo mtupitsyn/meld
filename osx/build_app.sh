@@ -26,7 +26,7 @@ declare -a arr=("document-new"
                 "dialog-information" "go-previous" "go-next"
                 "list-add" "list-remove" "edit-delete" 
                 "dialog-information" "folder" "document-save" "edit-undo" "edit-redo"
-                "document-revert" "go-bottom" "emblem-symbolic-link"
+                "document-revert" "go-bottom" "emblem-symbolic-link" "text-x-generic"
                 )
 
 SOURCE_DIR="${INSTROOT}/share/icons/Adwaita"
@@ -84,34 +84,21 @@ rsync -r -t data/styles/meld-dark.xml $RES/share/gtksourceview-3.0/styles
 rsync -r -t data/styles/meld-base.xml $RES/share/gtksourceview-3.0/styles
 
 # update icon cache for Adwaita
-pushd .
 rm -fr $RES/share/icons/Adwaita/cursors
 rm -fr $RES/share/icons/Adwaita/256x256
 rm -fr $RES/share/icons/Adwaita/512x512
 rm -fr $RES/share/icons/Adwaita/96x96
-cd $RES/share/icons/Adwaita
-gtk-update-icon-cache -f .
-popd
+(cd $RES/share/icons/Adwaita && gtk-update-icon-cache -f .)
 
 # update icon cache for hicolor
-pushd .
-cd $RES/share/icons/hicolor
-gtk-update-icon-cache -f .
-popd
+(cd $RES/share/icons/hicolor && gtk-update-icon-cache -f .)
 
-pushd .
+# copy fontconfig configuration files
 mkdir -p $RES/etc/fontconfig/conf.d
 cp $INSTROOT/etc/fonts/fonts.conf $RES/etc/fontconfig
 for i in $(find $INSTROOT/etc/fonts/conf.d); do
   cp $INSTROOT/share/fontconfig/conf.avail/$(basename $i) $RES/etc/fontconfig/conf.d
 done
-popd
-
-# DIRTY HACK FOR NOW
-#pushd .
-#cd $MAIN/Contents/MacOS
-#ln -s ../Resources/share .
-#popd
 
 # copy main libraries
 mkdir -p $RES/lib
@@ -123,7 +110,7 @@ rsync -r -t $INSTROOT/lib/gobject-introspection $RES/lib
 mkdir -p $FRAMEWORKS
 rsync -t $INSTROOT/lib/libglib-2.0.0.dylib $FRAMEWORKS/libglib-2.0.0.dylib
 rsync -t $INSTROOT/lib/libcairo-gobject.2.dylib $FRAMEWORKS/libcairo-gobject.2.dylib
-rsync -t $INSTROOT/lib/libcairo-script-interpreter.2.dylib $FRAMEWORKS/libcairo-script-interpreter.2.dylib
+# rsync -t $INSTROOT/lib/libcairo-script-interpreter.2.dylib $FRAMEWORKS/libcairo-script-interpreter.2.dylib
 rsync -t $INSTROOT/lib/libcairo.2.dylib $FRAMEWORKS/libcairo.2.dylib
 rsync -t $INSTROOT/lib/libpangocairo-1.0.0.dylib $FRAMEWORKS/libpangocairo-1.0.0.dylib
 rsync -t $INSTROOT/lib/libatk-1.0.0.dylib $FRAMEWORKS/libatk-1.0.0.dylib
