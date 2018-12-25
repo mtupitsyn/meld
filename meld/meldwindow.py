@@ -277,7 +277,7 @@ class MeldWindow(Component):
             import gi
             gi.require_version('GtkosxApplication', '1.0') 
             from gi.repository import GtkosxApplication as gtkosx_application
-            self.macapp = gtkosx_application.Application()
+            macapp = gtkosx_application.Application()
             prefs_item =self.menubar.get_children()[1].get_submenu().get_children()[1]
             about_item = self.menubar.get_children()[1].get_submenu().get_children()[3]
             #self.menubar.get_children()[1].get_submenu().get_children()[2] #help
@@ -285,14 +285,14 @@ class MeldWindow(Component):
 
             self.menubar.show()
             self.menubar.remove(self.menubar.get_children()[1])
-            self.macapp.set_menu_bar(self.menubar)
+            macapp.set_menu_bar(self.menubar)
             self.menubar.hide()
             self.menubar.get_children()[1].hide()
-            self.macapp.insert_app_menu_item(about_item, 0)
-            self.macapp.insert_app_menu_item(Gtk.SeparatorMenuItem(), 1)
-            self.macapp.insert_app_menu_item(prefs_item, 2)
-            self.macapp.insert_app_menu_item(Gtk.SeparatorMenuItem(), 3)
-            #self.macapp.ready()
+            macapp.insert_app_menu_item(about_item, 0)
+            macapp.insert_app_menu_item(Gtk.SeparatorMenuItem(), 1)
+            macapp.insert_app_menu_item(prefs_item, 2)
+            macapp.insert_app_menu_item(Gtk.SeparatorMenuItem(), 3)
+            macapp.ready()
             NSApp.activateIgnoringOtherApps_(True)
             self.osx_ready = True
 
