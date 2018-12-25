@@ -12,7 +12,7 @@ cp osx/conf.py meld/conf.py
 
 glib-compile-schemas data
 python3 setup_py2app.py build
-python3 setup_py2app.py py2app --use-faulthandler
+python3 setup_py2app.py py2app --use-faulthandler # -A
 
 # py2app copies all Python framework to target..
 # too busy to figure out how to solve this at the moment. Let's just 
@@ -21,8 +21,32 @@ rm -fr $FRAMEWORKS/Python.framework
 
 # icon themes
 mkdir -p $RES/share/icons
-rsync -r -t --ignore-existing $INSTROOT/share/icons/Adwaita $RES/share/icons
-rsync -r -t --ignore-existing $INSTROOT/share/icons/hicolor $RES/share/icons
+declare -a arr=("document-new" 
+                "go-down" "go-up" "process-stop"
+                "dialog-information" "go-previous" "go-next"
+                "list-add" "list-remove" "edit-delete" 
+                "dialog-information" "folder" "document-save" "edit-undo" "edit-redo"
+                "document-revert" "go-bottom" "emblem-symbolic-link"
+                )
+
+SOURCE_DIR="${INSTROOT}/share/icons/Adwaita"
+TARGET_DIR="${RES}/share/icons/Adwaita"
+all_icons=$(find ${SOURCE_DIR})
+for icon in $all_icons
+do
+    for i in "${arr[@]}"
+    do
+        if [[ $icon == *"${i}.png" ]]; then            
+            icon_name=$(basename $icon)
+            icon_path=$(echo $(dirname $icon) | sed s_${SOURCE_DIR}__)
+            mkdir -p ${TARGET_DIR}/${icon_path}
+
+            echo "$i::$icon -> ${TARGET_DIR}/${icon_path}/"
+            cp ${icon} ${TARGET_DIR}/${icon_path}/
+        fi
+    done
+done
+rsync -r -t --ignore-existing ${INSTROOT}/share/icons/hicolor ${RES}/share/icons
 
 # glib schemas
 rsync -r -t  $INSTROOT/share/glib-2.0/schemas $RES/share/glib-2.0
