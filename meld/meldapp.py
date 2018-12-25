@@ -39,7 +39,6 @@ log = logging.getLogger(__name__)
 # import of _, rather than the non-unicode gettext.
 optparse._ = _
 
-
 class MeldApp(Gtk.Application):
 
     def __init__(self):
@@ -59,6 +58,7 @@ class MeldApp(Gtk.Application):
             ("help", self.help_callback),
             ("about", self.about_callback),
             ("quit", self.quit_callback),
+            ("make_sym_link", self.shell_symlink_callback),
         )
         for (name, callback) in actions:
             action = Gio.SimpleAction.new(name, None)
@@ -135,6 +135,10 @@ class MeldApp(Gtk.Application):
                 return
             window.destroy()
         self.quit()
+
+    def shell_symlink_callback(self, action, parameter):
+        from meld.misc import add_shell_symlink
+        add_shell_symlink()
 
     def new_window(self):
         window = MeldWindow()

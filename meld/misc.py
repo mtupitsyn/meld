@@ -564,3 +564,70 @@ def calc_syncpoint(adj):
     last_scale = (current - bottom_val) / half_a_screen
     syncpoint += 0.5 * max(0, last_scale)
     return syncpoint
+
+
+def add_shell_symlink():
+    from pathlib import Path
+    link_name = '/usr/local/bin/meld'
+
+    if Path(link_name).is_file():
+        add_shortcut = modal_dialog(
+            primary=_(
+                "Overwrite symlink for meld?"
+            ),
+            secondary=_(
+                "Overwrite symlink for meld in /usr/local/bin/meld? "
+                "Note: A file/link with the same name already exists "
+            ),
+            buttons=[
+                (_("_Cancel"), Gtk.ResponseType.CANCEL),
+                (_("Overwrite Symlink"), Gtk.ResponseType.OK),
+            ],
+            messagetype=Gtk.MessageType.WARNING
+        )
+    else:
+        add_shortcut = modal_dialog(
+            primary=_(
+                "Create symlink for meld?"
+            ),
+            secondary=_(
+                "Create symlink for meld in /usr/local/bin/meld? "
+                "This should allow you to use meld from the shell. "
+            ),
+            buttons=[
+                (_("_Cancel"), Gtk.ResponseType.CANCEL),
+                (_("Create Symlink"), Gtk.ResponseType.OK),
+            ],
+            messagetype=Gtk.MessageType.QUESTION
+        )
+
+    if add_shortcut == Gtk.ResponseType.OK:
+        from Foundation import NSBundle
+        bundle = NSBundle.mainBundle()
+        executable_path = bundle.executablePath().fileSystemRepresentation().decode("utf-8")
+
+        os.makedirs('/usr/local/bin', exist_ok=True)
+        
+        try:
+            try:
+                os.symlink(executable_path, link_name)
+            except OSError as e:
+                if e.errno == errno.EEXIST:
+                    os.remove(link_name)
+                    os.symlink(executable_path, link_name)
+                else:
+                    raise e
+        except:
+            modal_dialog(
+                primary=_(
+                    "Failed to create/update symlink"
+                ),
+                secondary=_(
+                    "Meld was unable to create the symlink required for shell operation. "
+                    "Please run the following command manually: sudo ln -sf {}  /usr/local/bin/meld ".format(executable_path)
+                ),
+                buttons=[
+                    (_("OK"), Gtk.ResponseType.OK),
+                ],
+                messagetype=Gtk.MessageType.WARNING
+            )

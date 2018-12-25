@@ -36,18 +36,18 @@ from meld.ui.notebooklabel import NotebookLabel
 from meld.vcview import VcView
 from meld.windowstate import SavedWindowState
 
-is_native = False
-try:
-    from Cocoa import NSApp
-    is_native = True
-except:
-    pass
 
 class MeldWindow(Component):
 
     def __init__(self):
         super().__init__("meldapp.ui", "meldapp")
         self.widget.set_name("meldapp")
+
+        try:
+            from Cocoa import NSApp
+            self.is_quartz = True
+        except:
+            self.is_quartz = False
 
         actions = (
             ("FileMenu", None, _("_File")),
@@ -144,7 +144,7 @@ class MeldWindow(Component):
 
         # Manually handle shells that don't show an application menu
         gtk_settings = Gtk.Settings.get_default()
-        if not gtk_settings.props.gtk_shell_shows_app_menu or is_native:
+        if not gtk_settings.props.gtk_shell_shows_app_menu or self.is_quartz:
             from meld.meldapp import app
 
             def make_app_action(name):
@@ -163,6 +163,8 @@ class MeldWindow(Component):
                  _("Open the Meld manual"), make_app_action('help')),
                 ("About", Gtk.STOCK_ABOUT, None, None,
                  _("About this application"), make_app_action('about')),
+                ("Shell Integration", None, _("Shell Integration"), None,
+                 _("Add Shell Symlink"), make_app_action('make_sym_link')),
             )
 
             app_actiongroup = Gtk.ActionGroup(name="AppActions")
@@ -260,8 +262,8 @@ class MeldWindow(Component):
         self.widget.connect('focus_in_event', self.on_focus_change)
         self.widget.connect('focus_out_event', self.on_focus_change)
 
-        if is_native:
-            self.osx_ready = False
+        if self.is_quartz:
+            self.quartz_ready = False
             self.widget.connect('window_state_event', self.osx_menu_setup)
             
         # Set tooltip on map because the recentmenu is lazily created
@@ -273,28 +275,42 @@ class MeldWindow(Component):
         self.widget.set_help_overlay(shortcut_window)
 
     def osx_menu_setup(self, widget, event, callback_data=None):
-        if self.osx_ready == False:
+        if self.quartz_ready == False:
             import gi
+            from Cocoa import NSApp
             gi.require_version('GtkosxApplication', '1.0') 
             from gi.repository import GtkosxApplication as gtkosx_application
             macapp = gtkosx_application.Application()
+            macapp.set_use_quartz_accelerators(True)
             prefs_item =self.menubar.get_children()[1].get_submenu().get_children()[1]
             about_item = self.menubar.get_children()[1].get_submenu().get_children()[3]
-            #self.menubar.get_children()[1].get_submenu().get_children()[2] #help
             quit_item = self.menubar.get_children()[1].get_submenu().get_children()[4]
+            help_item =self.menubar.get_children()[1].get_submenu().get_children()[2]
+            symlink_item =self.menubar.get_children()[1].get_submenu().get_children()[5]
 
             self.menubar.show()
-            self.menubar.remove(self.menubar.get_children()[1])
+            #help_menu = self.menubar.get_children()[1].get_submenu().get_children()[2]
+            #self.menubar.remove(help_menu)
             macapp.set_menu_bar(self.menubar)
             self.menubar.hide()
+            #macapp.set_help_menu(help_menu)
             self.menubar.get_children()[1].hide()
-            macapp.insert_app_menu_item(about_item, 0)
-            macapp.insert_app_menu_item(Gtk.SeparatorMenuItem(), 1)
+            macapp.set_about_item(about_item)
             macapp.insert_app_menu_item(prefs_item, 2)
             macapp.insert_app_menu_item(Gtk.SeparatorMenuItem(), 3)
+            macapp.insert_app_menu_item(symlink_item, 3)
+            macapp.insert_app_menu_item(help_item, 4)
             macapp.ready()
             NSApp.activateIgnoringOtherApps_(True)
-            self.osx_ready = True
+            macapp.attention_request(gtkosx_application.ApplicationAttentionType.NFO_REQUEST)
+            self.quartz_ready = True
+
+    def osx_dock_bounce(self):
+        import gi
+        gi.require_version('GtkosxApplication', '1.0') 
+        from gi.repository import GtkosxApplication as gtkosx_application
+        macapp = gtkosx_application.Application()
+        macapp.attention_request(gtkosx_application.ApplicationAttentionType.NFO_REQUEST)
 
     def _on_recentmenu_map(self, recentmenu):
         for imagemenuitem in recentmenu.get_children():
@@ -327,6 +343,8 @@ class MeldWindow(Component):
             self.spinner.set_tooltip_text("")
             self.idle_hooked = None
             self.actiongroup.get_action("Stop").set_sensitive(False)
+            if self.is_quartz:
+                self.osx_dock_bounce()
         return pending
 
     def on_scheduler_runnable(self, sched):
