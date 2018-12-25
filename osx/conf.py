@@ -4,7 +4,7 @@ import sys
 from Foundation import NSBundle
 
 __package__ = "meld"
-__version__ = "3.19.2"
+__version__ = "3.19.2.osx6"
 
 APPLICATION_ID = "org.gnome.meld"
 
