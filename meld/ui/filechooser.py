@@ -50,14 +50,6 @@ class MeldFileChooserDialog(Gtk.FileChooserDialog):
         # file comparisons, not in folder or version-control.
         self.props.local_only = action not in FILE_ACTIONS
 
-        try:
-            from AppKit import NSFont
-            from gi.repository import Pango
-            system_font = NSFont.systemFontOfSize_(10)
-            self.modify_font(Pango.FontDescription(system_font.displayName() + " 10"))
-        except:
-            pass
-
     def make_encoding_combo(self):
         """Create the combo box for text encoding selection"""
         codecs = []

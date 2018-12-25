@@ -54,8 +54,6 @@ if gtk_theme is None:
 else:
     os.environ['GTK_THEME'] = gtk_theme
 
-
-
 def disable_stdout_buffering():
 
     class Unbuffered:
@@ -245,6 +243,33 @@ def check_requirements():
     except (ImportError, AssertionError, ValueError) as e:
         missing_reqs("GtkSourceView", gtksourceview_requirement, e)
 
+def setup_platform_gtk_style():
+    font_name = ""
+    try:
+        from AppKit import NSFont
+        system_font = NSFont.systemFontOfSize_(9)
+        font_name = system_font.displayName()
+    except:
+        # For now, only support Mac. Perhaps other checks should be done here, too.
+        return
+    from gi.repository import Gtk
+    from gi.repository import Gdk
+
+    css = """
+        * {
+            -gtk-icon-style: symbolic;
+            font-family: "%s";
+            font-size: 9pt;
+          }
+        """ % font_name
+    style_provider = Gtk.CssProvider()
+    style_provider.load_from_data(css.encode("utf-8"))
+
+    Gtk.StyleContext.add_provider_for_screen(
+        Gdk.Screen.get_default(),
+        style_provider,
+        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    ) 
 
 def setup_resources():
     from gi.repository import GLib
@@ -381,6 +406,7 @@ if __name__ == '__main__':
     disable_stdout_buffering()
     check_requirements()
     setup_glib_logging()
+    setup_platform_gtk_style()
     setup_resources()
     setup_settings()
     environment_hacks()

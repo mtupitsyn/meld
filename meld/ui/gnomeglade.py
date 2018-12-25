@@ -43,13 +43,6 @@ class Component:
         self.builder.connect_signals(self)
         self.widget = getattr(self, root)
         self.widget.pyobject = self
-        try:
-            from AppKit import NSFont
-            from gi.repository import Pango
-            system_font = NSFont.systemFontOfSize_(10)
-            self.widget.modify_font(Pango.FontDescription(system_font.displayName() + " 10"))
-        except:
-            pass
 
     def __getattr__(self, key):
         """Allow UI builder widgets to be accessed as self.widgetname"""

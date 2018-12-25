@@ -128,6 +128,7 @@ class MeldStatusBar(Gtk.Statusbar):
         self.props.margin = 0
         self.props.spacing = 6
 
+        # On OSX, make the font slightly smaller for status bar
         try:
             from AppKit import NSFont
             from gi.repository import Pango
