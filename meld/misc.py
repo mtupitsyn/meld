@@ -565,69 +565,99 @@ def calc_syncpoint(adj):
     syncpoint += 0.5 * max(0, last_scale)
     return syncpoint
 
+# The functions below are Mac specific to help with shell integration
 
-def add_shell_symlink():
-    from pathlib import Path
-    link_name = '/usr/local/bin/meld'
+class MacShellIntegration:
+    alias_name = 'meld'
+    re = '\s*alias\s*meld=.*'
 
-    if Path(link_name).is_file():
-        add_shortcut = modal_dialog(
-            primary=_(
-                "Overwrite symlink for meld?"
-            ),
-            secondary=_(
-                "Overwrite symlink for meld in /usr/local/bin/meld? "
-                "Note: A file/link with the same name already exists "
-            ),
-            buttons=[
-                (_("_Cancel"), Gtk.ResponseType.CANCEL),
-                (_("Overwrite Symlink"), Gtk.ResponseType.OK),
-            ],
-            messagetype=Gtk.MessageType.WARNING
-        )
-    else:
-        add_shortcut = modal_dialog(
-            primary=_(
-                "Create symlink for meld?"
-            ),
-            secondary=_(
-                "Create symlink for meld in /usr/local/bin/meld? "
-                "This should allow you to use meld from the shell. "
-            ),
-            buttons=[
-                (_("_Cancel"), Gtk.ResponseType.CANCEL),
-                (_("Create Symlink"), Gtk.ResponseType.OK),
-            ],
-            messagetype=Gtk.MessageType.QUESTION
-        )
-
-    if add_shortcut == Gtk.ResponseType.OK:
+    def __init__(self):
         from Foundation import NSBundle
+        from pathlib import Path, PurePath
+        self.bashrc_file = str(PurePath(Path.home(), '.bashrc'))
         bundle = NSBundle.mainBundle()
-        executable_path = bundle.executablePath().fileSystemRepresentation().decode("utf-8")
+        self.executable_path = bundle.executablePath().fileSystemRepresentation().decode("utf-8")
 
-        os.makedirs('/usr/local/bin', exist_ok=True)
-        
-        try:
-            try:
-                os.symlink(executable_path, link_name)
-            except OSError as e:
-                if e.errno == errno.EEXIST:
-                    os.remove(link_name)
-                    os.symlink(executable_path, link_name)
+
+    def is_alias_found(self):
+        from pathlib import Path
+        import re
+        if Path(self.bashrc_file).is_file():
+            pattern = re.compile(self.re)
+            content = []
+            with open (self.bashrc_file, "r") as myfile:
+                content = myfile.readlines()
+            for line in content:
+                if pattern.match(line):
+                    return True
+            return False
+        else:
+            return False
+
+
+    def create_shell_alias(self):
+        from pathlib import Path
+        import re
+        if self.is_alias_found():
+            pattern = re.compile(self.re)
+            content = []
+            with open (self.bashrc_file, "r") as myfile:
+                content = myfile.readlines()
+            f = open(self.bashrc_file, "w")
+            for line in content:
+                if pattern.match(line):
+                    f.write("alias {}={}\n".format(self.alias_name, self.executable_path))
                 else:
-                    raise e
-        except:
-            modal_dialog(
-                primary=_(
-                    "Failed to create/update symlink"
-                ),
-                secondary=_(
-                    "Meld was unable to create the symlink required for shell operation. "
-                    "Please run the following command manually: sudo ln -sf {}  /usr/local/bin/meld ".format(executable_path)
-                ),
+                    f.write(line)
+            f.close()
+        else:
+            f = open(self.bashrc_file, "a+")
+            f.write("\n# Added by Meld for OSX\n")
+            f.write("alias {}={}\n".format(self.alias_name, self.executable_path))
+            f.close()
+    
+    def setup_integration(self):
+        if self.is_alias_found():
+            add_shortcut = modal_dialog(
+                primary=_("Mac Shell Integration already exists"),
+                secondary=_("Overwrite alias for meld?" "\n\n*Note*: alias already exists "),
                 buttons=[
-                    (_("OK"), Gtk.ResponseType.OK),
+                    (_("_Cancel"), Gtk.ResponseType.CANCEL),
+                    (_("Overwrite"), Gtk.ResponseType.OK),
                 ],
-                messagetype=Gtk.MessageType.WARNING
+                messagetype=Gtk.MessageType.QUESTION
             )
+        else:
+            add_shortcut = Gtk.ResponseType.OK
+
+        if add_shortcut == Gtk.ResponseType.OK:
+            try: 
+                self.create_shell_alias()
+                modal_dialog(
+                    primary=_(
+                        "Alias created"
+                    ),
+                    secondary=_(
+                        "You should be able to use meld from the command line.\n\n"
+                        "New Terminals will work automatically. For Terminals that are already open, issue the command:\n\n"
+                        "source ~/.bashrc"
+                    ),
+                    buttons=[
+                        (_("OK"), Gtk.ResponseType.OK),
+                    ],
+                    messagetype=Gtk.MessageType.INFO
+                )
+            except:
+                modal_dialog(
+                    primary=_(
+                        "Failed to create/update alias"
+                    ),
+                    secondary=_(
+                        "Meld was unable to create the alias required for shell operation. "
+                        "Edit your ~/.bashrc and add the line: alias meld={}".format(self.executable_path)
+                    ),
+                    buttons=[
+                        (_("OK"), Gtk.ResponseType.OK),
+                    ],
+                    messagetype=Gtk.MessageType.WARNING
+                )

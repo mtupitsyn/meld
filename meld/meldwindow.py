@@ -164,7 +164,7 @@ class MeldWindow(Component):
                 ("About", Gtk.STOCK_ABOUT, None, None,
                  _("About this application"), make_app_action('about')),
                 ("Shell Integration", None, _("Shell Integration"), None,
-                 _("Add Shell Symlink"), make_app_action('make_sym_link')),
+                 _("Mac Shell Integration"), make_app_action('mac_shell_integration')),
             )
 
             app_actiongroup = Gtk.ActionGroup(name="AppActions")
@@ -286,19 +286,17 @@ class MeldWindow(Component):
             about_item = self.menubar.get_children()[1].get_submenu().get_children()[3]
             quit_item = self.menubar.get_children()[1].get_submenu().get_children()[4]
             help_item =self.menubar.get_children()[1].get_submenu().get_children()[2]
-            symlink_item =self.menubar.get_children()[1].get_submenu().get_children()[5]
+            mac_shell_item =self.menubar.get_children()[1].get_submenu().get_children()[5]
 
             self.menubar.show()
-            #help_menu = self.menubar.get_children()[1].get_submenu().get_children()[2]
             #self.menubar.remove(help_menu)
             macapp.set_menu_bar(self.menubar)
             self.menubar.hide()
-            #macapp.set_help_menu(help_menu)
             self.menubar.get_children()[1].hide()
             macapp.set_about_item(about_item)
             macapp.insert_app_menu_item(prefs_item, 2)
             macapp.insert_app_menu_item(Gtk.SeparatorMenuItem(), 3)
-            macapp.insert_app_menu_item(symlink_item, 3)
+            macapp.insert_app_menu_item(mac_shell_item, 3)       # Disabled till we fix the symlink to be an alias
             macapp.insert_app_menu_item(help_item, 4)
             macapp.ready()
             NSApp.activateIgnoringOtherApps_(True)
