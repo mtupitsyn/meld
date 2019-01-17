@@ -29,6 +29,7 @@ import enum
 import os
 import sys
 import tempfile
+from typing import List, Tuple
 
 from gi.repository import Gio
 from gi.repository import GLib
@@ -116,25 +117,19 @@ class RecentFiles:
         recent_metadata.is_private = True
         self.recent_manager.add_full(gfile.get_uri(), recent_metadata)
 
-    def read(self, uri):
-        """Read stored comparison from URI
-
-        Returns the comparison type, the URIs involved and the comparison
-        flags.
-        """
+    def read(self, uri: str) -> Tuple[RecentType, List[Gio.File]]:
+        """Read stored comparison from URI"""
         comp_gfile = Gio.File.new_for_uri(uri)
         comp_path = comp_gfile.get_path()
         if not comp_gfile.query_exists(None) or not comp_path:
             raise IOError("Recent comparison file does not exist")
 
-        # TODO: remove reading paths in next release
         try:
             config = configparser.RawConfigParser()
             config.read(comp_path)
             assert (config.has_section("Comparison") and
                     config.has_option("Comparison", "type") and
-                    (config.has_option("Comparison", "paths") or
-                     config.has_option("Comparison", "uris")))
+                    config.has_option("Comparison", "uris"))
         except (configparser.Error, AssertionError):
             raise ValueError("Invalid recent comparison file")
 
@@ -143,15 +138,10 @@ class RecentFiles:
         except ValueError:
             raise ValueError("Invalid recent comparison file")
 
-        if config.has_option("Comparison", "uris"):
-            uris = config.get("Comparison", "uris").split(";")
-            gfiles = tuple(Gio.File.new_for_uri(u) for u in uris)
-        else:
-            paths = config.get("Comparison", "paths").split(";")
-            gfiles = tuple(Gio.File.new_for_path(p) for p in paths)
-        flags = tuple()
+        uris = config.get("Comparison", "uris").split(";")
+        gfiles = [Gio.File.new_for_uri(u) for u in uris]
 
-        return recent_type, gfiles, flags
+        return recent_type, gfiles
 
     def _write_recent_file(self, recent_type: RecentType, uris):
         # TODO: Use GKeyFile instead, and return a Gio.File. This is why we're
@@ -198,10 +188,10 @@ class RecentFiles:
         self._stored_comparisons = {}
         for item_uri in item_uris:
             try:
-                recent_type, gfiles, flags = self.read(item_uri)
+                recent_type, gfiles = self.read(item_uri)
             except (IOError, ValueError):
                 continue
-            # Store and look up comparisons by type and paths, ignoring flags
+            # Store and look up comparisons by type and paths
             gfile_uris = tuple(gfile.get_uri() for gfile in gfiles)
             self._stored_comparisons[recent_type, gfile_uris] = item_uri
 

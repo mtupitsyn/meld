@@ -12,7 +12,7 @@ cp osx/conf.py meld/conf.py
 
 glib-compile-schemas data
 python3 setup_py2app.py build
-python3 setup_py2app.py py2app --use-faulthandler # -A
+python3 setup_py2app.py py2app --use-faulthandler
 
 # py2app copies all Python framework to target..
 # too busy to figure out how to solve this at the moment. Let's just 
@@ -26,7 +26,7 @@ declare -a arr=("document-new"
                 "dialog-information" "go-previous" "go-next"
                 "list-add" "list-remove" "edit-delete" 
                 "dialog-information" "folder" "document-save" "edit-undo" "edit-redo"
-                "document-revert" "go-bottom" "emblem-symbolic-link" "text-x-generic"
+                "document-revert" "go-bottom" "emblem-symbolic-link" "text-x-generic" "open-menu-symbolic"
                 )
 
 SOURCE_DIR="${INSTROOT}/share/icons/Adwaita"
@@ -55,9 +55,9 @@ cp data/org.gnome.meld.gschema.xml $RES/share/glib-2.0/schemas
 rsync -r -t  $INSTROOT/share/GConf/gsettings $RES/share/GConf
 
 # pango
-mkdir -p $RES/etc/pango
-pango-querymodules |perl -i -pe 's/^[^#].*\///' > $RES/etc/pango/pango.modules
-echo "[Pango]\nModuleFiles=./etc/pango/pango.modules\n" > $RES/etc/pango/pangorc
+# mkdir -p $RES/etc/pango
+# pango-querymodules |perl -i -pe 's/^[^#].*\///' > $RES/etc/pango/pango.modules
+# echo "[Pango]\nModuleFiles=./etc/pango/pango.modules\n" > $RES/etc/pango/pangorc
 
 # gdk-pixbuf
 rsync -r -t $INSTROOT/lib/gdk-pixbuf-2.0 $RES/lib
@@ -127,6 +127,7 @@ rsync -t $INSTROOT/lib/libgtkmacintegration-gtk3.2.dylib $FRAMEWORKS/libgtkmacin
 #rsync -t osx/meld.applescript $MAIN/Contents/MacOS/meld_wrapper
 #mv $MAIN/Contents/MacOS/meld_wrapper $MAIN/Contents/MacOS/Meld
 chmod +x $MAIN/Contents/MacOS/Meld
+(cd $RES/share/meld && ln -sf org.gnome.meld.gresource meld.gresource)
 #chmod +x $MAIN/Contents/MacOS/Meld-bin
 
 # unroot the library path
@@ -165,7 +166,6 @@ while [ $newlibs -gt 0 ]; do
 done
 
 WORKDIR=$(mktemp -d)
-
 for i in $(find $HOME/gtk/inst/share/gir-1.0 -name *.gir); do
     gir=$(echo $(basename $i))
     typelib=${gir%.*}.typelib
@@ -173,11 +173,8 @@ for i in $(find $HOME/gtk/inst/share/gir-1.0 -name *.gir); do
 
     cat $i | sed s_"$HOME/gtk/inst/lib"_"@executable\_path/../Frameworks"_g > ${WORKDIR}/$gir
     $HOME/gtk/inst/bin/g-ir-compiler ${WORKDIR}/$gir -o ${WORKDIR}/$typelib
-
 done
-
 cp ${WORKDIR}/*.typelib ${RES}/lib/girepository-1.0
-
 rm -fr ${WORKDIR}
 
 

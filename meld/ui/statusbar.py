@@ -132,7 +132,7 @@ class MeldStatusBar(Gtk.Statusbar):
         try:
             from AppKit import NSFont
             from gi.repository import Pango
-            system_font = NSFont.systemFontOfSize_(10)
+            system_font = NSFont.systemFontOfSize_(9)
             self.modify_font(Pango.FontDescription(system_font.displayName() + " 9"))
         except:
             pass

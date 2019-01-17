@@ -1,13 +1,17 @@
 # -*- coding: utf-8 -*-
-
 #!/usr/bin/env python3
 
 import glob
+import sys
 import os
 import site
 import meld.build_helpers
 import meld.conf
 from setuptools import setup
+
+if sys.version_info[:2] < meld.conf.PYTHON_REQUIREMENT_TUPLE:
+    version = ".".join(map(str, meld.conf.PYTHON_REQUIREMENT_TUPLE))
+    raise Exception("Meld setup requires Python %s or higher." % version)
 
 APP_NAME = 'MeldMerge'
 VERSION_STRING = meld.conf.__version__
@@ -48,6 +52,28 @@ PLIST = {
 from modulegraph.find_modules import PY_SUFFIXES
 PY_SUFFIXES.append('')
 
+gtk_data_dirs = [
+    'etc/fonts',
+    'etc/gtk-3.0',
+    'lib/gdk-pixbuf-2.0',
+    'lib/girepository-1.0',
+    'share/fontconfig',
+    'share/glib-2.0',
+    'share/gtksourceview-3.0',
+    #'share/icons',
+]
+
+gtk_data_files = []
+for data_dir in gtk_data_dirs:
+    local_data_dir = os.path.join(sys.prefix, data_dir)
+
+    for local_data_subdir, dirs, files in os.walk(local_data_dir):
+        data_subdir = os.path.relpath(local_data_subdir, local_data_dir)
+        gtk_data_files.append((
+            os.path.join(data_dir, data_subdir),
+            [os.path.join(local_data_subdir, file) for file in files]
+        ))
+
 setup(
     name="Meld",
     version=meld.conf.__version__,
@@ -76,33 +102,32 @@ setup(
         'meld.vc',
     ],
     package_data={
-        'meld': ['README', 'COPYING', 'NEWS'],
-        'meld.vc': ['README', 'COPYING'],
+        'meld': ['README', 'COPYING', 'NEWS']
     },
+    scripts=['bin/meld'],
     app=['bin/meld'],
     setup_requires=["py2app"],
     options={'py2app': {
-                'includes': 'pango, cairo, pangocairo, atk, gobject, gio, encodings',
+                'includes': 'cairo, gi, weakref, encodings',
                 'frameworks':
-                'libpython3.6m.dylib,'
-                'libatk-1.0.0.dylib,'
-                'libcairo-gobject.2.dylib,'
-                'libcairo-script-interpreter.2.dylib,'
-                'libcairo.2.dylib,'
-                'libgio-2.0.0.dylib,'
-                'libgirepository-1.0.1.dylib,'
-                'libglib-2.0.0.dylib,'
-                'libgmodule-2.0.0.dylib,'
-                'libgobject-2.0.0.dylib,'
-                'libgtk-3.0.dylib,'
-                'libgtkmacintegration-gtk3.2.dylib,'
-                'libgtksourceview-3.0.1.dylib,'
-                'libharfbuzz.0.dylib,'
-                'libpango-1.0.0.dylib,'
-                'libpangocairo-1.0.0.dylib,'
-                'libpangoft2-1.0.0.dylib,'
-                'librsvg-2.2.dylib,'
-                ,
+                    'libpython3.6m.dylib'
+                    'libatk-1.0.0.dylib'
+                    'libcairo-gobject.2.dylib'
+                    'libcairo-script-interpreter.2.dylib'
+                    'libcairo.2.dylib'
+                    'libgio-2.0.0.dylib'
+                    'libgirepository-1.0.1.dylib'
+                    'libglib-2.0.0.dylib'
+                    'libgmodule-2.0.0.dylib'
+                    'libgobject-2.0.0.dylib'
+                    'libgtk-3.0.dylib'
+                    'libgtkmacintegration-gtk3.2.dylib'
+                    'libgtksourceview-3.0.1.dylib'
+                    'libharfbuzz.0.dylib'
+                    'libpango-1.0.0.dylib'
+                    'libpangocairo-1.0.0.dylib'
+                    'libpangoft2-1.0.0.dylib'
+                    'librsvg-2.2.dylib',
                 'argv_emulation': True,
                 'no_chdir': True,
                 'iconfile': 'osx/meld.icns',
@@ -118,10 +143,10 @@ setup(
          ),
         ('share/meld',
          ['data/gschemas.compiled']
-         ),
-         ('share/meld',
-          ['data/org.gnome.meld.gschema.xml']
-          ),
+        ),
+        ('share/meld',
+         ['data/org.gnome.meld.gschema.xml']
+        ),
         ('share/meld',
          ['data/meld.css']
          ),
@@ -134,13 +159,12 @@ setup(
          ),
         ('share/meld/ui',
          glob.glob("data/ui/*.ui") + glob.glob("data/ui/*.xml")
-         ),
-    ],
+        ),
+    ] + gtk_data_files,
     cmdclass={
         "build_i18n": meld.build_helpers.build_i18n,
         "build_help": meld.build_helpers.build_help,
         "build_icons": meld.build_helpers.build_icons,
         "build_data": meld.build_helpers.build_data,
-        "install_data": meld.build_helpers.install_data,
     },
 )
