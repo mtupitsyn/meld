@@ -74,12 +74,14 @@ class PatchDialog(Gtk.Dialog):
         if key == "font":
             self.textview.modify_font(meldsettings.font)
 
+    @Template.Callback()
     def on_buffer_selection_changed(self, radiobutton):
         if not radiobutton.get_active():
             return
         self.left_patch = radiobutton == self.left_radiobutton
         self.update_patch()
 
+    @Template.Callback()
     def on_reverse_checkbutton_toggled(self, checkbutton):
         self.reverse_patch = checkbutton.get_active()
         self.update_patch()

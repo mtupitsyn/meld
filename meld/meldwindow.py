@@ -50,7 +50,7 @@ class MeldWindow(Gtk.ApplicationWindow):
     def __init__(self):
         super().__init__()
 
-        MeldWindow.init_template(self)
+        self.init_template()
 
         try:
             from Cocoa import NSApp
@@ -224,7 +224,6 @@ class MeldWindow(Gtk.ApplicationWindow):
         self.ui.ensure_update()
         self.diff_handler = None
         self.undo_handlers = tuple()
-            
         # Set tooltip on map because the recentmenu is lazily created
         rmenu = self.ui.get_widget('/Menubar/FileMenu/Recent').get_submenu()
         rmenu.connect("map", self._on_recentmenu_map)
