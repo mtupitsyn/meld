@@ -5,7 +5,7 @@ This README should help you build Meld for OS X.
 
 ### Preparing JHBuild Environment ###
 
-	JHBuild is the build system that we will be using to build Meld. This step should really be done once and further builds should not require updating the build environment unless there have been some updates to the libraries that you'd like to do.
+JHBuild is the build system that we will be using to build Meld. This step should really be done once and further builds should not require updating the build environment unless there have been some updates to the libraries that you'd like to do.
 
 #### Environment
 
