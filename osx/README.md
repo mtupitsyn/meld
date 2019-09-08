@@ -84,7 +84,7 @@ bash ./osx/build_env.sh
 This is a very long process depending on your CPU and your Mac load. One an old Core i7 (late 2012), it's about two to three hours.
 
 
-#### Building Meld ####
+### Building Meld
 
 This isn't right yet. Work in progress.
 ```
