@@ -1,6 +1,6 @@
 #!/bin/sh
 
-export PATH=$HOME/.local/bin:$HOME/gtk/inst/bin:$PATH
+export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH
 
 APP="$PWD/dist/Meld.app"
 MAIN="$APP/"
@@ -26,7 +26,7 @@ declare -a arr=("document-new"
                 "dialog-information" "go-previous" "go-next"
                 "list-add" "list-remove" "edit-delete" 
                 "dialog-information" "folder" "document-save" "edit-undo" "edit-redo"
-                "document-revert" "go-bottom" "emblem-symbolic-link" "text-x-generic" "open-menu-symbolic"
+                "document-revert" "go-bottom" "emblem-symbolic-link" "text-x-generic" "open-menu-symbolic" "image-missing" "gtk-icon-theme-error-quark"
                 )
 
 SOURCE_DIR="${INSTROOT}/share/icons/Adwaita"

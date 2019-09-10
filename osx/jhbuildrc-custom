@@ -1,6 +1,8 @@
 # -*- mode: python -*-
 # -*- coding: utf-8 -*-
 
+print("Using Meld for OSX customization")
+
 #prefix = "/tmp/meldroot"
 checkoutroot = os.path.expanduser("~/Source/gtk")
 setup_sdk(target="10.9", sdk_version="native", architectures=["x86_64"])
@@ -33,6 +35,8 @@ skip.append("yelp-tools")
 #skip.append("gobject-introspection")
 skip.append("pygobject")
 skip.append("xorg-util-macros")
+skip.append('mozilla')
+skip.append('pulseaudio')
 
 # moduleset="https://gitlab.gnome.org/GNOME/gtk-osx/raw/master/modulesets-unstable/gtk-osx.modules"
 
@@ -75,7 +79,7 @@ module_autogenargs['gdk-pixbuf'] = '--with-included-loaders --enable-relocations
 module_autogenargs['pygobject3'] = '--disable-docs  --enable-cairo '
 #module_autogenargs['gtk-quartz-engine'] = 'CFLAGS=-Wuninitialized ' + autogenargs
 module_autogenargs['cairo'] = '--disable-full-testing --enable-ft --enable-fc --enable-quartz-image --enable-quartz-font --enable-quartz  --enable-png --enable-svg --enable-tee --enable-xml --enable-gobject --enable-pthread --disable-valgrind --disable-gtk-doc ' + autogenargs
-module_autogenargs['pango']='--with-included-modules=yes --with-dynamic-modules=no --enable-introspection=yes'
+module_mesonargs['pango']='--buildtype release --optimization 3 -Dintrospection=true'
 module_autogenargs['atk'] = autogenargs
 module_autogenargs['gobject-introspection']= '--with-cairo=yes ' + autogenargs
 #module_autogenargs['gtk-mac-integration']='--enable-python=all --without-gtk2 --with-gtk3 --enable-introspection=yes ' + autogenargs
