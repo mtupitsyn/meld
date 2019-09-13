@@ -54,11 +54,11 @@ modules = [
   "glib",
   "fribidi",
   "gtk-doc", 
-  "pango", "gdk-pixbuf", "librsvg", "freetype-no-harfbuzz",
+  "pango", "gdk-pixbuf", "librsvg",
   "meta-gtk-osx-gtk3",
   "meta-gtk-osx-python3-gtk3",
   "gsettings-desktop-schemas",
-  "gtksourceview3",
+  "gtksourceview4",
   "adwaita-icon-theme"
 ]
 
@@ -75,7 +75,7 @@ module_autogenargs['yelp'] = '--disable-Werror'
 module_autogenargs['zlib']= ''# + autogenargs
 module_autogenargs['librsvg'] = autogenargs
 module_autogenargs['glib'] = autogenargs
-module_autogenargs['gdk-pixbuf'] = '--with-included-loaders --enable-relocations ' + autogenargs
+module_mesonargs['gdk-pixbuf'] = '--buildtype release --optimization 3 -Dbuiltin_loaders=all -Drelocatable=true -Ddocs=false '
 module_autogenargs['pygobject3'] = '--disable-docs  --enable-cairo '
 #module_autogenargs['gtk-quartz-engine'] = 'CFLAGS=-Wuninitialized ' + autogenargs
 module_autogenargs['cairo'] = '--disable-full-testing --enable-ft --enable-fc --enable-quartz-image --enable-quartz-font --enable-quartz  --enable-png --enable-svg --enable-tee --enable-xml --enable-gobject --enable-pthread --disable-valgrind --disable-gtk-doc ' + autogenargs
