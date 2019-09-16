@@ -254,9 +254,8 @@ def setup_platform_gtk_style():
 
     css = """
         * {
-            -gtk-icon-style: symbolic;
             font-family: "%s";
-            font-size: 10pt;
+            font-size: 12pt;
           }
         """ % font_name
     style_provider = Gtk.CssProvider()
