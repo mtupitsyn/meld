@@ -20,32 +20,7 @@ python3 setup_py2app.py py2app --use-faulthandler
 rm -fr $FRAMEWORKS/Python.framework
 
 # icon themes
-mkdir -p $RES/share/icons
-declare -a arr=("document-new" 
-                "go-down" "go-up" "process-stop"
-                "dialog-information" "go-previous" "go-next"
-                "list-add" "list-remove" "edit-delete" 
-                "dialog-information" "folder" "document-save" "edit-undo" "edit-redo"
-                "document-revert" "go-bottom" "emblem-symbolic-link" "text-x-generic" "open-menu-symbolic" "image-missing" "gtk-icon-theme-error-quark"
-                )
-
-SOURCE_DIR="${INSTROOT}/share/icons/Adwaita"
-TARGET_DIR="${RES}/share/icons/Adwaita"
-all_icons=$(find ${SOURCE_DIR})
-for icon in $all_icons
-do
-    for i in "${arr[@]}"
-    do
-        if [[ $icon == *"${i}.png" ]]; then            
-            icon_name=$(basename $icon)
-            icon_path=$(echo $(dirname $icon) | sed s_${SOURCE_DIR}__)
-            mkdir -p ${TARGET_DIR}/${icon_path}
-
-            echo "$i::$icon -> ${TARGET_DIR}/${icon_path}/"
-            cp ${icon} ${TARGET_DIR}/${icon_path}/
-        fi
-    done
-done
+rsync -r -t --ignore-existing ${INSTROOT}/share/icons/Adwaita ${RES}/share/icons
 rsync -r -t --ignore-existing ${INSTROOT}/share/icons/hicolor ${RES}/share/icons
 
 # glib schemas
