@@ -18,6 +18,7 @@ import io
 import logging
 import optparse
 import os
+import signal
 
 from gi.repository import Gdk
 from gi.repository import Gio
@@ -434,3 +435,7 @@ class MeldApp(BASE_CLASS):
 
 
 app = MeldApp()
+
+# On Mac OSX, this allows the GTK app to exit cleanly and
+# preserve SavedWindowState for the 
+GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, app.quit)
