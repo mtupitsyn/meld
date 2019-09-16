@@ -70,14 +70,16 @@ global autogenargs
 autogenargs = autogenargs + ' --disable-documentation --disable-docs --enable-introspection --enable-gtk-doc=no --enable-gtk-doc-html=no --enable-gtk-doc-pdf=no'
 # autogenargs += ' --cache-file=' + checkoutroot + '/autoconf-cache '
 
+# branches["gtk+-3.0"] = "http://ftp.gnome.org/pub/gnome/sources/gtk/3.96/gtk-3.96.0.tar.xz"
+
 module_autogenargs['gettext-tools'] = 'CFLAGS=-O'
 module_autogenargs['yelp'] = '--disable-Werror'
 module_autogenargs['zlib']= ''# + autogenargs
-module_autogenargs['librsvg'] = autogenargs
+module_autogenargs['librsvg'] = '--disable-Bsymbolic --enable-pixbuf-loader --enable-shared=yes --enable-static=yes ' + autogenargs
 module_autogenargs['cairo'] = '--disable-full-testing --enable-ft --enable-fc --enable-quartz-image --enable-quartz-font --enable-quartz  --enable-png --enable-svg --enable-tee --enable-xml --enable-gobject --enable-pthread --disable-valgrind --disable-gtk-doc ' + autogenargs
 module_autogenargs['gobject-introspection']= '--with-cairo=yes ' + autogenargs
 module_autogenargs['tango-icon-theme']='--disable-nls --disable-icon-framing ' + autogenargs
-module_autogenargs['gtk+-3.0'] = '--enable-quartz-backend --enable-quartz-relocation --disable-cloudprint --with-included-immodules=am-et,cedilla,cyrillic-translit,inuktitut,ipa,multipress,thai,ti-er,ti-et,viqr --disable-modules --disable-rpath --disable-cups --disable-papi --disable-cloudprint --disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --enable-debug=no ' + autogenargs  #--disable-schemas-compile ?
+module_autogenargs['gtk+-3.0'] = '--enable-quartz-backend --enable-quartz-relocation --disable-Bsymbolic --disable-cloudprint --with-included-immodules=am-et,cedilla,cyrillic-translit,inuktitut,ipa,multipress,thai,ti-er,ti-et,viqr --disable-modules --disable-rpath --disable-cups --disable-papi --disable-cloudprint --disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --enable-debug=no ' + autogenargs  #--disable-schemas-compile ?
 module_autogenargs['gnome-themes-standard'] = '--disable-gtk2-engine ' + autogenargs
 module_autogenargs['harfbuzz'] = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext ' + autogenargs
 module_autogenargs['root-harfbuzz'] = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext ' + autogenargs
