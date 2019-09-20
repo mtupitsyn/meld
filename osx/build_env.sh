@@ -32,7 +32,17 @@ $HOME/gtk/inst/bin/pip3 install py2app
 (cd $HOME/Source/gtk/Mojave-gtk-theme && sed -i.bak 's/cp -ur/cp -r/' install.sh && ./install.sh  --dest $HOME/gtk/inst/share/themes)
 (cd $HOME/gtk/inst/share/themes && ln -sf Mojave-dark-solid-alt Meld-Mojave-dark)
 (cd $HOME/gtk/inst/share/themes && ln -sf Mojave-light-solid-alt Meld-Mojave-light)
+
+cd $HOME/Source
+curl -OL https://gitlab.gnome.org/GNOME/gtksourceview/-/archive/4.4.0/gtksourceview-4.4.0.tar.bz2
+tar xvf gtksourceview-4.4.0.tar.bz2
+WORKDIR=$(mktemp -d)
+cd $WORKDIR
+jhbuild run meson --libdir lib --buildtype release --optimization 3 -Dgtk_doc=false -Db_bitcode=true -Db_ndebug=true -Dvapi=false $HOME/Source/gtk/gtksourceview-4.4.0
+ninja install
+
 popd
+
 
 # Seems like the build system changed for introspection. We now get many
 # gir files without the prefix/full path to the library.

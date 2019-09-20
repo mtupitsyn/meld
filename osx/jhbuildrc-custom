@@ -58,9 +58,10 @@ modules = [
   "meta-gtk-osx-gtk3",
   "meta-gtk-osx-python3-gtk3",
   "gsettings-desktop-schemas",
-  "gtksourceview3",
   "adwaita-icon-theme"
 ]
+
+#"gtksourceview3",
 
 #moduleset="http://git.gnome.org/browse/gtk-osx/plain/modulesets/gtk-osx.modules"
 
