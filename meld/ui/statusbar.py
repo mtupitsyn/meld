@@ -53,7 +53,6 @@ class MeldStatusMenuButton(Gtk.MenuButton):
 
     label = GObject.Property(
         type=str,
-        nick="The GtkSourceLanguage displayed in the status bar",
         default=None,
         getter=get_label,
         setter=set_label,
@@ -73,6 +72,7 @@ class MeldStatusMenuButton(Gtk.MenuButton):
         label.props.single_line_mode = True
         label.props.halign = Gtk.Align.START
         label.props.valign = Gtk.Align.BASELINE
+        label.props.xalign = 1.0
 
         arrow = Gtk.Image.new_from_icon_name(
             'pan-down-symbolic', Gtk.IconSize.SMALL_TOOLBAR)
@@ -88,6 +88,9 @@ class MeldStatusMenuButton(Gtk.MenuButton):
         self.add(box)
 
         self._label = label
+
+    def set_label_width(self, width):
+        self._label.set_width_chars(width)
 
 
 class MeldStatusBar(Gtk.Statusbar):
@@ -111,7 +114,7 @@ class MeldStatusBar(Gtk.Statusbar):
     source_encoding = GObject.Property(
         type=GtkSource.Encoding,
         nick="The file encoding displayed in the status bar",
-        default=None,
+        default=GtkSource.Encoding.get_utf8(),
     )
 
     source_language = GObject.Property(
@@ -124,7 +127,7 @@ class MeldStatusBar(Gtk.Statusbar):
     _line_column_text = _("Ln %i, Col %i")
 
     def __init__(self):
-        GObject.GObject.__init__(self)
+        super().__init__()
         self.props.margin = 0
         self.props.spacing = 6
 
@@ -144,6 +147,9 @@ class MeldStatusBar(Gtk.Statusbar):
         hbox.remove(label)
         hbox.pack_end(label, False, True, 0)
 
+    def do_realize(self):
+        Gtk.Statusbar.do_realize(self)
+
         self.box_box = Gtk.HBox(homogeneous=False, spacing=6)
         self.pack_end(self.box_box, False, True, 0)
         self.box_box.pack_end(
@@ -152,6 +158,8 @@ class MeldStatusBar(Gtk.Statusbar):
             self.construct_highlighting_selector(), False, True, 0)
         self.box_box.pack_end(
             self.construct_encoding_selector(), False, True, 0)
+        self.box_box.pack_end(
+            self.construct_display_popover(), False, True, 0)
         self.box_box.show_all()
 
     def construct_line_display(self):
@@ -170,6 +178,8 @@ class MeldStatusBar(Gtk.Statusbar):
             line, offset = self.props.cursor_position
             entry.set_text(str(line + 1))
 
+        # This handler causes a failed assertion due to the `position`
+        # out param (see pygobject#12), but we don't need it here.
         def line_entry_insert_text(entry, new_text, length, position):
             if not new_text.isdigit():
                 GObject.signal_stop_emission_by_name(entry, 'insert-text')
@@ -212,6 +222,9 @@ class MeldStatusBar(Gtk.Statusbar):
             format_cursor_position)
         self.connect('start-go-to-line', lambda *args: button.clicked())
         button.set_popover(pop)
+        # Set a label width to avoid other widgets moving on cursor change
+        reasonable_width = len(format_cursor_position(None, (1000, 100))) - 2
+        button.set_label_width(reasonable_width)
         button.show()
 
         return button
@@ -234,7 +247,8 @@ class MeldStatusBar(Gtk.Statusbar):
 
         button = MeldStatusMenuButton()
         self.bind_property(
-            'source-encoding', button, 'label', GObject.BindingFlags.DEFAULT,
+            'source-encoding', button, 'label',
+            GObject.BindingFlags.DEFAULT | GObject.BindingFlags.SYNC_CREATE,
             lambda binding, enc: selector.get_value_label(enc))
         button.set_popover(pop)
         button.show()
@@ -264,8 +278,27 @@ class MeldStatusBar(Gtk.Statusbar):
 
         button = MeldStatusMenuButton()
         self.bind_property(
-            'source-language', button, 'label', GObject.BindingFlags.DEFAULT,
+            'source-language', button, 'label',
+            GObject.BindingFlags.DEFAULT | GObject.BindingFlags.SYNC_CREATE,
             lambda binding, enc: selector.get_value_label(enc))
+        button.set_popover(pop)
+        button.show()
+
+        return button
+
+    def construct_display_popover(self):
+        builder = Gtk.Builder.new_from_resource(
+            '/org/gnome/meld/ui/statusbar-menu.ui')
+        menu = builder.get_object('statusbar-menu')
+
+        pop = Gtk.Popover()
+        pop.bind_model(menu, 'view-local')
+        pop.set_position(Gtk.PositionType.TOP)
+
+        button = MeldStatusMenuButton()
+        # TRANSLATORS: This is the status bar label for a group of settings,
+        # such as text wrapping, show line numbers, whitespace, etc.
+        button.set_label(_('Display'))
         button.set_popover(pop)
         button.show()
 

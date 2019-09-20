@@ -11,8 +11,12 @@ data/org.gnome.meld.gschema.xml
 [type: gettext/glade]meld/resources/ui/appwindow.ui
 [type: gettext/glade]meld/resources/ui/column-list.ui
 [type: gettext/glade]meld/resources/ui/commit-dialog.ui
+[type: gettext/glade]meld/resources/ui/dirdiff-actions.ui
+[type: gettext/glade]meld/resources/ui/dirdiff-menus.ui
 [type: gettext/glade]meld/resources/ui/dirdiff.ui
 [type: gettext/glade]meld/resources/ui/encoding-selector.ui
+[type: gettext/glade]meld/resources/ui/filediff-actions.ui
+[type: gettext/glade]meld/resources/ui/filediff-menus.ui
 [type: gettext/glade]meld/resources/ui/filediff.ui
 [type: gettext/glade]meld/resources/ui/filter-list.ui
 [type: gettext/glade]meld/resources/ui/findbar.ui
@@ -22,9 +26,13 @@ data/org.gnome.meld.gschema.xml
 [type: gettext/glade]meld/resources/ui/patch-dialog.ui
 [type: gettext/glade]meld/resources/ui/preferences.ui
 [type: gettext/glade]meld/resources/ui/push-dialog.ui
+[type: gettext/glade]meld/resources/ui/recent-selector.ui
 [type: gettext/glade]meld/resources/ui/revert-dialog.ui
 [type: gettext/glade]meld/resources/ui/save-confirm-dialog.ui
+[type: gettext/glade]meld/resources/ui/statusbar-menu.ui
+[type: gettext/glade]meld/resources/ui/vcview-menus.ui
 [type: gettext/glade]meld/resources/ui/vcview.ui
+meld/actiongutter.py
 meld/const.py
 meld/dirdiff.py
 meld/filediff.py
@@ -40,7 +48,9 @@ meld/newdifftab.py
 meld/patchdialog.py
 meld/preferences.py
 meld/recent.py
+meld/style.py
 meld/ui/bufferselectors.py
+meld/ui/filechooser.py
 meld/ui/findbar.py
 meld/ui/historyentry.py
 meld/ui/msgarea.py

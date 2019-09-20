@@ -1,5 +1,5 @@
 # Copyright (C) 2002-2006 Stephen Kennedy <stevek@gnome.org>
-# Copyright (C) 2009-2015 Kai Willadsen <kai.willadsen@gmail.com>
+# Copyright (C) 2009-2019 Kai Willadsen <kai.willadsen@gmail.com>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,6 +16,7 @@
 
 import copy
 import functools
+import logging
 import math
 
 from gi.repository import Gdk
@@ -27,8 +28,14 @@ from gi.repository import GtkSource
 
 # TODO: Don't from-import whole modules
 from meld import misc
-from meld.conf import _, ui_file
-from meld.const import MODE_DELETE, MODE_INSERT, MODE_REPLACE, NEWLINES
+from meld.conf import _
+from meld.const import (
+    ActionMode,
+    ChunkAction,
+    NEWLINES,
+    TEXT_FILTER_ACTION_FORMAT,
+)
+from meld.gutterrendererchunk import GutterRendererChunkLines
 from meld.iohelpers import prompt_save_filename
 from meld.matchers.diffutil import Differ, merged_chunk_order
 from meld.matchers.helpers import CachedSequenceMatcher
@@ -39,13 +46,16 @@ from meld.melddoc import ComparisonState, MeldDoc
 from meld.misc import user_critical, with_focused_pane
 from meld.patchdialog import PatchDialog
 from meld.recent import RecentType
-from meld.settings import bind_settings, meldsettings
+from meld.settings import bind_settings, get_meld_settings
 from meld.sourceview import (
     get_custom_encoding_candidates, LanguageManager, TextviewLineAnimationType)
-from meld.ui._gtktemplate import Template
+from meld.ui.filechooser import MeldFileChooserDialog
 from meld.ui.findbar import FindBar
-from meld.ui.util import map_widgets_into_lists
+from meld.ui.util import (
+    make_multiobject_property_action, map_widgets_into_lists)
 from meld.undo import UndoSequence
+
+log = logging.getLogger(__name__)
 
 
 def with_scroll_lock(lock_attr):
@@ -63,7 +73,8 @@ def with_scroll_lock(lock_attr):
     def wrap(function):
         @functools.wraps(function)
         def wrap_function(locked, *args, **kwargs):
-            if getattr(locked, lock_attr, False) or locked._scroll_lock:
+            force_locked = locked.props.lock_scrolling
+            if getattr(locked, lock_attr, False) or force_locked:
                 return
 
             try:
@@ -81,7 +92,7 @@ PANE_LEFT, PANE_RIGHT = -1, +1
 
 class CursorDetails:
     __slots__ = (
-        "pane", "pos", "line", "offset", "chunk", "prev", "next",
+        "pane", "pos", "line", "chunk", "prev", "next",
         "prev_conflict", "next_conflict",
     )
 
@@ -90,7 +101,7 @@ class CursorDetails:
             setattr(self, var, None)
 
 
-@Template(resource_path='/org/gnome/meld/ui/filediff.ui')
+@Gtk.Template(resource_path='/org/gnome/meld/ui/filediff.ui')
 class FileDiff(Gtk.VBox, MeldDoc):
     """Two or three way comparison of text files"""
 
@@ -100,11 +111,12 @@ class FileDiff(Gtk.VBox, MeldDoc):
     create_diff_signal = MeldDoc.create_diff_signal
     file_changed_signal = MeldDoc.file_changed_signal
     label_changed = MeldDoc.label_changed
-    next_diff_changed_signal = MeldDoc.next_diff_changed_signal
     tab_state_changed = MeldDoc.tab_state_changed
 
-    __gsettings_bindings__ = (
+    __gsettings_bindings_view__ = (
         ('ignore-blank-lines', 'ignore-blank-lines'),
+        ('show-overview-map', 'show-overview-map'),
+        ('overview-map-style', 'overview-map-style'),
     )
 
     ignore_blank_lines = GObject.Property(
@@ -113,53 +125,65 @@ class FileDiff(Gtk.VBox, MeldDoc):
         blurb="Whether to ignore blank lines when comparing file contents",
         default=False,
     )
+    show_overview_map = GObject.Property(type=bool, default=True)
+    overview_map_style = GObject.Property(type=str, default='chunkmap')
 
-    actiongroup = Template.Child('FilediffActions')
-    diffmap0 = Template.Child()
-    diffmap1 = Template.Child()
-    dummy_toolbar_diffmap0 = Template.Child()
-    dummy_toolbar_diffmap1 = Template.Child()
-    dummy_toolbar_linkmap0 = Template.Child()
-    dummy_toolbar_linkmap1 = Template.Child()
-    fileentry0 = Template.Child()
-    fileentry1 = Template.Child()
-    fileentry2 = Template.Child()
-    fileentry_toolitem0 = Template.Child()
-    fileentry_toolitem1 = Template.Child()
-    fileentry_toolitem2 = Template.Child()
-    file_save_button0 = Template.Child()
-    file_save_button1 = Template.Child()
-    file_save_button2 = Template.Child()
-    file_toolbar0 = Template.Child()
-    file_toolbar1 = Template.Child()
-    file_toolbar2 = Template.Child()
-    filelabel0 = Template.Child()
-    filelabel1 = Template.Child()
-    filelabel2 = Template.Child()
-    filelabel_toolitem0 = Template.Child()
-    filelabel_toolitem1 = Template.Child()
-    filelabel_toolitem2 = Template.Child()
-    grid = Template.Child()
-    msgarea_mgr0 = Template.Child()
-    msgarea_mgr1 = Template.Child()
-    msgarea_mgr2 = Template.Child()
-    readonlytoggle0 = Template.Child()
-    readonlytoggle1 = Template.Child()
-    readonlytoggle2 = Template.Child()
-    scrolledwindow0 = Template.Child()
-    scrolledwindow1 = Template.Child()
-    scrolledwindow2 = Template.Child()
-    statusbar0 = Template.Child()
-    statusbar1 = Template.Child()
-    statusbar2 = Template.Child()
-    linkmap0 = Template.Child()
-    linkmap1 = Template.Child()
-    textview0 = Template.Child()
-    textview1 = Template.Child()
-    textview2 = Template.Child()
-    vbox0 = Template.Child()
-    vbox1 = Template.Child()
-    vbox2 = Template.Child()
+    actiongutter0 = Gtk.Template.Child()
+    actiongutter1 = Gtk.Template.Child()
+    actiongutter2 = Gtk.Template.Child()
+    actiongutter3 = Gtk.Template.Child()
+    chunkmap0 = Gtk.Template.Child()
+    chunkmap1 = Gtk.Template.Child()
+    chunkmap2 = Gtk.Template.Child()
+    chunkmap_hbox = Gtk.Template.Child()
+    dummy_toolbar_actiongutter0 = Gtk.Template.Child()
+    dummy_toolbar_actiongutter1 = Gtk.Template.Child()
+    dummy_toolbar_actiongutter2 = Gtk.Template.Child()
+    dummy_toolbar_actiongutter3 = Gtk.Template.Child()
+    dummy_toolbar_linkmap0 = Gtk.Template.Child()
+    dummy_toolbar_linkmap1 = Gtk.Template.Child()
+    dummy_toolbar_sourcemap = Gtk.Template.Child()
+    file_open_button0 = Gtk.Template.Child()
+    file_open_button1 = Gtk.Template.Child()
+    file_open_button2 = Gtk.Template.Child()
+    file_save_button0 = Gtk.Template.Child()
+    file_save_button1 = Gtk.Template.Child()
+    file_save_button2 = Gtk.Template.Child()
+    file_toolbar0 = Gtk.Template.Child()
+    file_toolbar1 = Gtk.Template.Child()
+    file_toolbar2 = Gtk.Template.Child()
+    filelabel0 = Gtk.Template.Child()
+    filelabel1 = Gtk.Template.Child()
+    filelabel2 = Gtk.Template.Child()
+    filelabel_toolitem0 = Gtk.Template.Child()
+    filelabel_toolitem1 = Gtk.Template.Child()
+    filelabel_toolitem2 = Gtk.Template.Child()
+    grid = Gtk.Template.Child()
+    msgarea_mgr0 = Gtk.Template.Child()
+    msgarea_mgr1 = Gtk.Template.Child()
+    msgarea_mgr2 = Gtk.Template.Child()
+    readonlytoggle0 = Gtk.Template.Child()
+    readonlytoggle1 = Gtk.Template.Child()
+    readonlytoggle2 = Gtk.Template.Child()
+    scrolledwindow0 = Gtk.Template.Child()
+    scrolledwindow1 = Gtk.Template.Child()
+    scrolledwindow2 = Gtk.Template.Child()
+    sourcemap_revealer = Gtk.Template.Child()
+    sourcemap0 = Gtk.Template.Child()
+    sourcemap1 = Gtk.Template.Child()
+    sourcemap2 = Gtk.Template.Child()
+    sourcemap_hbox = Gtk.Template.Child()
+    statusbar0 = Gtk.Template.Child()
+    statusbar1 = Gtk.Template.Child()
+    statusbar2 = Gtk.Template.Child()
+    linkmap0 = Gtk.Template.Child()
+    linkmap1 = Gtk.Template.Child()
+    textview0 = Gtk.Template.Child()
+    textview1 = Gtk.Template.Child()
+    textview2 = Gtk.Template.Child()
+    vbox0 = Gtk.Template.Child()
+    vbox1 = Gtk.Template.Child()
+    vbox2 = Gtk.Template.Child()
 
     differ = Differ
 
@@ -179,9 +203,19 @@ class FileDiff(Gtk.VBox, MeldDoc):
     __gsignals__ = {
         'next-conflict-changed': (
             GObject.SignalFlags.RUN_FIRST, None, (bool, bool)),
-        'action-mode-changed': (
-            GObject.SignalFlags.RUN_FIRST, None, (int,)),
     }
+
+    action_mode = GObject.Property(
+        type=int,
+        nick='Action mode for chunk change actions',
+        default=ActionMode.Replace,
+    )
+
+    lock_scrolling = GObject.Property(
+        type=bool,
+        nick='Lock scrolling of all panes',
+        default=False,
+    )
 
     def __init__(self, num_panes):
         super().__init__()
@@ -194,15 +228,16 @@ class FileDiff(Gtk.VBox, MeldDoc):
         # multiple inheritance and we need to inherit from our Widget
         # parent to make Template work.
         MeldDoc.__init__(self)
-        self.init_template()
         bind_settings(self)
 
         widget_lists = [
-            "diffmap", "file_save_button", "file_toolbar", "fileentry",
+            "sourcemap", "file_save_button", "file_toolbar",
             "linkmap", "msgarea_mgr", "readonlytoggle",
             "scrolledwindow", "textview", "vbox",
             "dummy_toolbar_linkmap", "filelabel_toolitem", "filelabel",
-            "fileentry_toolitem", "dummy_toolbar_diffmap", "statusbar",
+            "file_open_button", "statusbar",
+            "actiongutter", "dummy_toolbar_actiongutter",
+            "chunkmap",
         ]
         map_widgets_into_lists(self, widget_lists)
 
@@ -215,9 +250,9 @@ class FileDiff(Gtk.VBox, MeldDoc):
         self.buffer_texts = [BufferLines(b) for b in self.textbuffer]
         self.undosequence = UndoSequence(self.textbuffer)
         self.text_filters = []
-        self.create_text_filters()
+        meld_settings = get_meld_settings()
         self.settings_handlers = [
-            meldsettings.connect(
+            meld_settings.connect(
                 "text-filters-changed", self.on_text_filters_changed)
         ]
         self.buffer_filtered = [
@@ -229,29 +264,117 @@ class FileDiff(Gtk.VBox, MeldDoc):
         self._connect_buffer_handlers()
         self._sync_vscroll_lock = False
         self._sync_hscroll_lock = False
-        self._scroll_lock = False
         self.linediffer = self.differ()
         self.force_highlight = False
         self.syncpoints = []
         self.in_nested_textview_gutter_expose = False
         self._cached_match = CachedSequenceMatcher(self.scheduler)
 
+        # Set up property actions for statusbar toggles
+        sourceview_prop_actions = [
+            'draw-spaces-bool',
+            'highlight-current-line-local',
+            'show-line-numbers',
+            'wrap-mode-bool',
+        ]
+
+        prop_action_group = Gio.SimpleActionGroup()
+        for prop in sourceview_prop_actions:
+            action = make_multiobject_property_action(self.textview, prop)
+            prop_action_group.add_action(action)
+        self.insert_action_group('view-local', prop_action_group)
+
+        # Set up per-view action group for top-level menu insertion
+        self.view_action_group = Gio.SimpleActionGroup()
+
+        property_actions = (
+            ('show-overview-map', self, 'show-overview-map'),
+            ('lock-scrolling', self, 'lock_scrolling'),
+        )
+        for action_name, obj, prop_name in property_actions:
+            action = Gio.PropertyAction.new(action_name, obj, prop_name)
+            self.view_action_group.add_action(action)
+
+        # Manually handle GAction additions
+        actions = (
+            ('add-sync-point', self.add_sync_point),
+            ('clear-sync-point', self.clear_sync_points),
+            ('copy', self.action_copy),
+            ('cut', self.action_cut),
+            ('file-previous-conflict', self.action_previous_conflict),
+            ('file-next-conflict', self.action_next_conflict),
+            ('file-push-left', self.action_push_change_left),
+            ('file-push-right', self.action_push_change_right),
+            ('file-pull-left', self.action_pull_change_left),
+            ('file-pull-right', self.action_pull_change_right),
+            ('file-copy-left-up', self.action_copy_change_left_up),
+            ('file-copy-right-up', self.action_copy_change_right_up),
+            ('file-copy-left-down', self.action_copy_change_left_down),
+            ('file-copy-right-down', self.action_copy_change_right_down),
+            ('file-delete', self.action_delete_change),
+            ('find', self.action_find),
+            ('find-next', self.action_find_next),
+            ('find-previous', self.action_find_previous),
+            ('find-replace', self.action_find_replace),
+            ('format-as-patch', self.action_format_as_patch),
+            ('go-to-line', self.action_go_to_line),
+            ('merge-all-left', self.action_pull_all_changes_left),
+            ('merge-all-right', self.action_pull_all_changes_right),
+            ('merge-all', self.action_merge_all_changes),
+            ('next-change', self.action_next_change),
+            ('next-pane', self.action_next_pane),
+            ('open-external', self.action_open_external),
+            ('paste', self.action_paste),
+            ('previous-change', self.action_previous_change),
+            ('previous-pane', self.action_prev_pane),
+            ('redo', self.action_redo),
+            ('refresh', self.action_refresh),
+            ('revert', self.action_revert),
+            ('save', self.action_save),
+            ('save-all', self.action_save_all),
+            ('save-as', self.action_save_as),
+            ('undo', self.action_undo),
+        )
+        for name, callback in actions:
+            action = Gio.SimpleAction.new(name, None)
+            action.connect('activate', callback)
+            self.view_action_group.add_action(action)
+
+        builder = Gtk.Builder.new_from_resource(
+            '/org/gnome/meld/ui/filediff-menus.ui')
+        context_menu = builder.get_object('filediff-context-menu')
+        self.popup_menu = Gtk.Menu.new_from_model(context_menu)
+        self.popup_menu.attach_to_widget(self)
+
+        builder = Gtk.Builder.new_from_resource(
+            '/org/gnome/meld/ui/filediff-actions.ui')
+        self.toolbar_actions = builder.get_object('view-toolbar')
+        self.copy_action_button = builder.get_object('copy_action_button')
+
+        self.create_text_filters()
+
+        # Handle overview map visibility binding
+        self.bind_property(
+            'show-overview-map', self.sourcemap_revealer, 'reveal-child',
+            GObject.BindingFlags.DEFAULT | GObject.BindingFlags.SYNC_CREATE,
+        )
+        self.sourcemap_revealer.bind_property(
+            'child-revealed', self.dummy_toolbar_sourcemap, 'visible')
+
+        # Handle overview map style mapping manually
+        self.connect(
+            'notify::overview-map-style', self.on_overview_map_style_changed)
+        self.on_overview_map_style_changed()
+
         for buf in self.textbuffer:
             buf.undo_sequence = self.undosequence
-            buf.connect("notify::has-selection",
-                        self.update_text_actions_sensitivity)
+            buf.connect(
+                'notify::has-selection', self.update_text_actions_sensitivity)
             buf.data.file_changed_signal.connect(self.notify_file_changed)
-
-        self.ui_file = ui_file("filediff-ui.xml")
-        self.actiongroup.set_translation_domain("meld")
-
-        # Alternate keybindings for a few commands.
-        self.extra_accels = (
-            ("<Alt>KP_Delete", self.delete_change),
-        )
+        self.update_text_actions_sensitivity()
 
         self.findbar = FindBar(self.grid)
-        self.grid.attach(self.findbar, 1, 2, 5, 1)
+        self.grid.attach(self.findbar, 0, 2, 10, 1)
 
         self.set_num_panes(num_panes)
         self.cursor = CursorDetails()
@@ -268,14 +391,29 @@ class FileDiff(Gtk.VBox, MeldDoc):
                 'overwrite', self.textview[0], 'overwrite',
                 GObject.BindingFlags.BIDIRECTIONAL)
 
+        for gutter in self.actiongutter:
+            self.bind_property('action_mode', gutter, 'action_mode')
+            gutter.connect(
+                'chunk_action_activated', self.on_chunk_action_activated)
+
         self.linediffer.connect("diffs-changed", self.on_diffs_changed)
         self.undosequence.connect("checkpointed", self.on_undo_checkpointed)
+        self.undosequence.connect("can-undo", self.on_can_undo)
+        self.undosequence.connect("can-redo", self.on_can_redo)
         self.connect("next-conflict-changed", self.on_next_conflict_changed)
 
-        for diffmap in self.diffmap:
-            self.linediffer.connect('diffs-changed', diffmap.on_diffs_changed)
+        # TODO: If UndoSequence expose can_undo and can_redo as
+        # GProperties instead, this would be much, much nicer.
+        self.set_action_enabled('redo', self.undosequence.can_redo())
+        self.set_action_enabled('undo', self.undosequence.can_undo())
 
         for statusbar, buf in zip(self.statusbar, self.textbuffer):
+            buf.bind_property(
+                'cursor-position', statusbar, 'cursor_position',
+                GObject.BindingFlags.DEFAULT,
+                self.bind_adapt_cursor_position,
+            )
+
             buf.bind_property(
                 'language', statusbar, 'source-language',
                 GObject.BindingFlags.BIDIRECTIONAL)
@@ -291,6 +429,8 @@ class FileDiff(Gtk.VBox, MeldDoc):
                 self.set_file(pane, buffer.data.gfile, encoding)
 
             def go_to_line(widget, line, pane):
+                if self.cursor.pane == pane and self.cursor.line == line:
+                    return
                 self.move_cursor(pane, line, focus=False)
 
             pane = self.statusbar.index(statusbar)
@@ -298,32 +438,9 @@ class FileDiff(Gtk.VBox, MeldDoc):
             statusbar.connect('go-to-line', go_to_line, pane)
 
         # Prototype implementation
-
-        from meld.gutterrendererchunk import (
-            GutterRendererChunkAction, GutterRendererChunkLines)
-
         for pane, t in enumerate(self.textview):
             # FIXME: set_num_panes will break this good
             direction = t.get_direction()
-
-            if pane == 0 or (pane == 1 and self.num_panes == 3):
-                window = Gtk.TextWindowType.RIGHT
-                if direction == Gtk.TextDirection.RTL:
-                    window = Gtk.TextWindowType.LEFT
-                views = [self.textview[pane], self.textview[pane + 1]]
-                renderer = GutterRendererChunkAction(
-                    pane, pane + 1, views, self, self.linediffer)
-                gutter = t.get_gutter(window)
-                gutter.insert(renderer, 10)
-            if pane in (1, 2):
-                window = Gtk.TextWindowType.LEFT
-                if direction == Gtk.TextDirection.RTL:
-                    window = Gtk.TextWindowType.RIGHT
-                views = [self.textview[pane], self.textview[pane - 1]]
-                renderer = GutterRendererChunkAction(
-                    pane, pane - 1, views, self, self.linediffer)
-                gutter = t.get_gutter(window)
-                gutter.insert(renderer, -40)
 
             # TODO: This renderer handling should all be part of
             # MeldSourceView, but our current diff-chunk-handling makes
@@ -339,37 +456,32 @@ class FileDiff(Gtk.VBox, MeldDoc):
 
         self.connect("notify::ignore-blank-lines", self.refresh_comparison)
 
-    def on_container_switch_in_event(self, ui):
-        MeldDoc.on_container_switch_in_event(self, ui)
+    def do_realize(self):
+        Gtk.VBox().do_realize(self)
 
-        accel_group = ui.get_accel_group()
-        for accel, callback in self.extra_accels:
-            keyval, mask = Gtk.accelerator_parse(accel)
-            accel_group.connect(keyval, mask, 0, callback)
+        builder = Gtk.Builder.new_from_resource(
+            '/org/gnome/meld/ui/filediff-menus.ui')
+        filter_menu = builder.get_object('file-copy-actions-menu')
 
-    def on_container_switch_out_event(self, ui):
-        accel_group = ui.get_accel_group()
-        for accel, callback in self.extra_accels:
-            keyval, mask = Gtk.accelerator_parse(accel)
-            accel_group.disconnect_key(keyval, mask)
-
-        MeldDoc.on_container_switch_out_event(self, ui)
+        self.copy_action_button.set_popover(
+            Gtk.Popover.new_from_model(self.copy_action_button, filter_menu))
 
     def get_keymask(self):
         return self._keymask
 
     def set_keymask(self, value):
         if value & MASK_SHIFT:
-            mode = MODE_DELETE
+            mode = ActionMode.Delete
         elif value & MASK_CTRL:
-            mode = MODE_INSERT
+            mode = ActionMode.Insert
         else:
-            mode = MODE_REPLACE
+            mode = ActionMode.Replace
         self._keymask = value
-        self.emit("action-mode-changed", mode)
+        self.action_mode = mode
+
     keymask = property(get_keymask, set_keymask)
 
-    @Template.Callback()
+    @Gtk.Template.Callback()
     def on_key_event(self, object, event):
         keymap = Gdk.Keymap.get_default()
         ok, keyval, group, lvl, consumed = keymap.translate_keyboard_state(
@@ -380,24 +492,50 @@ class FileDiff(Gtk.VBox, MeldDoc):
             if event.keyval == Gdk.KEY_Escape:
                 self.findbar.hide()
         elif event.type == Gdk.EventType.KEY_RELEASE:
-            if event.keyval == Gdk.KEY_Return and self.keymask & MASK_SHIFT:
-                self.findbar.start_find_previous(self.focus_pane)
             self.keymask &= ~mod_key
+
+    def on_overview_map_style_changed(self, *args):
+        style = self.props.overview_map_style
+        self.chunkmap_hbox.set_visible(style == 'chunkmap')
+        self.sourcemap_hbox.set_visible(
+            style in ('compact-sourcemap', 'full-sourcemap'))
+        for sourcemap in self.sourcemap:
+            sourcemap.props.compact_view = style == 'compact-sourcemap'
 
     def on_text_filters_changed(self, app):
         relevant_change = self.create_text_filters()
         if relevant_change:
             self.refresh_comparison()
 
+    def _update_text_filter(self, action, state):
+        self._action_text_filter_map[action].active = state.get_boolean()
+        action.set_state(state)
+        self.refresh_comparison()
+
     def create_text_filters(self):
+        meld_settings = get_meld_settings()
+
         # In contrast to file filters, ordering of text filters can matter
         old_active = [f.filter_string for f in self.text_filters if f.active]
         new_active = [
-            f.filter_string for f in meldsettings.text_filters if f.active
+            f.filter_string for f in meld_settings.text_filters if f.active
         ]
         active_filters_changed = old_active != new_active
 
-        self.text_filters = [copy.copy(f) for f in meldsettings.text_filters]
+        # TODO: Rework text_filters to use a map-like structure so that we
+        # don't need _action_text_filter_map.
+        self._action_text_filter_map = {}
+        self.text_filters = [copy.copy(f) for f in meld_settings.text_filters]
+        for i, filt in enumerate(self.text_filters):
+            action = Gio.SimpleAction.new_stateful(
+                name=TEXT_FILTER_ACTION_FORMAT.format(i),
+                parameter_type=None,
+                state=GLib.Variant.new_boolean(filt.active),
+            )
+            action.connect('change-state', self._update_text_filter)
+            action.set_enabled(filt.filter is not None)
+            self.view_action_group.add_action(action)
+            self._action_text_filter_map[action] = filt
 
         return active_filters_changed
 
@@ -422,6 +560,16 @@ class FileDiff(Gtk.VBox, MeldDoc):
                 "notify::cursor-position", self.on_cursor_position_changed)
             buf.handlers = id0, id1, id2, id3, id4
 
+    def bind_adapt_cursor_position(self, binding, from_value):
+        buf = binding.get_source()
+        textview = self.textview[self.textbuffer.index(buf)]
+
+        cursor_it = buf.get_iter_at_offset(from_value)
+        offset = textview.get_visual_column(cursor_it)
+        line = cursor_it.get_line()
+
+        return (line, offset)
+
     def on_cursor_position_changed(self, buf, pspec, force=False):
         pane = self.textbuffer.index(buf)
         pos = buf.props.cursor_position
@@ -430,10 +578,7 @@ class FileDiff(Gtk.VBox, MeldDoc):
         self.cursor.pane, self.cursor.pos = pane, pos
 
         cursor_it = buf.get_iter_at_offset(pos)
-        offset = self.textview[pane].get_visual_column(cursor_it)
         line = cursor_it.get_line()
-
-        self.statusbar[pane].props.cursor_position = (line, offset)
 
         if line != self.cursor.line or force:
             chunk, prev, next_ = self.linediffer.locate_chunk(pane, line)
@@ -441,8 +586,8 @@ class FileDiff(Gtk.VBox, MeldDoc):
                 self.cursor.chunk = chunk
                 self.on_current_diff_changed()
             if prev != self.cursor.prev or next_ != self.cursor.next or force:
-                self.next_diff_changed_signal.emit(
-                    prev is not None, next_ is not None)
+                self.set_action_enabled("previous-change", prev is not None)
+                self.set_action_enabled("next-change", next_ is not None)
 
             prev_conflict, next_conflict = None, None
             for conflict in self.linediffer.conflicts:
@@ -459,10 +604,15 @@ class FileDiff(Gtk.VBox, MeldDoc):
             self.cursor.prev, self.cursor.next = prev, next_
             self.cursor.prev_conflict = prev_conflict
             self.cursor.next_conflict = next_conflict
-        self.cursor.line, self.cursor.offset = line, offset
+
+        self.cursor.line = line
 
     def on_current_diff_changed(self, *args):
-        pane = self._get_focused_pane()
+        try:
+            pane = self.textview.index(self.focus_pane)
+        except ValueError:
+            pane = -1
+
         if pane != -1:
             # While this *should* be redundant, it's possible for focus pane
             # and cursor pane to be different in several situations.
@@ -475,6 +625,8 @@ class FileDiff(Gtk.VBox, MeldDoc):
         else:
             push_left, push_right, pull_left, pull_right, delete, \
                 copy_left, copy_right = (True,) * 7
+
+            three_way = self.num_panes == 3
 
             # Push and Delete are active if the current pane has something to
             # act on, and the target pane exists and is editable. Pull is
@@ -502,40 +654,38 @@ class FileDiff(Gtk.VBox, MeldDoc):
             elif pane == 1:
                 chunk0 = self.linediffer.get_chunk(chunk_id, 1, 0)
                 chunk2 = None
-                if self.num_panes == 3:
+                if three_way:
                     chunk2 = self.linediffer.get_chunk(chunk_id, 1, 2)
                 left_mid_exists = bool(chunk0 and chunk0[1] != chunk0[2])
                 left_exists = bool(chunk0 and chunk0[3] != chunk0[4])
                 right_mid_exists = bool(chunk2 and chunk2[1] != chunk2[2])
                 right_exists = bool(chunk2 and chunk2[3] != chunk2[4])
-                push_left = editable_left
-                push_right = editable_right
+                push_left = editable_left and bool(not three_way or chunk0)
+                push_right = editable_right and bool(not three_way or chunk2)
                 pull_left = editable and left_exists
                 pull_right = editable and right_exists
                 delete = editable and (left_mid_exists or right_mid_exists)
                 copy_left = editable_left and left_mid_exists and left_exists
                 copy_right = (
                     editable_right and right_mid_exists and right_exists)
-        self.actiongroup.get_action("PushLeft").set_sensitive(push_left)
-        self.actiongroup.get_action("PushRight").set_sensitive(push_right)
-        self.actiongroup.get_action("PullLeft").set_sensitive(pull_left)
-        self.actiongroup.get_action("PullRight").set_sensitive(pull_right)
-        self.actiongroup.get_action("Delete").set_sensitive(delete)
-        self.actiongroup.get_action("CopyLeftUp").set_sensitive(copy_left)
-        self.actiongroup.get_action("CopyLeftDown").set_sensitive(copy_left)
-        self.actiongroup.get_action("CopyRightUp").set_sensitive(copy_right)
-        self.actiongroup.get_action("CopyRightDown").set_sensitive(copy_right)
 
-        prev_pane = pane > 0
-        next_pane = pane < self.num_panes - 1
-        self.actiongroup.get_action("PrevPane").set_sensitive(prev_pane)
-        self.actiongroup.get_action("NextPane").set_sensitive(next_pane)
+        self.set_action_enabled('file-push-left', push_left)
+        self.set_action_enabled('file-push-right', push_right)
+        self.set_action_enabled('file-pull-left', pull_left)
+        self.set_action_enabled('file-pull-right', pull_right)
+        self.set_action_enabled('file-delete', delete)
+        self.set_action_enabled('file-copy-left-up', copy_left)
+        self.set_action_enabled('file-copy-left-down', copy_left)
+        self.set_action_enabled('file-copy-right-up', copy_right)
+        self.set_action_enabled('file-copy-right-down', copy_right)
+        self.set_action_enabled('previous-pane', pane > 0)
+        self.set_action_enabled('next-pane', pane < self.num_panes - 1)
         # FIXME: don't queue_draw() on everything... just on what changed
         self.queue_draw()
 
     def on_next_conflict_changed(self, doc, have_prev, have_next):
-        self.actiongroup.get_action("PrevConflict").set_sensitive(have_prev)
-        self.actiongroup.get_action("NextConflict").set_sensitive(have_next)
+        self.set_action_enabled('file-previous-conflict', have_prev)
+        self.set_action_enabled('file-next-conflict', have_next)
 
     def scroll_to_chunk_index(self, chunk_index, tolerance):
         """Scrolls chunks with the given index on screen in all panes"""
@@ -582,7 +732,7 @@ class FileDiff(Gtk.VBox, MeldDoc):
             mark0, mark1, 'focus-highlight', 400000, starting_alpha=0.3,
             anim_type=TextviewLineAnimationType.stroke)
 
-    @Template.Callback()
+    @Gtk.Template.Callback()
     def on_linkmap_scroll_event(self, linkmap, event):
         self.next_diff(event.direction)
 
@@ -591,11 +741,15 @@ class FileDiff(Gtk.VBox, MeldDoc):
                   else self.cursor.prev)
         self.go_to_chunk(target, centered=centered)
 
-    @Template.Callback()
+    def action_previous_change(self, *args):
+        self.next_diff(Gdk.ScrollDirection.UP)
+
+    def action_next_change(self, *args):
+        self.next_diff(Gdk.ScrollDirection.DOWN)
+
     def action_previous_conflict(self, *args):
         self.go_to_chunk(self.cursor.prev_conflict, self.cursor.pane)
 
-    @Template.Callback()
     def action_next_conflict(self, *args):
         self.go_to_chunk(self.cursor.next_conflict, self.cursor.pane)
 
@@ -621,45 +775,60 @@ class FileDiff(Gtk.VBox, MeldDoc):
         dst = src + direction
         return (dst, src) if reverse else (src, dst)
 
-    @Template.Callback()
+    def on_chunk_action_activated(
+            self, gutter, action, from_view, to_view, chunk):
+
+        try:
+            chunk_action = ChunkAction(action)
+        except ValueError:
+            log.error('Invalid chunk action %s', action)
+            return
+
+        # TODO: There's no reason the replace_chunk(), etc. calls should take
+        # an index instead of just taking the views themselves.
+        from_pane = self.textview.index(from_view)
+        to_pane = self.textview.index(to_view)
+
+        if chunk_action == ChunkAction.replace:
+            self.replace_chunk(from_pane, to_pane, chunk)
+        elif chunk_action == ChunkAction.delete:
+            self.delete_chunk(from_pane, chunk)
+        elif chunk_action == ChunkAction.copy_up:
+            self.copy_chunk(from_pane, to_pane, chunk, copy_up=True)
+        elif chunk_action == ChunkAction.copy_down:
+            self.copy_chunk(from_pane, to_pane, chunk, copy_up=False)
+
     def action_push_change_left(self, *args):
         src, dst = self.get_action_panes(PANE_LEFT)
         self.replace_chunk(src, dst, self.get_action_chunk(src, dst))
 
-    @Template.Callback()
     def action_push_change_right(self, *args):
         src, dst = self.get_action_panes(PANE_RIGHT)
         self.replace_chunk(src, dst, self.get_action_chunk(src, dst))
 
-    @Template.Callback()
     def action_pull_change_left(self, *args):
         src, dst = self.get_action_panes(PANE_LEFT, reverse=True)
         self.replace_chunk(src, dst, self.get_action_chunk(src, dst))
 
-    @Template.Callback()
     def action_pull_change_right(self, *args):
         src, dst = self.get_action_panes(PANE_RIGHT, reverse=True)
         self.replace_chunk(src, dst, self.get_action_chunk(src, dst))
 
-    @Template.Callback()
     def action_copy_change_left_up(self, *args):
         src, dst = self.get_action_panes(PANE_LEFT)
         self.copy_chunk(
             src, dst, self.get_action_chunk(src, dst), copy_up=True)
 
-    @Template.Callback()
     def action_copy_change_right_up(self, *args):
         src, dst = self.get_action_panes(PANE_RIGHT)
         self.copy_chunk(
             src, dst, self.get_action_chunk(src, dst), copy_up=True)
 
-    @Template.Callback()
     def action_copy_change_left_down(self, *args):
         src, dst = self.get_action_panes(PANE_LEFT)
         self.copy_chunk(
             src, dst, self.get_action_chunk(src, dst), copy_up=False)
 
-    @Template.Callback()
     def action_copy_change_right_down(self, *args):
         src, dst = self.get_action_panes(PANE_RIGHT)
         self.copy_chunk(
@@ -681,18 +850,15 @@ class FileDiff(Gtk.VBox, MeldDoc):
             self._sync_vscroll(self.scrolledwindow[src].get_vadjustment(), src)
         self.scheduler.add_task(resync)
 
-    @Template.Callback()
     def action_pull_all_changes_left(self, *args):
         src, dst = self.get_action_panes(PANE_LEFT, reverse=True)
         self.pull_all_non_conflicting_changes(src, dst)
 
-    @Template.Callback()
     def action_pull_all_changes_right(self, *args):
         src, dst = self.get_action_panes(PANE_RIGHT, reverse=True)
         self.pull_all_non_conflicting_changes(src, dst)
 
-    @Template.Callback()
-    def merge_all_non_conflicting_changes(self, *args):
+    def action_merge_all_changes(self, *args):
         dst = 1
         merger = Merger()
         merger.differ = self.linediffer
@@ -709,9 +875,8 @@ class FileDiff(Gtk.VBox, MeldDoc):
             self._sync_vscroll(self.scrolledwindow[0].get_vadjustment(), 0)
         self.scheduler.add_task(resync)
 
-    @Template.Callback()
     @with_focused_pane
-    def delete_change(self, pane, *args):
+    def action_delete_change(self, pane, *args):
         chunk = self.linediffer.get_chunk(self.cursor.chunk, pane)
         assert(self.cursor.chunk is not None)
         assert(chunk is not None)
@@ -818,25 +983,22 @@ class FileDiff(Gtk.VBox, MeldDoc):
         new_line = self._corresponding_chunk_line(chunk, line, pane, new_pane)
         self.move_cursor(new_pane, new_line)
 
-    @Template.Callback()
     def action_prev_pane(self, *args):
         pane = self._get_focused_pane()
         new_pane = (pane - 1) % self.num_panes
         self.move_cursor_pane(pane, new_pane)
 
-    @Template.Callback()
     def action_next_pane(self, *args):
         pane = self._get_focused_pane()
         new_pane = (pane + 1) % self.num_panes
         self.move_cursor_pane(pane, new_pane)
 
     def _set_external_action_sensitivity(self):
+        # FIXME: This sensitivity is very confused. Essentially, it's always
+        # enabled because we don't unset focus_pane, but the action uses the
+        # current pane focus (i.e., _get_focused_pane) instead of focus_pane.
         have_file = self.focus_pane is not None
-        try:
-            self.main_actiongroup.get_action("OpenExternal").set_sensitive(
-                have_file)
-        except AttributeError:
-            pass
+        self.set_action_enabled("open-external", have_file)
 
     def on_textview_drag_data_received(
             self, widget, context, x, y, selection_data, info, time):
@@ -854,7 +1016,7 @@ class FileDiff(Gtk.VBox, MeldDoc):
                     self.set_file(pane, gfiles[0])
             return True
 
-    @Template.Callback()
+    @Gtk.Template.Callback()
     def on_textview_focus_in_event(self, view, event):
         self.focus_pane = view
         self.findbar.textview = view
@@ -862,9 +1024,8 @@ class FileDiff(Gtk.VBox, MeldDoc):
         self._set_save_action_sensitivity()
         self._set_merge_action_sensitivity()
         self._set_external_action_sensitivity()
-        self.update_text_actions_sensitivity()
 
-    @Template.Callback()
+    @Gtk.Template.Callback()
     def on_textview_focus_out_event(self, view, event):
         self.keymask = 0
         self._set_merge_action_sensitivity()
@@ -883,7 +1044,6 @@ class FileDiff(Gtk.VBox, MeldDoc):
             if focused_pane != -1:
                 self.on_cursor_position_changed(self.textbuffer[focused_pane],
                                                 None, True)
-            self.queue_draw()
 
     def _filter_text(self, txt, buf, txt_start_iter, txt_end_iter):
         dimmed_tag = buf.get_tag_table().lookup("dimmed")
@@ -999,8 +1159,9 @@ class FileDiff(Gtk.VBox, MeldDoc):
         self.state = ComparisonState.Closing
         response = self.check_save_modified()
         if response == Gtk.ResponseType.OK:
+            meld_settings = get_meld_settings()
             for h in self.settings_handlers:
-                meldsettings.disconnect(h)
+                meld_settings.disconnect(h)
             # TODO: This should not be necessary; remove if and when we
             # figure out what's keeping MeldDocs alive for too long.
             del self._cached_match
@@ -1017,15 +1178,15 @@ class FileDiff(Gtk.VBox, MeldDoc):
             view = self.textview[buf_index]
             view.scroll_mark_onscreen(buf.get_insert())
 
-    def on_undo_activate(self):
+    def action_undo(self, *args):
         if self.undosequence.can_undo():
             actions = self.undosequence.undo()
-        self._scroll_to_actions(actions)
+            self._scroll_to_actions(actions)
 
-    def on_redo_activate(self):
+    def action_redo(self, *args):
         if self.undosequence.can_redo():
             actions = self.undosequence.redo()
-        self._scroll_to_actions(actions)
+            self._scroll_to_actions(actions)
 
     def on_text_insert_text(self, buf, it, text, textlen):
         self.undosequence.add_action(
@@ -1042,8 +1203,14 @@ class FileDiff(Gtk.VBox, MeldDoc):
         buf.set_modified(not checkpointed)
         self.recompute_label()
 
+    def on_can_undo(self, undosequence, can_undo):
+        self.set_action_enabled('undo', can_undo)
+
+    def on_can_redo(self, undosequence, can_redo):
+        self.set_action_enabled('redo', can_redo)
+
     @with_focused_pane
-    def open_external(self, pane):
+    def action_open_external(self, pane, *args):
         if not self.textbuffer[pane].data.gfile:
             return
         pos = self.textbuffer[pane].props.cursor_position
@@ -1059,15 +1226,11 @@ class FileDiff(Gtk.VBox, MeldDoc):
             cut, copy, paste = False, False, False
         else:
             cut = copy = widget.get_buffer().get_has_selection()
-            # Ideally, this would check whether the clipboard included
-            # something pasteable. However, there is no changed signal.
-            # widget.get_clipboard(
-            #    Gdk.SELECTION_CLIPBOARD).wait_is_text_available()
             paste = widget.get_editable()
-        if self.main_actiongroup:
-            for action, sens in zip(
-                    ("Cut", "Copy", "Paste"), (cut, copy, paste)):
-                self.main_actiongroup.get_action(action).set_sensitive(sens)
+
+        for action, enabled in zip(
+                ('cut', 'copy', 'paste'), (cut, copy, paste)):
+            self.set_action_enabled(action, enabled)
 
     @with_focused_pane
     def get_selected_text(self, pane):
@@ -1077,27 +1240,27 @@ class FileDiff(Gtk.VBox, MeldDoc):
         if sel:
             return buf.get_text(sel[0], sel[1], False)
 
-    def on_find_activate(self, *args):
+    def action_find(self, *args):
         selected_text = self.get_selected_text()
-        self.findbar.start_find(self.focus_pane, selected_text)
-        self.keymask = 0
+        self.findbar.start_find(
+            textview=self.focus_pane, replace=False, text=selected_text)
 
-    def on_replace_activate(self, *args):
+    def action_find_replace(self, *args):
         selected_text = self.get_selected_text()
-        self.findbar.start_replace(self.focus_pane, selected_text)
-        self.keymask = 0
+        self.findbar.start_find(
+            textview=self.focus_pane, replace=True, text=selected_text)
 
-    def on_find_next_activate(self, *args):
+    def action_find_next(self, *args):
         self.findbar.start_find_next(self.focus_pane)
 
-    def on_find_previous_activate(self, *args):
+    def action_find_previous(self, *args):
         self.findbar.start_find_previous(self.focus_pane)
 
     @with_focused_pane
-    def on_go_to_line_activate(self, pane, *args):
+    def action_go_to_line(self, pane, *args):
         self.statusbar[pane].emit('start-go-to-line')
 
-    @Template.Callback()
+    @Gtk.Template.Callback()
     def on_scrolledwindow_size_allocate(self, scrolledwindow, allocation):
         index = self.scrolledwindow.index(scrolledwindow)
         if index == 0 or index == 1:
@@ -1105,7 +1268,7 @@ class FileDiff(Gtk.VBox, MeldDoc):
         if index == 1 or index == 2:
             self.linkmap[1].queue_draw()
 
-    @Template.Callback()
+    @Gtk.Template.Callback()
     def on_textview_popup_menu(self, textview):
         buffer = textview.get_buffer()
         cursor_it = buffer.get_iter_at_mark(buffer.get_insert())
@@ -1124,7 +1287,7 @@ class FileDiff(Gtk.VBox, MeldDoc):
         )
         return True
 
-    @Template.Callback()
+    @Gtk.Template.Callback()
     def on_textview_button_press_event(self, textview, event):
         if event.button == 3:
             textview.grab_focus()
@@ -1145,17 +1308,14 @@ class FileDiff(Gtk.VBox, MeldDoc):
         buf.data.savefile = gfile
         buf.data.label = gfile.get_path()
         self.update_buffer_writable(buf)
-        self.fileentry[1].set_file(gfile)
+        self.filelabel[1].set_text(buf.data.label)
         self.recompute_label()
 
     def _set_save_action_sensitivity(self):
         pane = self._get_focused_pane()
-        modified = (
-            False if pane == -1 else self.textbuffer[pane].get_modified())
-        if self.main_actiongroup:
-            self.main_actiongroup.get_action("Save").set_sensitive(modified)
-        any_modified = any(b.get_modified() for b in self.textbuffer)
-        self.actiongroup.get_action("SaveAll").set_sensitive(any_modified)
+        modified_panes = [b.get_modified() for b in self.textbuffer]
+        self.set_action_enabled('save', pane != -1 and modified_panes[pane])
+        self.set_action_enabled('save-all', any(modified_panes))
 
     def recompute_label(self):
         self._set_save_action_sensitivity()
@@ -1239,12 +1399,12 @@ class FileDiff(Gtk.VBox, MeldDoc):
         duplicate handlers, etc. if you don't do this thing.
         """
 
-        self.fileentry[pane].set_file(gfile)
-
         self.msgarea_mgr[pane].clear()
 
         buf = self.textbuffer[pane]
         buf.data.reset(gfile)
+
+        self.filelabel[pane].set_text(self.textbuffer[pane].data.label)
 
         if buf.data.is_special:
             loader = GtkSource.FileLoader.new_from_stream(
@@ -1379,8 +1539,6 @@ class FileDiff(Gtk.VBox, MeldDoc):
             for i, l in enumerate(labels):
                 if l:
                     self.filelabel[i].set_text(l)
-                    self.filelabel_toolitem[i].set_visible(True)
-                    self.fileentry_toolitem[i].set_visible(False)
 
     def notify_file_changed(self, data):
         try:
@@ -1393,7 +1551,7 @@ class FileDiff(Gtk.VBox, MeldDoc):
         secondary = _("Do you want to reload the file?")
         self.msgarea_mgr[pane].add_action_msg(
             'dialog-warning-symbolic', primary, secondary, _("_Reload"),
-            self.on_revert_activate)
+            self.action_revert)
 
     def refresh_comparison(self, *args):
         """Refresh the view by clearing and redoing all comparisons"""
@@ -1402,27 +1560,38 @@ class FileDiff(Gtk.VBox, MeldDoc):
         self.scheduler.add_task(self._diff_files(refresh=True))
 
     def _set_merge_action_sensitivity(self):
-        pane = self._get_focused_pane()
-        if pane != -1:
-            editable = self.textview[pane].get_editable()
-            mergeable = self.linediffer.has_mergeable_changes(pane)
+        if self.focus_pane:
+            editable = self.focus_pane.get_editable()
+            pane_idx = self.textview.index(self.focus_pane)
+            mergeable = self.linediffer.has_mergeable_changes(pane_idx)
         else:
             editable = False
             mergeable = (False, False)
 
-        # TODO: We need this helper everywhere.
-        def set_action_enabled(action, enabled):
-            self.actiongroup.get_action(action).set_sensitive(enabled)
+        self.set_action_enabled('merge-all-left', mergeable[0] and editable)
+        self.set_action_enabled('merge-all-right', mergeable[1] and editable)
 
-        set_action_enabled("MergeFromLeft", mergeable[0] and editable)
-        set_action_enabled("MergeFromRight", mergeable[1] and editable)
         if self.num_panes == 3 and self.textview[1].get_editable():
             mergeable = self.linediffer.has_mergeable_changes(1)
         else:
             mergeable = (False, False)
-        set_action_enabled("MergeAll", mergeable[0] or mergeable[1])
+
+        self.set_action_enabled('merge-all', mergeable[0] or mergeable[1])
 
     def on_diffs_changed(self, linediffer, chunk_changes):
+
+        for pane in range(self.num_panes):
+            pane_changes = list(self.linediffer.single_changes(pane))
+            self.chunkmap[pane].chunks = pane_changes
+
+        # TODO: Break out highlight recalculation to its own method,
+        # and just update chunk lists in children here.
+        for gutter in self.actiongutter:
+            from_pane = self.textview.index(gutter.source_view)
+            to_pane = self.textview.index(gutter.target_view)
+            gutter.chunks = list(linediffer.paired_all_single_changes(
+                from_pane, to_pane))
+
         removed_chunks, added_chunks, modified_chunks = chunk_changes
 
         # We need to clear removed and modified chunks, and need to
@@ -1469,7 +1638,7 @@ class FileDiff(Gtk.VBox, MeldDoc):
                 textn = bufs[1].get_text(starts[1], ends[1], False)
 
                 # Bail on long sequences, rather than try a slow comparison
-                inline_limit = 10000
+                inline_limit = 20000
                 if len(text1) + len(textn) > inline_limit and \
                         not self.force_highlight:
                     for i in range(2):
@@ -1655,9 +1824,7 @@ class FileDiff(Gtk.VBox, MeldDoc):
             bufdata.label = gfile.get_path()
             bufdata.gfile = gfile
             bufdata.savefile = None
-            self.fileentry[pane].set_file(gfile)
-            self.filelabel_toolitem[pane].set_visible(False)
-            self.fileentry_toolitem[pane].set_visible(True)
+            self.filelabel[pane].set_text(bufdata.label)
 
         if not force_overwrite and not bufdata.current_on_disk():
             primary = (
@@ -1735,8 +1902,7 @@ class FileDiff(Gtk.VBox, MeldDoc):
         else:
             self.state = ComparisonState.Normal
 
-    @Template.Callback()
-    def make_patch(self, *extra):
+    def action_format_as_patch(self, *extra):
         dialog = PatchDialog(self)
         dialog.run()
 
@@ -1755,38 +1921,47 @@ class FileDiff(Gtk.VBox, MeldDoc):
             'changes-prevent-symbolic')
         self.textview[index].set_editable(editable)
         self.on_cursor_position_changed(buf, None, True)
-        for linkmap in self.linkmap:
-            linkmap.queue_draw()
 
     @with_focused_pane
-    def save(self, pane):
+    def action_save(self, pane, *args):
         self.save_file(pane)
 
     @with_focused_pane
-    def save_as(self, pane):
+    def action_save_as(self, pane, *args):
         self.save_file(pane, saveas=True)
 
-    @Template.Callback()
-    def on_save_all_activate(self, action):
+    def action_save_all(self, *args):
         for i in range(self.num_panes):
             if self.textbuffer[i].get_modified():
                 self.save_file(i)
 
-    @Template.Callback()
+    @Gtk.Template.Callback()
     def on_file_save_button_clicked(self, button):
         idx = self.file_save_button.index(button)
         self.save_file(idx)
 
-    @Template.Callback()
-    def on_fileentry_file_set(self, entry):
-        pane = self.fileentry[:self.num_panes].index(entry)
-        buffer = self.textbuffer[pane]
-        if self.check_unsaved_changes():
-            # TODO: Use encoding file selectors in FileDiff
-            self.set_file(pane, entry.get_file())
-        else:
-            entry.set_file(buffer.data.gfile)
-        return True
+    @Gtk.Template.Callback()
+    def on_file_open_button_clicked(self, button):
+        pane = self.file_open_button.index(button)
+
+        dialog = MeldFileChooserDialog(
+            title=_("Open File"),
+            transient_for=self.get_toplevel(),
+        )
+        if self.textbuffer[pane].data.gfile:
+            dialog.set_file(self.textbuffer[pane].data.gfile)
+        response = dialog.run()
+        gfile = dialog.get_file()
+        encoding = dialog.get_encoding()
+        dialog.destroy()
+
+        if response != Gtk.ResponseType.ACCEPT:
+            return
+
+        if not self.check_unsaved_changes():
+            return
+
+        self.set_file(pane, gfile, encoding)
 
     def _get_focused_pane(self):
         for i in range(self.num_panes):
@@ -1823,8 +1998,7 @@ class FileDiff(Gtk.VBox, MeldDoc):
         dialog.destroy()
         return response == Gtk.ResponseType.OK
 
-    @Template.Callback()
-    def on_revert_activate(self, *extra):
+    def action_revert(self, *extra):
         if not self.check_unsaved_changes():
             return
 
@@ -1833,7 +2007,7 @@ class FileDiff(Gtk.VBox, MeldDoc):
         encodings = [b.data.encoding for b in buffers]
         self.set_files(gfiles, encodings=encodings)
 
-    def on_refresh_activate(self, *extra):
+    def action_refresh(self, *extra):
         self.refresh_comparison()
 
     def queue_draw(self, junk=None):
@@ -1841,18 +2015,10 @@ class FileDiff(Gtk.VBox, MeldDoc):
             t.queue_draw()
         for i in range(self.num_panes-1):
             self.linkmap[i].queue_draw()
-        self.diffmap0.queue_draw()
-        self.diffmap1.queue_draw()
+        for gutter in self.actiongutter:
+            gutter.queue_draw()
 
-    @Template.Callback()
-    def on_action_lock_scrolling_toggled(self, action):
-        self.toggle_scroll_lock(action.get_active())
-
-    def toggle_scroll_lock(self, locked):
-        self.actiongroup.get_action("LockScrolling").set_active(locked)
-        self._scroll_lock = not locked
-
-    @Template.Callback()
+    @Gtk.Template.Callback()
     def on_readonly_button_toggled(self, button):
         index = self.readonlytoggle.index(button)
         buf = self.textbuffer[index]
@@ -1937,8 +2103,12 @@ class FileDiff(Gtk.VBox, MeldDoc):
             if i == 1:
                 master, target_line = 1, other_line
 
+        # FIXME: We should really hook into the adjustments directly on
+        # the widgets instead of doing this.
         for lm in self.linkmap:
             lm.queue_draw()
+        for gutter in self.actiongutter:
+            gutter.queue_draw()
 
     def set_num_panes(self, n):
         if n == self.num_panes or n not in (1, 2, 3):
@@ -1946,18 +2116,24 @@ class FileDiff(Gtk.VBox, MeldDoc):
 
         self.num_panes = n
         for widget in (
-                self.vbox[:n] + self.file_toolbar[:n] + self.diffmap[:n] +
+                self.vbox[:n] + self.file_toolbar[:n] + self.sourcemap[:n] +
                 self.linkmap[:n - 1] + self.dummy_toolbar_linkmap[:n - 1] +
-                self.dummy_toolbar_diffmap[:n - 1] + self.statusbar[:n]):
+                self.statusbar[:n] +
+                self.chunkmap[:n] +
+                self.actiongutter[:(n - 1) * 2] +
+                self.dummy_toolbar_actiongutter[:(n - 1) * 2]):
             widget.show()
 
         for widget in (
-                self.vbox[n:] + self.file_toolbar[n:] + self.diffmap[n:] +
+                self.vbox[n:] + self.file_toolbar[n:] + self.sourcemap[n:] +
                 self.linkmap[n - 1:] + self.dummy_toolbar_linkmap[n - 1:] +
-                self.dummy_toolbar_diffmap[n - 1:] + self.statusbar[n:]):
+                self.statusbar[n:] +
+                self.chunkmap[n:] +
+                self.actiongutter[(n - 1) * 2:] +
+                self.dummy_toolbar_actiongutter[(n - 1) * 2:]):
             widget.hide()
 
-        self.actiongroup.get_action("MakePatch").set_sensitive(n > 1)
+        self.set_action_enabled('format-as-patch', n > 1)
 
         def chunk_iter(i):
             def chunks(bounds):
@@ -1975,28 +2151,6 @@ class FileDiff(Gtk.VBox, MeldDoc):
             w.chunk_iter = chunk_iter(i)
             w.current_chunk_check = current_chunk_check(i)
 
-        def coords_iter(i):
-            buf_index = 2 if i == 1 and self.num_panes == 3 else i
-            get_end_iter = self.textbuffer[buf_index].get_end_iter
-            get_iter_at_line = self.textbuffer[buf_index].get_iter_at_line
-            get_line_yrange = self.textview[buf_index].get_line_yrange
-
-            def coords_by_chunk():
-                y, h = get_line_yrange(get_end_iter())
-                max_y = float(y + h)
-                for c in self.linediffer.single_changes(i):
-                    y0, _ = get_line_yrange(get_iter_at_line(c[1]))
-                    if c[1] == c[2]:
-                        y, h = y0, 0
-                    else:
-                        y, h = get_line_yrange(get_iter_at_line(c[2] - 1))
-                    yield c[0], y0 / max_y, (y + h) / max_y
-            return coords_by_chunk
-
-        for (w, i) in zip(self.diffmap, (0, self.num_panes - 1)):
-            scroll = self.scrolledwindow[i].get_vscrollbar()
-            w.setup(scroll, coords_iter(i))
-
         for (w, i) in zip(self.linkmap, (0, self.num_panes - 2)):
             w.associate(self, self.textview[i], self.textview[i + 1])
 
@@ -2005,6 +2159,32 @@ class FileDiff(Gtk.VBox, MeldDoc):
                 self.textbuffer[i].get_modified())
         self.queue_draw()
         self.recompute_label()
+
+    @with_focused_pane
+    def action_cut(self, pane, *args):
+        buffer = self.textbuffer[pane]
+        view = self.textview[pane]
+
+        clipboard = view.get_clipboard(Gdk.SELECTION_CLIPBOARD)
+        buffer.cut_clipboard(clipboard, view.get_editable())
+        view.scroll_to_mark(buffer.get_insert(), 0.1, False, 0, 0)
+
+    @with_focused_pane
+    def action_copy(self, pane, *args):
+        buffer = self.textbuffer[pane]
+        view = self.textview[pane]
+
+        clipboard = view.get_clipboard(Gdk.SELECTION_CLIPBOARD)
+        buffer.copy_clipboard(clipboard)
+
+    @with_focused_pane
+    def action_paste(self, pane, *args):
+        buffer = self.textbuffer[pane]
+        view = self.textview[pane]
+
+        clipboard = view.get_clipboard(Gdk.SELECTION_CLIPBOARD)
+        buffer.paste_clipboard(clipboard, None, view.get_editable())
+        view.scroll_to_mark(buffer.get_insert(), 0.1, False, 0, 0)
 
     def copy_chunk(self, src, dst, chunk, copy_up):
         b0, b1 = self.textbuffer[src], self.textbuffer[dst]
@@ -2069,9 +2249,8 @@ class FileDiff(Gtk.VBox, MeldDoc):
         self.textview[src].add_fading_highlight(
             mark0, mark1, 'conflict', 500000)
 
-    @Template.Callback()
     @with_focused_pane
-    def add_sync_point(self, pane, action):
+    def add_sync_point(self, pane, *args):
         # Find a non-complete syncpoint, or create a new one
         if self.syncpoints and None in self.syncpoints[-1]:
             syncpoint = self.syncpoints.pop()
@@ -2120,8 +2299,7 @@ class FileDiff(Gtk.VBox, MeldDoc):
 
         self.refresh_comparison()
 
-    @Template.Callback()
-    def clear_sync_points(self, action):
+    def clear_sync_points(self, *args):
         self.syncpoints = []
         self.linediffer.syncpoints = []
         for t in self.textview:

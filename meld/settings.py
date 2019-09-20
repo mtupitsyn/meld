@@ -56,8 +56,11 @@ class MeldSettings(GObject.GObject):
             self.emit('changed', 'style-scheme')
 
     def _style_scheme_from_gsettings(self):
+        from meld.style import set_base_style_scheme
         manager = GtkSource.StyleSchemeManager.get_default()
-        return manager.get_scheme(settings.get_string('style-scheme'))
+        scheme = manager.get_scheme(settings.get_string('style-scheme'))
+        set_base_style_scheme(scheme)
+        return scheme
 
     def _filters_from_gsetting(self, key, filt_type):
         filter_params = settings.get_value(key)
@@ -91,11 +94,11 @@ def load_settings_schema(schema_id):
 
 
 def create_settings():
-    global settings, interface_settings, meldsettings
+    global settings, interface_settings, _meldsettings
 
     settings = load_settings_schema(meld.conf.APPLICATION_ID)
     interface_settings = Gio.Settings.new('org.gnome.desktop.interface')
-    meldsettings = MeldSettings()
+    _meldsettings = MeldSettings()
 
 
 def bind_settings(obj):
@@ -106,7 +109,17 @@ def bind_settings(obj):
         settings_id, property_id = binding
         settings.bind(settings_id, obj, property_id, bind_flags)
 
+    bind_flags = (
+        Gio.SettingsBindFlags.GET | Gio.SettingsBindFlags.NO_SENSITIVITY)
+    for binding in getattr(obj, '__gsettings_bindings_view__', ()):
+        settings_id, property_id = binding
+        settings.bind(settings_id, obj, property_id, bind_flags)
+
+
+def get_meld_settings() -> MeldSettings:
+    return _meldsettings
+
 
 settings = None
 interface_settings = None
-meldsettings = None
+_meldsettings = None

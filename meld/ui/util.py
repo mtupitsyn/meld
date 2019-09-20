@@ -14,30 +14,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
+from typing import List
 
-from gi.repository import Gio, Gtk
-
-import meld.conf
-# Import support module to get all builder-constructed widgets in the namespace
-from meld.ui import gladesupport  # noqa: F401
+from gi.repository import Gio
+from gi.repository import GObject
+from gi.repository import Gtk
 
 log = logging.getLogger(__name__)
-
-
-def get_widget(filename, widget):
-    builder = Gtk.Builder()
-    builder.set_translation_domain(meld.conf.__package__)
-    path = meld.conf.ui_file(filename)
-    builder.add_objects_from_file(path, [widget])
-    return builder.get_object(widget)
-
-
-def get_builder(filename):
-    builder = Gtk.Builder()
-    builder.set_translation_domain(meld.conf.__package__)
-    path = meld.conf.ui_file(filename)
-    builder.add_from_file(path)
-    return builder
 
 
 def map_widgets_into_lists(widget, widgetnames):
@@ -96,3 +79,21 @@ def extract_accels_from_menu(model: Gio.MenuModel, app: Gtk.Application):
             more, name, submodel = it.get_next()
             if submodel:
                 extract_accels_from_menu(submodel, app)
+
+
+def make_multiobject_property_action(
+        obj_list: List[GObject.Object], prop_name: str) -> Gio.PropertyAction:
+    """Construct a property action linked to multiple objects
+
+    This is useful for creating actions linked to a GObject property,
+    where changing the property via the action should affect multiple
+    GObjects.
+
+    As an example, changing the text wrapping mode of a file comparison
+    pane should change the wrapping mode for *all* panes.
+    """
+    source, *targets = obj_list
+    action = Gio.PropertyAction.new(prop_name, source, prop_name)
+    for target in targets:
+        source.bind_property(prop_name, target, prop_name)
+    return action

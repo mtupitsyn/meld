@@ -22,7 +22,7 @@ from gi.repository import GLib
 from gi.repository import GObject
 from gi.repository import Pango
 
-from meld.misc import colour_lookup_with_fallback
+from meld.style import colour_lookup_with_fallback
 from meld.treehelpers import SearchableTreeStore
 from meld.vc._vc import (  # noqa: F401
     CONFLICT_BASE, CONFLICT_LOCAL, CONFLICT_MERGED, CONFLICT_OTHER,
@@ -121,7 +121,7 @@ class DiffTreeStore(SearchableTreeStore):
         # A folder may no longer exist, and is only tracked by VC.
         # Therefore, check the icon instead, as the pane already knows.
         icon = self.get_value(it, self.column_index(COL_ICON, pane))
-        return icon == "folder" or os.path.isdir(path)
+        return icon == "folder" or (bool(path) and os.path.isdir(path))
 
     def column_index(self, col, pane):
         return self.ntree * col + pane

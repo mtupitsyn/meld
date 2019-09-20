@@ -25,6 +25,7 @@ from gi.repository import Gio
 from gi.repository import GLib
 from gi.repository import Gtk
 
+import meld.accelerators
 import meld.conf
 from meld.conf import _
 from meld.filediff import FileDiff
@@ -59,10 +60,11 @@ class MeldApp(BASE_CLASS):
         GtkosxApplication.Application.__init__(self)
         GLib.set_application_name("Meld")
         GLib.set_prgname(meld.conf.APPLICATION_ID)
-        Gtk.Window.set_default_icon_name("meld")
+        Gtk.Window.set_default_icon_name("org.gnome.meld")
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
+        meld.accelerators.register_accels(self)
 
         actions = (
             ("preferences", self.preferences_callback),
@@ -343,7 +345,8 @@ class MeldApp(BASE_CLASS):
             comparison_file_path = os.path.expanduser(path)
             gio_file = Gio.File.new_for_path(comparison_file_path)
             try:
-                tab = self.get_meld_window().append_recent(gio_file.get_uri())
+                tab = self.get_active_window().append_recent(
+                    gio_file.get_uri())
             except (IOError, ValueError):
                 parser.local_error(_("Error reading saved comparison file"))
             if parser.should_exit:
