@@ -43,7 +43,7 @@ gdk-pixbuf-query-loaders  | sed s=\".*/lib/gdk-pixbuf-2.0=\"@executable_path/\.\
 mkdir -p $RES/share/themes
 rsync -r -t $INSTROOT/share/themes/Default/ $RES/share/themes/Default
 rsync -r -t $INSTROOT/share/themes/Mac/ $RES/share/themes/Mac
-rsync -r -t $INSTROOT/share/gtksourceview-3.0 $RES/share
+rsync -r -t $INSTROOT/share/gtksourceview-4 $RES/share
 mkdir -p $RES/share/themes/Meld-Mojave-dark/gtk-3.0
 mkdir -p $RES/share/themes/Meld-Mojave-light/gtk-3.0
 rsync -r -t --ignore-existing $INSTROOT/share/themes/Mojave-dark-solid-alt/gtk-3.0 $RES/share/themes/Meld-Mojave-dark
@@ -55,8 +55,8 @@ cp $INSTROOT/share/themes/Mac/gtk-3.0/gtk-keys.css $RES/share/themes/Meld-Mojave
 mkdir $RES/share/meld
 rsync -r -t data/icons/* $RES/share/icons
 rsync -r -t data/meld.css $RES/share/meld
-rsync -r -t data/styles/meld-dark.xml $RES/share/gtksourceview-3.0/styles
-rsync -r -t data/styles/meld-base.xml $RES/share/gtksourceview-3.0/styles
+rsync -r -t data/styles/meld-dark.xml $RES/share/gtksourceview-4/styles
+rsync -r -t data/styles/meld-base.xml $RES/share/gtksourceview-4/styles
 
 # update icon cache for Adwaita
 rm -fr $RES/share/icons/Adwaita/cursors
@@ -94,7 +94,7 @@ rsync -t $INSTROOT/lib/libgobject-2.0.0.dylib $FRAMEWORKS/libgobject-2.0.0.dylib
 rsync -t $INSTROOT/lib/libpango-1.0.0.dylib $FRAMEWORKS/libpango-1.0.0.dylib
 rsync -t $INSTROOT/lib/libpangoft2-1.0.0.dylib $FRAMEWORKS/libpangoft2-1.0.0.dylib
 rsync -t $INSTROOT/lib/libgtk-3.0.dylib $FRAMEWORKS/libgtk-3.0.dylib
-rsync -t $INSTROOT/lib/libgtksourceview-3.0.1.dylib $FRAMEWORKS/libgtksourceview-3.0.1.dylib
+rsync -t $INSTROOT/lib/libgtksourceview-4.0.dylib $FRAMEWORKS/libgtksourceview-4.0.dylib
 rsync -t $INSTROOT/lib/libgtkmacintegration-gtk3.2.dylib $FRAMEWORKS/libgtkmacintegration-gtk3.2.dylib
 
 # rename script, use wrapper
