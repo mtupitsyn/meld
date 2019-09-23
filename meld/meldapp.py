@@ -188,7 +188,6 @@ class MeldApp(BASE_CLASS):
         parser.values.diff.append(diff_files_args)
 
     def setup_mac_integration(self, menubar):
-            from Cocoa import NSApp
             self.set_use_quartz_accelerators(True)
             self.set_menu_bar(menubar)
 
@@ -219,7 +218,6 @@ class MeldApp(BASE_CLASS):
             self.sync_menubar()
 
             self.ready()
-            NSApp.activateIgnoringOtherApps_(True)
             self.attention_request(GtkosxApplication.ApplicationAttentionType.NFO_REQUEST)
 
     def parse_args(self, command_line):

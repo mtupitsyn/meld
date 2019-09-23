@@ -39,12 +39,18 @@ from meld.task import LifoScheduler
 from meld.ui.notebooklabel import NotebookLabel
 from meld.vcview import VcView
 from meld.windowstate import SavedWindowState
+try:
+    from Cocoa import NSApp
+    from meld.macwindow import MacWindow
+except Exception as ex:
+    class MacWindow:
+        is_quartz = False
 
 log = logging.getLogger(__name__)
 
 
 @Gtk.Template(resource_path='/org/gnome/meld/ui/appwindow.ui')
-class MeldWindow(Gtk.ApplicationWindow):
+class MeldWindow(Gtk.ApplicationWindow, MacWindow):
 
     __gtype_name__ = 'MeldWindow'
 
@@ -58,14 +64,10 @@ class MeldWindow(Gtk.ApplicationWindow):
     view_toolbar = Gtk.Template.Child()
 
     def __init__(self):
-        super().__init__()
+        super(Gtk.ApplicationWindow, self).__init__()
 
-        # START OSX
-        try:
-            from Cocoa import NSApp
-            self.is_quartz = True
-        except:
-            self.is_quartz = False
+        if self.is_quartz:
+            self.install_mac_additions()
 
         # Manually handle GAction additions
         actions = (
@@ -119,12 +121,6 @@ class MeldWindow(Gtk.ApplicationWindow):
         app = self.get_application()
         menu = app.get_menu_by_id("gear-menu")
 
-        # For some reason, this is broken on Mac. Let's build the menu manually
-        if self.is_quartz:
-            builder = Gtk.Builder.new_from_resource(
-                '/org/gnome/meld/gtk/menus.ui')
-            menu = builder.get_object('gear-menu')
-
         self.gear_menu_button.set_popover(
             Gtk.Popover.new_from_model(self.gear_menu_button, menu))
 
@@ -152,17 +148,8 @@ class MeldWindow(Gtk.ApplicationWindow):
 
         meld.ui.util.extract_accels_from_menu(menu, self.get_application())
 
-    def osx_menu_setup(self, widget, event, callback_data=None):
-        if self.quartz_ready == False:
-            self.get_application().setup_mac_integration(self.menubar)
-            self.quartz_ready = True
-
-    def osx_dock_bounce(self):
-        import gi
-        gi.require_version('GtkosxApplication', '1.0') 
-        from gi.repository import GtkosxApplication as gtkosx_application
-        macapp = gtkosx_application.Application()
-        macapp.attention_request(gtkosx_application.ApplicationAttentionType.NFO_REQUEST)
+        self.osx_menu_setup()        
+        self.osx_bring_to_front()
 
     def _on_recentmenu_map(self, recentmenu):
         for imagemenuitem in recentmenu.get_children():
