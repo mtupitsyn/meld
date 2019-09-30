@@ -1,17 +1,18 @@
 
 import os
 import sys
+from pathlib import Path
 from Foundation import NSBundle
 
 __package__ = "meld"
-__version__ = "3.20.0.osx6"
+__version__ = "3.21.0.osx1"
 
 APPLICATION_ID = "org.gnome.meld"
 RESOURCE_BASE = '/org/gnome/meld'
 
 # START; these paths are clobbered on install by meld.build_helpers
-DATADIR = os.path.join(sys.prefix, "share", "meld")
-LOCALEDIR = os.path.join(sys.prefix, "share", "locale")
+DATADIR = Path(sys.prefix) / "share" / "meld"
+LOCALEDIR = Path(sys.prefix) / "share" / "locale"
 # END
 
 # Flag enabling some workarounds if data dir isn't installed in standard prefix
@@ -36,8 +37,8 @@ def frozen():
     #bundle_path = bundle.bundlePath().fileSystemRepresentation().decode("utf-8")
     #frameworks_path = bundle.privateFrameworksPath().fileSystemRepresentation().decode("utf-8")
     #executable_path = bundle.executablePath().fileSystemRepresentation().decode("utf-8")
-    etc_path = os.path.join(resource_path , "etc")
-    lib_path = os.path.join(resource_path , "lib")
+    etc_path = os.path.join(resource_path, "etc")
+    lib_path = os.path.join(resource_path, "lib")
     share_path = os.path.join(resource_path , "share")
 
     # Glib and GI environment variables
@@ -57,27 +58,25 @@ def frozen():
 
     # XDG environment variables
     os.environ['XDG_CONFIG_DIRS'] = os.path.join(etc_path, "xdg")
-    os.environ['XDG_DATA_DIRS'] = ":".join((share_path,
-                                        os.path.join(share_path, "meld")))
+    os.environ['XDG_DATA_DIRS'] = ":".join((share_path, os.path.join(share_path, "meld")))
     os.environ['XDG_CONFIG_HOME'] = etc_path
-    
+
     # Pango environment variables
     os.environ['PANGO_RC_FILE'] = os.path.join(etc_path, "pango", "pangorc")
     os.environ['PANGO_SYSCONFDIR'] = etc_path
     os.environ['PANGO_LIBDIR'] = lib_path
 
     # Gdk environment variables
-    os.environ['GDK_PIXBUF_MODULEDIR'] = os.path.join(
-                            lib_path, "gdk-pixbuf-2.0", "2.10.0", "loaders")
+    os.environ['GDK_PIXBUF_MODULEDIR'] = os.path.join(lib_path, "gdk-pixbuf-2.0", "2.10.0", "loaders")
     #os.environ['GDK_RENDERING'] = "image"
 
     # Python environment variables
     os.environ['PYTHONHOME'] = resource_path
     original_python_path = os.environ.get('PYTHONPATH', "")
     python_path = ":".join((lib_path,
-                    os.path.join(lib_path, "python", "lib-dynload"),
-                    os.path.join(lib_path, "python"),
-                    original_python_path))
+                            os.path.join(lib_path, "python", "lib-dynload"),
+                            os.path.join(lib_path, "python"),
+                            original_python_path))
     os.environ['PYTHONPATH'] = python_path
 
     # meld specific
