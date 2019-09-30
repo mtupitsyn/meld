@@ -37,7 +37,7 @@
     </menu>
     <menu action="ViewMenu">
       <placeholder name="ViewBarPlaceholder" />
-      <menuitem action="Fullscreen" />
+      <!--menuitem action="Fullscreen" /-->
       <separator/>
       <placeholder name="ViewUtilityPlaceholder" />
       <separator/>
@@ -53,19 +53,4 @@
       <menuitem action="Refresh" />
     </menu>
   </menubar>
-
-  <toolbar action="Toolbar">
-    <toolitem action="New"/>
-    <placeholder name="GeneralActions" />
-    <toolitem action="PrevChange"/>
-    <toolitem action="NextChange"/>
-    <toolitem action="Stop"/>
-    <separator/>
-    <placeholder name="SpecialActions" />
-    <separator/>
-    <placeholder name="FilterActions" />
-  </toolbar>
-
-  <popup name="Popup">
-  </popup>
 </ui>

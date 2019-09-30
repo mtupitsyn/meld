@@ -188,37 +188,36 @@ class MeldApp(BASE_CLASS):
         parser.values.diff.append(diff_files_args)
 
     def setup_mac_integration(self, menubar):
-            self.set_use_quartz_accelerators(True)
-            self.set_menu_bar(menubar)
+        self.set_use_quartz_accelerators(True)
+        self.set_menu_bar(menubar)
 
-            item = Gtk.MenuItem.new_with_label(_("About"))
-            item.connect("activate", self.about_callback, None)
-            menubar.add(item)
-            self.insert_app_menu_item(item, 0)
-            self.set_about_item(item)
-            
-            separator = Gtk.SeparatorMenuItem()
-            menubar.add(separator)
-            self.insert_app_menu_item(separator, 1)
+        item = Gtk.MenuItem.new_with_label(_("About"))
+        item.connect("activate", self.about_callback, None)
+        menubar.add(item)
+        self.insert_app_menu_item(item, 0)
+        self.set_about_item(item)
+        
+        separator = Gtk.SeparatorMenuItem()
+        menubar.add(separator)
+        self.insert_app_menu_item(separator, 1)
 
-            item = Gtk.MenuItem.new_with_label(_("Preferences"))
-            item.connect("activate", self.preferences_callback, None)
-            menubar.add(item)
-            self.insert_app_menu_item(item, 2)
+        item = Gtk.MenuItem.new_with_label(_("Preferences"))
+        item.connect("activate", self.preferences_callback, None)
+        menubar.add(item)
+        self.insert_app_menu_item(item, 2)
 
-            item = Gtk.MenuItem.new_with_label(_("Shell Integration"))
-            item.connect("activate", self.mac_shell_integration_callback, None)
-            menubar.add(item)
-            self.insert_app_menu_item(item, 3)
+        item = Gtk.MenuItem.new_with_label(_("Shell Integration"))
+        item.connect("activate", self.mac_shell_integration_callback, None)
+        menubar.add(item)
+        self.insert_app_menu_item(item, 3)
 
-            separator = Gtk.SeparatorMenuItem()
-            menubar.add(separator)
-            self.insert_app_menu_item(separator, 4)
+        separator = Gtk.SeparatorMenuItem()
+        menubar.add(separator)
+        self.insert_app_menu_item(separator, 4)
 
-            self.sync_menubar()
+        self.sync_menubar()
 
-            self.ready()
-            self.attention_request(GtkosxApplication.ApplicationAttentionType.NFO_REQUEST)
+        self.ready()
 
     def parse_args(self, command_line):
         usages = [

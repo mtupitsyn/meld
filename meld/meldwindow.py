@@ -43,6 +43,7 @@ try:
     from Cocoa import NSApp
     from meld.macwindow import MacWindow
 except Exception as ex:
+    print(ex)
     class MacWindow:
         is_quartz = False
 
@@ -148,8 +149,11 @@ class MeldWindow(Gtk.ApplicationWindow, MacWindow):
 
         meld.ui.util.extract_accels_from_menu(menu, self.get_application())
 
-        self.osx_menu_setup()        
-        self.osx_bring_to_front()
+    def do_show(self):
+        Gtk.ApplicationWindow.do_show(self)
+        if self.is_quartz:
+            self.osx_menu_setup()
+            self.osx_bring_to_front()
 
     def _on_recentmenu_map(self, recentmenu):
         for imagemenuitem in recentmenu.get_children():
@@ -280,6 +284,10 @@ class MeldWindow(Gtk.ApplicationWindow, MacWindow):
             page.on_delete_event()
 
     def action_fullscreen_change(self, action, state):
+        if self.is_quartz:
+            self.osx_toggle_fullscreen()
+            return
+
         window_state = self.get_window().get_state()
         is_full = window_state & Gdk.WindowState.FULLSCREEN
         action.set_state(state)

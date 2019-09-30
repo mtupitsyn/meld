@@ -15,7 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import ctypes
 from Cocoa import NSApp
+from Cocoa import NSApplicationActivateIgnoringOtherApps, NSApplicationActivateAllWindows
+from AppKit import NSBundle, NSApp, NSWindow, NSAutoreleasePool, NSApplicationActivationPolicyRegular, NSApplicationActivationPolicyProhibited
 
 from gi.repository import Gdk
 from gi.repository import Gio
@@ -29,10 +32,26 @@ from gi.repository import GtkosxApplication as gtkosx_application
 from meld.conf import _, ui_file
 from meld.recent import recent_comparisons, RecentType
 
-class MacWindow:    
+class MacWindow:
     is_quartz = True
 
-    def install_mac_additions(self):    
+    def install_mac_additions(self):
+
+        #header_bar = Gtk.Template.Child()
+        self.maximize_button = Gtk.Template.Child()
+
+        # Manually handle GAction additions
+        actions = (
+            ("close-window", self.action_close_window),
+            ("minimize-window", self.action_minimize_window),
+            ("maximize-window", self.action_maximize_window),
+        )
+        for name, callback in actions:
+            action = Gio.SimpleAction.new(name, None)
+            action.connect('activate', callback)
+            self.add_action(action)
+
+        # Menu actions
         actions = (
             ("FileMenu", None, _("_File")),
             ("New", Gtk.STOCK_NEW, _("_New Comparison…"), "<Primary>N",
@@ -100,15 +119,10 @@ class MacWindow:
                 _("Refresh the view"),
                 self.on_menu_refresh_activate),
         )
-        toggleactions = (
-            ("Fullscreen", None, _("Fullscreen"), "F11",
-                _("View the comparison in fullscreen"),
-                self.on_action_fullscreen_toggled, False),
-        )
+
         self.actiongroup = Gtk.ActionGroup(name='MainActions')
         self.actiongroup.set_translation_domain("meld")
         self.actiongroup.add_actions(actions)
-        self.actiongroup.add_toggle_actions(toggleactions)
 
         recent_action = Gtk.RecentAction(
             name="Recent",  label=_("Open Recent"),
@@ -127,13 +141,9 @@ class MacWindow:
             self.actiongroup.get_action(menuitem).props.is_important = True
         self.add_accel_group(self.ui.get_accel_group())
         self.menubar = self.ui.get_widget('/Menubar')
-        self.toolbar = self.ui.get_widget('/Toolbar')
-        self.toolbar.get_style_context().add_class(
-            Gtk.STYLE_CLASS_PRIMARY_TOOLBAR)
 
         self.menubar.hide()
         self.quartz_ready = False
-        #self.connect('window_state_event', self.osx_menu_setup)
 
         # Alternate keybindings for a few commands.
         extra_accels = (
@@ -149,11 +159,12 @@ class MacWindow:
             keyval, mask = Gtk.accelerator_parse(accel)
             accel_group.connect(keyval, mask, 0, callback)
 
-        # Initialise sensitivity for important actions
-        self.actiongroup.get_action("Stop").set_sensitive(False)
-        # self._update_page_action_sensitivity()
+        self.connect('window-state-event', self.on_window_state_event)
 
-        self.appvbox.pack_start(self.menubar, False, True, 0)
+    def on_window_state_event(self, window, event):
+        # FIXME: We don't receive notification on fullscreen on OSX
+        # We'll have to figure this out some other way..
+        pass
 
     def on_menu_file_new_activate(self, menuitem):
         self.append_new_comparison()
@@ -243,9 +254,39 @@ class MacWindow:
         self.current_doc().open_external()
 
     def on_toolbar_stop_clicked(self, *args):
-        doc = self.current_doc()
-        if doc.scheduler.tasks_pending():
-            doc.scheduler.remove_task(doc.scheduler.get_current_task())
+        self.current_doc().action_stop()
+
+    def action_close_window(self, *extra):
+        app = self.get_application()
+        app.quit()
+
+    def action_minimize_window(self, *extra):
+        # self.get_window().iconify()  # Not working!
+        # self.iconify() # Not working!!
+        # window = NSApp.mainWindow()      # keyWindow isn't working either!
+        # window.performMiniaturize_(window)  # Not working!!
+        # window.miniaturize_(window) # Not working!!
+        # NSApp.miniaturizeAll_(self) # Not working!!!
+        #   After digging, it looks like a bug in GDK where GDK_QUARTZ_BORDERLESS_WINDOW is set for our Window
+        #   and GDK_QUARTZ_MINIATURIZABLE_WINDOW is not being set.. All because of the GtkHeaderBar.. argh.
+        #   I'll have to fix this in the gdk code inside gtk
+        # self.get_window().hide() # Nope..
+        pass # FIXME.. This is terribly annoyting.. Highest priority for next release..
+
+    def action_maximize_window(self, *extra):
+        window_state = self.get_window().get_state()
+        is_max = window_state & Gdk.WindowState.MAXIMIZED
+        get_icon = Gtk.Image.new_from_icon_name
+        maximize_image = None
+        if is_max:
+            maximize_image = get_icon('window-maximize-symbolic', 1)
+            self.get_window().unmaximize()
+        else:
+            maximize_image = get_icon('window-restore-symbolic', 1)
+            self.get_window().maximize()
+        print(self.maximize_button)
+        # self.maximize_button.add(maximize_image)
+        # FIXME: Figure out how gtk ui builder works and complete this
 
     def osx_menu_setup(self):       
         if self.quartz_ready == False:
@@ -253,10 +294,38 @@ class MacWindow:
             self.quartz_ready = True
 
     def osx_bring_to_front(self):
-        NSApp.deactivate()
-        NSApp.activateIgnoringOtherApps_(True)
+        NSApp.setActivationPolicy_(NSApplicationActivationPolicyRegular)
+        # NSApp.activateIgnoringOtherApps_(True)
+        # NSApp.activateWithOptions_(NSApplicationActivateIgnoringOtherApps | NSApplicationActivateAllWindows)
+        macapp = self.get_application()
+            #gtkosx_application.Application()
+        self.set_keep_above(True)
+        self.set_keep_above(False)
 
+        macapp.attention_request(gtkosx_application.ApplicationAttentionType.NFO_REQUEST)
 
     def osx_dock_bounce(self):
-        macapp = gtkosx_application.Application()
+        macapp = self.get_application()
         macapp.attention_request(gtkosx_application.ApplicationAttentionType.NFO_REQUEST)
+
+    def osx_toggle_fullscreen(self):
+        # FIXME: Implement
+        return
+        # handle = self.get_window_handle_helper()
+        # window = NSWindow.initWithWindowRef(handle) # Nope..
+        # window.toggleFullScreen_(None)
+
+    def _find_lib_path(self):
+        # FIXME: Implement
+        return ""
+
+    def get_window_handle_helper(self):
+        window = self.get_property('window')
+        ctypes.pythonapi.PyCapsule_GetPointer.restype = ctypes.c_void_p
+        ctypes.pythonapi.PyCapsule_GetPointer.argtypes = [ctypes.py_object]
+        gpointer = ctypes.pythonapi.PyCapsule_GetPointer(window.__gpointer__, None)
+        libgdk = ctypes.CDLL(self._find_lib_path() + "/libgdk-3.dylib")
+        libgdk.gdk_quartz_window_get_nsview.restype = ctypes.c_void_p
+        libgdk.gdk_quartz_window_get_nsview.argtypes = [ctypes.c_void_p]
+        handle = libgdk.gdk_quartz_window_get_nsview(gpointer)
+        return handle

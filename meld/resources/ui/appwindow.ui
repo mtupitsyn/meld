@@ -13,8 +13,89 @@
 
     <child type="titlebar">
       <object class="GtkHeaderBar" id="header_bar">
-        <property name="show-close-button">true</property>
+        <property name="decoration-layout">close,minimize,maximize,menu:</property>
+        <property name="show-close-button">false</property>
         <property name="visible">true</property>
+        <child>
+          <object class="GtkBox">
+            <property name="visible">True</property>
+            <property name="orientation">horizontal</property>
+            <property name="homogeneous">True</property>
+            <property name="spacing">0</property>
+            <child>
+              <object class="GtkButton" id="close_button">
+                <property name="action-name">win.close-window</property>
+                <property name="visible">true</property>
+                <property name="can_focus">false</property>
+                <property name="receives_default">false</property>
+                <property name="relief">none</property>
+                <style>
+                  <class name="raised"/>
+                  <class name="close"/>
+                </style>
+                <child>
+                  <object class="GtkImage" id="close_image">
+                    <property name="visible">true</property>
+                    <property name="can_focus">false</property>
+                    <property name="icon_size">1</property>
+                    <property name="icon_name">window-close-symbolic</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="pack-type">start</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="minimize_button">
+                <property name="action-name">win.minimize-window</property>
+                <property name="visible">True</property>
+                <property name="can_focus">false</property>
+                <property name="receives_default">false</property>
+                <property name="relief">none</property>
+                <style>
+                  <class name="raised"/>
+                  <class name="close"/>
+                </style>
+                <child>
+                  <object class="GtkImage" id="minimize_image">
+                    <property name="visible">true</property>
+                    <property name="can_focus">false</property>
+                    <property name="icon_size">1</property>
+                    <property name="icon_name">window-minimize-symbolic</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="pack-type">start</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="maximize_button">
+                <property name="action-name">win.maximize-window</property>
+                <property name="visible">True</property>
+                <property name="can_focus">false</property>
+                <property name="receives_default">false</property>
+                <property name="relief">none</property>
+                <style>
+                  <class name="raised"/>
+                  <class name="close"/>
+                </style>
+                <child>
+                  <object class="GtkImage" id="maximize_image">
+                    <property name="visible">true</property>
+                    <property name="can_focus">false</property>
+                    <property name="icon_size">1</property>
+                    <property name="icon_name">window-maximize-symbolic</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="pack-type">start</property>
+              </packing>
+            </child>
+          </object>
+        </child>
         <child>
           <object class="GtkBox">
             <property name="visible">True</property>
