@@ -86,9 +86,6 @@ def frozen():
 
 
 def uninstalled():
-    # Always use frozen when building...
-    return frozen()
-
     global DATADIR, LOCALEDIR, DATADIR_IS_UNINSTALLED
 
     melddir = Path(__file__).resolve().parent.parent

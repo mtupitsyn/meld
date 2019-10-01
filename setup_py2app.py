@@ -59,7 +59,7 @@ gtk_data_dirs = [
     'lib/girepository-1.0',
     'share/fontconfig',
     'share/glib-2.0',
-    'share/gtksourceview-3.0',
+    'share/gtksourceview-4',
     #'share/icons',
 ]
 
@@ -122,7 +122,8 @@ setup(
                     'libgobject-2.0.0.dylib'
                     'libgtk-3.0.dylib'
                     'libgtkmacintegration-gtk3.2.dylib'
-                    'libgtksourceview-3.0.1.dylib'
+                    'libgtksourceview-4.dylib'
+                    'libgtksourceview-4.0.dylib'
                     'libharfbuzz.0.dylib'
                     'libpango-1.0.0.dylib'
                     'libpangocairo-1.0.0.dylib'

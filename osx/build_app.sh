@@ -1,4 +1,16 @@
-#!/bin/sh
+#!/bin/bash
+
+set -o nounset
+set -o errexit
+set -o functrace
+
+trap "exit" INT
+failure() {
+  local lineno=$1
+  local msg=$2
+  echo "Failed at $lineno: $msg"
+}
+trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 
 export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH
 
@@ -52,7 +64,7 @@ cp $INSTROOT/share/themes/Mac/gtk-3.0/gtk-keys.css $RES/share/themes/Meld-Mojave
 cp $INSTROOT/share/themes/Mac/gtk-3.0/gtk-keys.css $RES/share/themes/Meld-Mojave-light/gtk-3.0/gtk-keys.css
 
 # meld specific resources
-mkdir $RES/share/meld
+mkdir -p $RES/share/meld
 rsync -r -t data/icons/* $RES/share/icons
 rsync -r -t data/meld.css $RES/share/meld
 rsync -r -t data/styles/meld-dark.xml $RES/share/gtksourceview-4/styles
@@ -70,9 +82,9 @@ rm -fr $RES/share/icons/Adwaita/96x96
 
 # copy fontconfig configuration files
 mkdir -p $RES/etc/fontconfig/conf.d
-cp $INSTROOT/etc/fonts/fonts.conf $RES/etc/fontconfig
+[ -f $INSTROOT/etc/fonts/fonts.conf ] && cp $INSTROOT/etc/fonts/fonts.conf $RES/etc/fontconfig
 for i in $(find $INSTROOT/etc/fonts/conf.d); do
-  cp $INSTROOT/share/fontconfig/conf.avail/$(basename $i) $RES/etc/fontconfig/conf.d
+  cp $INSTROOT/share/fontconfig/conf.avail/$(basename $i) $RES/etc/fontconfig/conf.d || true
 done
 
 # copy main libraries
