@@ -12,7 +12,7 @@ failure() {
 }
 trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 
-export MACOSX_DEPLOYMENT_TARGET=10.9
+export MACOSX_DEPLOYMENT_TARGET=10.13
 export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH
 
 # brew install python2 ccache
@@ -38,8 +38,8 @@ curl -OL https://gitlab.gnome.org/GNOME/gtksourceview/-/archive/4.4.0/gtksourcev
 tar xvf gtksourceview-4.4.0.tar.bz2
 WORKDIR=$(mktemp -d)
 cd $WORKDIR
-jhbuild run meson --libdir lib --buildtype release --optimization 3 -Dgtk_doc=false -Db_bitcode=true -Db_ndebug=true -Dvapi=false $HOME/Source/gtk/gtksourceview-4.4.0
-ninja install
+jhbuild run meson --prefix $HOME/gtk/inst --libdir lib --buildtype release --optimization 3 -Dgtk_doc=false -Db_bitcode=true -Db_ndebug=true -Dvapi=false $HOME/Source/gtk/gtksourceview-4.4.0
+jhbuild run ninja install
 
 popd
 

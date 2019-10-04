@@ -5,7 +5,7 @@ print("Using Meld for OSX customization")
 
 #prefix = "/tmp/meldroot"
 checkoutroot = os.path.expanduser("~/Source/gtk")
-setup_sdk(target="10.9", sdk_version="native", architectures=["x86_64"])
+setup_sdk(target="10.13", sdk_version="native", architectures=["x86_64"])
 _gtk_osx_use_jhbuild_python = True
 
 os.environ["CC"] = "/usr/local/bin/ccache /usr/bin/clang"
@@ -13,7 +13,7 @@ os.environ["CXX"] = "/usr/local/bin/ccache /usr/bin/clang++"
 environ_prepend('CFLAGS', "-O3")
 environ_prepend('CXXFLAGS', "-std=c++11 -stdlib=libc++ -O3")
 environ_prepend('OBJCFLAGS', "-O3")
-os.environ["MACOSX_DEPLOYMENT_TARGET"] = "10.9"
+os.environ["MACOSX_DEPLOYMENT_TARGET"] = "10.13"
 os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = "@executable_path/../Frameworks/:@executable_path/../Resources/lib"
 
 #skip.append("libiconv") # Lion issues
