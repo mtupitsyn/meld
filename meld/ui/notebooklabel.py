@@ -14,9 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from gi.repository import Gdk
-from gi.repository import GObject
-from gi.repository import Gtk
+from gi.repository import Gdk, GObject, Gtk
 
 
 @Gtk.Template(resource_path='/org/gnome/meld/ui/notebook-label.ui')
@@ -24,14 +22,7 @@ class NotebookLabel(Gtk.EventBox):
 
     __gtype_name__ = 'NotebookLabel'
 
-    icon = Gtk.Template.Child()
     label = Gtk.Template.Child()
-
-    icon_name = GObject.Property(
-        type=str,
-        nick='Name of the icon to display',
-        default=None,
-    )
 
     label_text = GObject.Property(
         type=str,
@@ -48,10 +39,6 @@ class NotebookLabel(Gtk.EventBox):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.bind_property(
-            'icon-name', self.icon, 'icon-name',
-            GObject.BindingFlags.DEFAULT | GObject.BindingFlags.SYNC_CREATE,
-        )
         self.bind_property(
             'label-text', self.label, 'label',
             GObject.BindingFlags.DEFAULT | GObject.BindingFlags.SYNC_CREATE,

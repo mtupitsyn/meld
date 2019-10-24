@@ -1,7 +1,5 @@
 
-from gi.repository import GObject
-from gi.repository import Gtk
-from gi.repository import GtkSource
+from gi.repository import GObject, Gtk, GtkSource
 
 from meld.conf import _
 
@@ -13,7 +11,7 @@ from meld.conf import _
 
 class FilteredListSelector:
 
-    # FilteredListSelector was intially based on gedit's
+    # FilteredListSelector was initially based on gedit's
     # GeditHighlightModeSelector
     # Copyright (C) 2013 - Ignacio Casal Quinteiro
     # Python translation and adaptations
@@ -113,7 +111,7 @@ class EncodingSelector(FilteredListSelector, Gtk.Grid):
             name=enc.get_name(), charset=enc.get_charset())
 
 
-# SourceLangSelector was intially based on gedit's
+# SourceLangSelector was initially based on gedit's
 # GeditHighlightModeSelector
 # Copyright (C) 2013 - Ignacio Casal Quinteiro
 # Python translation and adaptations

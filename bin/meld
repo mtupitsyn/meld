@@ -24,6 +24,7 @@ import subprocess
 import sys
 from multiprocessing import freeze_support
 
+
 # On Windows, pythonw.exe (which doesn't display a console window) supplies
 # dummy stdout and stderr streams that silently throw away any output. However,
 # these streams seem to have issues with flush() so we just redirect stdout and
@@ -178,8 +179,8 @@ def show_error_and_exit(error_text):
             text=error_text,
         ).run()
     except Exception:
-        # Although tkinter is imported here, it isn't meld's dependency:
-        # if found it is used to show GUI error about lacking true dependecies.
+        # tkinter is imported here only to show a UI warning about
+        # missing dependencies.
         try:
             if sys.version_info < (3, 0):
                 from Tkinter import Tk
@@ -284,7 +285,6 @@ def setup_platform_gtk_style():
 
 def setup_resources():
     from gi.repository import Gio
-    from gi.repository import GLib
     from gi.repository import Gtk
     from gi.repository import Gdk
     from gi.repository import GtkSource
@@ -316,18 +316,24 @@ def setup_resources():
     icon_dir = os.path.join(meld.conf.DATADIR, "icons")
     Gtk.IconTheme.get_default().append_search_path(icon_dir)
 
-    css_file = os.path.join(meld.conf.DATADIR, "meld.css")
     provider = Gtk.CssProvider()
-    try:
-        provider.load_from_path(css_file)
-    except GLib.GError as err:
-        print(_("Couldn’t load Meld-specific CSS (%s)\n%s") % (css_file, err))
+    provider.load_from_resource('/org/gnome/meld/meld.css')
     Gtk.StyleContext.add_provider_for_screen(
         Gdk.Screen.get_default(), provider,
         Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
     style_path = os.path.join(meld.conf.DATADIR, "styles")
     GtkSource.StyleSchemeManager.get_default().append_search_path(style_path)
+
+    # Just copy style schemes to the file ending expected by
+    # GtkSourceView if we're uninstalled and they're missing
+    if uninstalled:
+        for style in {'meld-base', 'meld-dark'}:
+            path = os.path.join(
+                style_path, '{}.style-scheme.xml'.format(style))
+            if not os.path.exists(path):
+                import shutil
+                shutil.copyfile(path + '.in', path)
 
 
 def setup_settings():

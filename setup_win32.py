@@ -119,7 +119,7 @@ executable_options = {
 
 if 'mingw' in sysconfig.get_platform():
     executable_options.update({
-         "base": "Win32GUI",  # comment to build cosole version to see stderr
+         "base": "Win32GUI",  # comment to build console version to see stderr
          "targetName": "Meld.exe",
          "shortcutName": "Meld",
          "shortcutDir": "ProgramMenuFolder",
@@ -167,7 +167,7 @@ setup(
     scripts=['bin/meld'],
     data_files=[
         ('share/man/man1',
-         ['meld.1']
+         ['data/meld.1']
          ),
         ('share/doc/meld-' + meld.conf.__version__,
          ['COPYING', 'NEWS']
