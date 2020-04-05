@@ -26,17 +26,26 @@ from gi.repository import GtkSource
 from meld.conf import _
 from meld.iohelpers import prompt_save_filename
 from meld.misc import error_dialog
-from meld.settings import meldsettings
+from meld.settings import get_meld_settings
 from meld.sourceview import LanguageManager
-from meld.ui.gnomeglade import Component
 
 
-class PatchDialog(Component):
+@Gtk.Template(resource_path='/org/gnome/meld/ui/patch-dialog.ui')
+class PatchDialog(Gtk.Dialog):
+
+    __gtype_name__ = "PatchDialog"
+
+    left_radiobutton = Gtk.Template.Child("left_radiobutton")
+    reverse_checkbutton = Gtk.Template.Child("reverse_checkbutton")
+    right_radiobutton = Gtk.Template.Child("right_radiobutton")
+    side_selection_box = Gtk.Template.Child("side_selection_box")
+    side_selection_label = Gtk.Template.Child("side_selection_label")
+    textview: Gtk.TextView = Gtk.Template.Child("textview")
 
     def __init__(self, filediff):
-        super().__init__("patch-dialog.ui", "patchdialog")
+        super().__init__()
 
-        self.widget.set_transient_for(filediff.widget.get_toplevel())
+        self.set_transient_for(filediff.get_toplevel())
         self.filediff = filediff
 
         buf = GtkSource.Buffer()
@@ -44,9 +53,6 @@ class PatchDialog(Component):
         lang = LanguageManager.get_language_from_mime_type("text/x-diff")
         buf.set_language(lang)
         buf.set_highlight_syntax(True)
-
-        self.textview.modify_font(meldsettings.font)
-        self.textview.set_editable(False)
 
         self.index_map = {self.left_radiobutton: (0, 1),
                           self.right_radiobutton: (1, 2)}
@@ -57,18 +63,23 @@ class PatchDialog(Component):
             self.side_selection_label.hide()
             self.side_selection_box.hide()
 
-        meldsettings.connect('changed', self.on_setting_changed)
+        meld_settings = get_meld_settings()
+        self.textview.modify_font(meld_settings.font)
+        self.textview.set_editable(False)
+        meld_settings.connect('changed', self.on_setting_changed)
 
-    def on_setting_changed(self, setting, key):
+    def on_setting_changed(self, settings, key):
         if key == "font":
-            self.textview.modify_font(meldsettings.font)
+            self.textview.modify_font(settings.font)
 
+    @Gtk.Template.Callback()
     def on_buffer_selection_changed(self, radiobutton):
         if not radiobutton.get_active():
             return
         self.left_patch = radiobutton == self.left_radiobutton
         self.update_patch()
 
+    @Gtk.Template.Callback()
     def on_reverse_checkbutton_toggled(self, checkbutton):
         self.reverse_patch = checkbutton.get_active()
         self.update_patch()
@@ -135,9 +146,9 @@ class PatchDialog(Component):
     def run(self):
         self.update_patch()
 
-        result = self.widget.run()
+        result = super().run()
         if result < 0:
-            self.widget.hide()
+            self.hide()
             return
 
         # Copy patch to clipboard
@@ -153,4 +164,4 @@ class PatchDialog(Component):
             if gfile:
                 self.save_patch(gfile)
 
-        self.widget.hide()
+        self.hide()

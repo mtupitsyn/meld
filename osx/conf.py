@@ -1,49 +1,45 @@
 
 import os
 import sys
+from pathlib import Path
 from Foundation import NSBundle
 
 __package__ = "meld"
-__version__ = "3.19.2.osx6"
+__version__ = "3.21.0.osx1"
 
 APPLICATION_ID = "org.gnome.meld"
+RESOURCE_BASE = '/org/gnome/meld'
 
 # START; these paths are clobbered on install by meld.build_helpers
-DATADIR = os.path.join(sys.prefix, "share", "meld")
-LOCALEDIR = os.path.join(sys.prefix, "share", "locale")
+DATADIR = Path(sys.prefix) / "share" / "meld"
+LOCALEDIR = Path(sys.prefix) / "share" / "locale"
 # END
 
 # Flag enabling some workarounds if data dir isn't installed in standard prefix
 DATADIR_IS_UNINSTALLED = False
-PYTHON_REQUIREMENT_TUPLE = (3, 3)
+PYTHON_REQUIREMENT_TUPLE = (3, 4)
 
 
 # Installed from main script
-def no_translation(gettext_string, *args):
+def no_translation(gettext_string: str) -> str:
     return gettext_string
 
 
 _ = no_translation
 ngettext = no_translation
 
+
 def frozen():
     global DATADIR, LOCALEDIR, DATADIR_IS_UNINSTALLED
 
     bundle = NSBundle.mainBundle()
     resource_path =  bundle.resourcePath().fileSystemRepresentation().decode("utf-8")
-    bundle_path = bundle.bundlePath().fileSystemRepresentation().decode("utf-8")
-    frameworks_path = bundle.privateFrameworksPath().fileSystemRepresentation().decode("utf-8")
-    executable_path = bundle.executablePath().fileSystemRepresentation().decode("utf-8")
-    etc_path = os.path.join(resource_path , "etc")
-    lib_path = os.path.join(resource_path , "lib")
+    #bundle_path = bundle.bundlePath().fileSystemRepresentation().decode("utf-8")
+    #frameworks_path = bundle.privateFrameworksPath().fileSystemRepresentation().decode("utf-8")
+    #executable_path = bundle.executablePath().fileSystemRepresentation().decode("utf-8")
+    etc_path = os.path.join(resource_path, "etc")
+    lib_path = os.path.join(resource_path, "lib")
     share_path = os.path.join(resource_path , "share")
-
-    # Main libraries environment variables
-    #dyld_library_path = os.environ.get('DYLD_LIBRARY_PATH', '').split(':')
-    #dyld_library_path.insert(0, lib_path)
-    #dyld_library_path.insert(1, frameworks_path)
-    #os.environ['DYLD_LIBRARY_PATH'] = ':'.join(dyld_library_path)
-    #print "DYLD_LIBRARY_PATH %s" % os.environ.get('DYLD_LIBRARY_PATH', '')
 
     # Glib and GI environment variables
     os.environ['GSETTINGS_SCHEMA_DIR'] = os.path.join(
@@ -62,27 +58,25 @@ def frozen():
 
     # XDG environment variables
     os.environ['XDG_CONFIG_DIRS'] = os.path.join(etc_path, "xdg")
-    os.environ['XDG_DATA_DIRS'] = ":".join((share_path,
-                                        os.path.join(share_path, "meld")))
+    os.environ['XDG_DATA_DIRS'] = ":".join((share_path, os.path.join(share_path, "meld")))
     os.environ['XDG_CONFIG_HOME'] = etc_path
-    
+
     # Pango environment variables
     os.environ['PANGO_RC_FILE'] = os.path.join(etc_path, "pango", "pangorc")
     os.environ['PANGO_SYSCONFDIR'] = etc_path
     os.environ['PANGO_LIBDIR'] = lib_path
 
     # Gdk environment variables
-    os.environ['GDK_PIXBUF_MODULEDIR'] = os.path.join(
-                            lib_path, "gdk-pixbuf-2.0", "2.10.0", "loaders")
+    os.environ['GDK_PIXBUF_MODULEDIR'] = os.path.join(lib_path, "gdk-pixbuf-2.0", "2.10.0", "loaders")
     #os.environ['GDK_RENDERING'] = "image"
 
     # Python environment variables
     os.environ['PYTHONHOME'] = resource_path
     original_python_path = os.environ.get('PYTHONPATH', "")
     python_path = ":".join((lib_path,
-                    os.path.join(lib_path, "python", "lib-dynload"),
-                    os.path.join(lib_path, "python"),
-                    original_python_path))
+                            os.path.join(lib_path, "python", "lib-dynload"),
+                            os.path.join(lib_path, "python"),
+                            original_python_path))
     os.environ['PYTHONPATH'] = python_path
 
     # meld specific
@@ -92,16 +86,16 @@ def frozen():
 
 
 def uninstalled():
-    # Always use frozen when building...
-    return frozen()
-
     global DATADIR, LOCALEDIR, DATADIR_IS_UNINSTALLED
-    melddir = os.path.abspath(os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), ".."))
 
-    DATADIR = os.path.join(melddir, "data")
-    LOCALEDIR = os.path.join(melddir, "build", "mo")
+    melddir = Path(__file__).resolve().parent.parent
+
+    DATADIR = melddir / "data"
+    LOCALEDIR = melddir / "build" / "mo"
     DATADIR_IS_UNINSTALLED = True
+
+    resource_path = melddir / "meld" / "resources"
+    os.environ['G_RESOURCE_OVERLAYS'] = f'{RESOURCE_BASE}={resource_path}'
 
 def ui_file(filename):
     return os.path.join(DATADIR, "ui", filename)

@@ -4,10 +4,6 @@ from unittest import mock
 import pytest
 from gi.repository import GtkSource
 
-import meld.meldbuffer
-from meld.filediff import FileDiff
-from meld.matchers.myers import DiffChunk
-
 
 @pytest.mark.parametrize("text, newline, expected_text", [
     # For the following tests, newlines and text match
@@ -30,14 +26,15 @@ from meld.matchers.myers import DiffChunk
     ("ree\r\neee\nqqq\r\n", GtkSource.NewlineType.CR_LF, 'ree\r\neee\nqqq'),
 ])
 def test_delete_last_line_crlf(text, newline, expected_text):
+    import meld.meldbuffer
+    from meld.filediff import FileDiff
+    from meld.matchers.myers import DiffChunk
+
     filediff = mock.Mock(FileDiff)
 
-    with mock.patch.multiple(
-            'meld.meldbuffer',
-            bind_settings=mock.DEFAULT, meldsettings=mock.DEFAULT):
-        with mock.patch('meld.meldbuffer.MeldBuffer.set_style_scheme'):
-            meldbuffer = meld.meldbuffer.MeldBuffer()
-            meldbuffer.set_text(text)
+    with mock.patch('meld.meldbuffer.bind_settings', mock.DEFAULT):
+        meldbuffer = meld.meldbuffer.MeldBuffer()
+        meldbuffer.set_text(text)
 
     def make_last_line_chunk(buf):
         end = buf.get_line_count()

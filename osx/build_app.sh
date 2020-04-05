@@ -1,8 +1,16 @@
-#!/bin/sh -x
+#!/bin/bash -x
 
-set -o errexit
-set -o pipefail
 set -o nounset
+set -o errexit
+set -o functrace
+
+trap "exit" INT
+failure() {
+  local lineno=$1
+  local msg=$2
+  echo "Failed at $lineno: $msg"
+}
+trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 
 export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH
 
@@ -15,9 +23,11 @@ INSTROOT="$HOME/gtk/inst/"
 cp meld/conf.py meld/conf.py.orig
 cp osx/conf.py meld/conf.py
 
+python3 -c "import sys; print('\n'.join(sys.path))"
+
 glib-compile-schemas data
 python3 setup_py2app.py build
-python3 setup_py2app.py py2app --use-faulthandler # -A
+python3 setup_py2app.py py2app --use-faulthandler --graph
 
 mv meld/conf.py.orig meld/conf.py
 
@@ -27,32 +37,7 @@ mv meld/conf.py.orig meld/conf.py
 # rm -fr $FRAMEWORKS/Python.framework
 
 # icon themes
-mkdir -p $RES/share/icons
-declare -a arr=("document-new" 
-                "go-down" "go-up" "process-stop"
-                "dialog-information" "go-previous" "go-next"
-                "list-add" "list-remove" "edit-delete" 
-                "dialog-information" "folder" "document-save" "edit-undo" "edit-redo"
-                "document-revert" "go-bottom" "emblem-symbolic-link" "text-x-generic"
-                )
-
-SOURCE_DIR="${INSTROOT}/share/icons/Adwaita"
-TARGET_DIR="${RES}/share/icons/Adwaita"
-all_icons=$(find ${SOURCE_DIR})
-for icon in $all_icons
-do
-    for i in "${arr[@]}"
-    do
-        if [[ $icon == *"${i}.png" ]]; then            
-            icon_name=$(basename $icon)
-            icon_path=$(echo $(dirname $icon) | sed s_${SOURCE_DIR}__)
-            mkdir -p ${TARGET_DIR}/${icon_path}
-
-            echo "$i::$icon -> ${TARGET_DIR}/${icon_path}/"
-            cp ${icon} ${TARGET_DIR}/${icon_path}/
-        fi
-    done
-done
+rsync -r -t --ignore-existing ${INSTROOT}/share/icons/Adwaita ${RES}/share/icons
 rsync -r -t --ignore-existing ${INSTROOT}/share/icons/hicolor ${RES}/share/icons
 
 # glib schemas
@@ -62,9 +47,9 @@ cp data/org.gnome.meld.gschema.xml $RES/share/glib-2.0/schemas
 rsync -r -t  $INSTROOT/share/GConf/gsettings $RES/share/GConf
 
 # pango
-mkdir -p $RES/etc/pango
-pango-querymodules |perl -i -pe 's/^[^#].*\///' > $RES/etc/pango/pango.modules
-echo "[Pango]\nModuleFiles=./etc/pango/pango.modules\n" > $RES/etc/pango/pangorc
+# mkdir -p $RES/etc/pango
+# pango-querymodules |perl -i -pe 's/^[^#].*\///' > $RES/etc/pango/pango.modules
+# echo "[Pango]\nModuleFiles=./etc/pango/pango.modules\n" > $RES/etc/pango/pangorc
 
 # gdk-pixbuf
 rsync -r -t $INSTROOT/lib/gdk-pixbuf-2.0 $RES/lib
@@ -75,7 +60,7 @@ gdk-pixbuf-query-loaders  | sed s=\".*/lib/gdk-pixbuf-2.0=\"@executable_path/\.\
 mkdir -p $RES/share/themes
 rsync -r -t $INSTROOT/share/themes/Default/ $RES/share/themes/Default
 rsync -r -t $INSTROOT/share/themes/Mac/ $RES/share/themes/Mac
-rsync -r -t $INSTROOT/share/gtksourceview-3.0 $RES/share
+rsync -r -t $INSTROOT/share/gtksourceview-4 $RES/share
 mkdir -p $RES/share/themes/Meld-Mojave-dark/gtk-3.0
 mkdir -p $RES/share/themes/Meld-Mojave-light/gtk-3.0
 rsync -r -t --ignore-existing $INSTROOT/share/themes/Mojave-dark-solid-alt/gtk-3.0 $RES/share/themes/Meld-Mojave-dark
@@ -84,11 +69,11 @@ cp $INSTROOT/share/themes/Mac/gtk-3.0/gtk-keys.css $RES/share/themes/Meld-Mojave
 cp $INSTROOT/share/themes/Mac/gtk-3.0/gtk-keys.css $RES/share/themes/Meld-Mojave-light/gtk-3.0/gtk-keys.css
 
 # meld specific resources
-mkdir $RES/share/meld
+mkdir -p $RES/share/meld
 rsync -r -t data/icons/* $RES/share/icons
 rsync -r -t data/meld.css $RES/share/meld
-rsync -r -t data/styles/meld-dark.xml $RES/share/gtksourceview-3.0/styles
-rsync -r -t data/styles/meld-base.xml $RES/share/gtksourceview-3.0/styles
+rsync -r -t data/styles/meld-dark.xml $RES/share/gtksourceview-4/styles
+rsync -r -t data/styles/meld-base.xml $RES/share/gtksourceview-4/styles
 
 # update icon cache for Adwaita
 rm -fr $RES/share/icons/Adwaita/cursors
@@ -102,9 +87,9 @@ rm -fr $RES/share/icons/Adwaita/96x96
 
 # copy fontconfig configuration files
 mkdir -p $RES/etc/fontconfig/conf.d
-cp $INSTROOT/etc/fonts/fonts.conf $RES/etc/fontconfig
+[ -f $INSTROOT/etc/fonts/fonts.conf ] && cp $INSTROOT/etc/fonts/fonts.conf $RES/etc/fontconfig
 for i in $(find $INSTROOT/etc/fonts/conf.d); do
-  cp $INSTROOT/share/fontconfig/conf.avail/$(basename $i) $RES/etc/fontconfig/conf.d
+  cp $INSTROOT/share/fontconfig/conf.avail/$(basename $i) $RES/etc/fontconfig/conf.d || true
 done
 
 # copy main libraries
@@ -126,7 +111,7 @@ rsync -t $INSTROOT/lib/libgobject-2.0.0.dylib $FRAMEWORKS/libgobject-2.0.0.dylib
 rsync -t $INSTROOT/lib/libpango-1.0.0.dylib $FRAMEWORKS/libpango-1.0.0.dylib
 rsync -t $INSTROOT/lib/libpangoft2-1.0.0.dylib $FRAMEWORKS/libpangoft2-1.0.0.dylib
 rsync -t $INSTROOT/lib/libgtk-3.0.dylib $FRAMEWORKS/libgtk-3.0.dylib
-rsync -t $INSTROOT/lib/libgtksourceview-3.0.1.dylib $FRAMEWORKS/libgtksourceview-3.0.1.dylib
+rsync -t $INSTROOT/lib/libgtksourceview-4.0.dylib $FRAMEWORKS/libgtksourceview-4.0.dylib
 rsync -t $INSTROOT/lib/libgtkmacintegration-gtk3.2.dylib $FRAMEWORKS/libgtkmacintegration-gtk3.2.dylib
 
 # rename script, use wrapper
@@ -134,6 +119,7 @@ rsync -t $INSTROOT/lib/libgtkmacintegration-gtk3.2.dylib $FRAMEWORKS/libgtkmacin
 #rsync -t osx/meld.applescript $MAIN/Contents/MacOS/meld_wrapper
 #mv $MAIN/Contents/MacOS/meld_wrapper $MAIN/Contents/MacOS/Meld
 chmod +x $MAIN/Contents/MacOS/Meld
+(cd $RES/share/meld && ln -sf org.gnome.meld.gresource meld.gresource)
 #chmod +x $MAIN/Contents/MacOS/Meld-bin
 
 # unroot the library path
@@ -172,7 +158,6 @@ while [ $newlibs -gt 0 ]; do
 done
 
 WORKDIR=$(mktemp -d)
-
 for i in $(find $HOME/gtk/inst/share/gir-1.0 -name *.gir); do
     gir=$(echo $(basename $i))
     typelib=${gir%.*}.typelib
@@ -180,11 +165,8 @@ for i in $(find $HOME/gtk/inst/share/gir-1.0 -name *.gir); do
 
     cat $i | sed s_"$HOME/gtk/inst/lib"_"@executable\_path/../Frameworks"_g > ${WORKDIR}/$gir
     $HOME/gtk/inst/bin/g-ir-compiler ${WORKDIR}/$gir -o ${WORKDIR}/$typelib
-
 done
-
 cp ${WORKDIR}/*.typelib ${RES}/lib/girepository-1.0
-
 rm -fr ${WORKDIR}
 
 

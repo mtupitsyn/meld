@@ -1,5 +1,5 @@
 # Copyright (C) 2002-2006 Stephen Kennedy <stevek@gnome.org>
-# Copyright (C) 2010-2015 Kai Willadsen <kai.willadsen@gmail.com>
+# Copyright (C) 2010-2019 Kai Willadsen <kai.willadsen@gmail.com>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -37,7 +37,6 @@ from meld.melddoc import MeldDoc
 from meld.misc import error_dialog, read_pipe_iter
 from meld.recent import RecentType
 from meld.settings import bind_settings, settings
-from meld.ui.gnomeglade import Component, ui_file
 from meld.ui.vcdialogs import CommitDialog, PushDialog
 from meld.vc import _null, get_vcs
 from meld.vc._vc import Entry
@@ -119,7 +118,8 @@ class VcTreeStore(tree.DiffTreeStore):
         return self.get_value(it, self.column_index(tree.COL_PATH, 0))
 
 
-class VcView(MeldDoc, Component):
+@Gtk.Template(resource_path='/org/gnome/meld/ui/vcview.ui')
+class VcView(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
 
     __gtype_name__ = "VcView"
 
@@ -128,6 +128,12 @@ class VcView(MeldDoc, Component):
         ('vc-left-is-local', 'left-is-local'),
         ('vc-merge-file-order', 'merge-file-order'),
     )
+
+    close_signal = MeldDoc.close_signal
+    create_diff_signal = MeldDoc.create_diff_signal
+    file_changed_signal = MeldDoc.file_changed_signal
+    label_changed = MeldDoc.label_changed
+    tab_state_changed = MeldDoc.tab_state_changed
 
     status_filters = GObject.Property(
         type=GObject.TYPE_STRV,
@@ -143,25 +149,102 @@ class VcView(MeldDoc, Component):
     }
 
     state_actions = {
-        "flatten": ("VcFlatten", None),
-        "modified": ("VcShowModified", Entry.is_modified),
-        "normal": ("VcShowNormal", Entry.is_normal),
-        "unknown": ("VcShowNonVC", Entry.is_nonvc),
-        "ignored": ("VcShowIgnored", Entry.is_ignored),
+        'flatten': ('vc-flatten', None),
+        'modified': ('vc-status-modified', Entry.is_modified),
+        'normal': ('vc-status-normal', Entry.is_normal),
+        'unknown': ('vc-status-unknown', Entry.is_nonvc),
+        'ignored': ('vc-status-ignored', Entry.is_ignored),
     }
 
+    combobox_vcs = Gtk.Template.Child()
+    console_vbox = Gtk.Template.Child()
+    consoleview = Gtk.Template.Child()
+    emblem_renderer = Gtk.Template.Child()
+    extra_column = Gtk.Template.Child()
+    extra_renderer = Gtk.Template.Child()
+    fileentry = Gtk.Template.Child()
+    liststore_vcs = Gtk.Template.Child()
+    location_column = Gtk.Template.Child()
+    location_renderer = Gtk.Template.Child()
+    name_column = Gtk.Template.Child()
+    name_renderer = Gtk.Template.Child()
+    status_column = Gtk.Template.Child()
+    status_renderer = Gtk.Template.Child()
+    treeview = Gtk.Template.Child()
+    vc_console_vpaned = Gtk.Template.Child()
+
     def __init__(self):
+        super().__init__()
+        # FIXME:
+        # This unimaginable hack exists because GObject (or GTK+?)
+        # doesn't actually correctly chain init calls, even if they're
+        # not to GObjects. As a workaround, we *should* just be able to
+        # put our class first, but because of Gtk.Template we can't do
+        # that if it's a GObject, because GObject doesn't support
+        # multiple inheritance and we need to inherit from our Widget
+        # parent to make Template work.
         MeldDoc.__init__(self)
-        Component.__init__(
-            self, "vcview.ui", "vcview", ["VcviewActions", 'liststore_vcs'])
         bind_settings(self)
 
-        self.ui_file = ui_file("vcview-ui.xml")
-        self.actiongroup = self.VcviewActions
-        self.actiongroup.set_translation_domain("meld")
+        # Set up per-view action group for top-level menu insertion
+        self.view_action_group = Gio.SimpleActionGroup()
+
+        property_actions = (
+            ('vc-console-visible', self.console_vbox, 'visible'),
+        )
+        for action_name, obj, prop_name in property_actions:
+            action = Gio.PropertyAction.new(action_name, obj, prop_name)
+            self.view_action_group.add_action(action)
+
+        # Manually handle GAction additions
+        actions = (
+            ('compare', self.action_diff),
+            ('find', self.action_find),
+            ('next-change', self.action_next_change),
+            ('open-external', self.action_open_external),
+            ('previous-change', self.action_previous_change),
+            ('refresh', self.action_refresh),
+            ('vc-add', self.action_add),
+            ('vc-commit', self.action_commit),
+            ('vc-delete-locally', self.action_delete),
+            ('vc-push', self.action_push),
+            ('vc-remove', self.action_remove),
+            ('vc-resolve', self.action_resolved),
+            ('vc-revert', self.action_revert),
+            ('vc-update', self.action_update),
+        )
+        for name, callback in actions:
+            action = Gio.SimpleAction.new(name, None)
+            action.connect('activate', callback)
+            self.view_action_group.add_action(action)
+
+        new_boolean = GLib.Variant.new_boolean
+        stateful_actions = (
+            ('vc-flatten', self.action_filter_state_change,
+                new_boolean('flatten' in self.props.status_filters)),
+            ('vc-status-modified', self.action_filter_state_change,
+                new_boolean('modified' in self.props.status_filters)),
+            ('vc-status-normal', self.action_filter_state_change,
+                new_boolean('normal' in self.props.status_filters)),
+            ('vc-status-unknown', self.action_filter_state_change,
+                new_boolean('unknown' in self.props.status_filters)),
+            ('vc-status-ignored', self.action_filter_state_change,
+                new_boolean('ignored' in self.props.status_filters)),
+        )
+        for (name, callback, state) in stateful_actions:
+            action = Gio.SimpleAction.new_stateful(name, None, state)
+            action.connect('change-state', callback)
+            self.view_action_group.add_action(action)
+
+        builder = Gtk.Builder.new_from_resource(
+            '/org/gnome/meld/ui/vcview-menus.ui')
+        context_menu = builder.get_object('vcview-context-menu')
+        self.popup_menu = Gtk.Menu.new_from_model(context_menu)
+        self.popup_menu.attach_to_widget(self)
+
         self.model = VcTreeStore()
-        self.widget.connect("style-updated", self.model.on_style_updated)
-        self.model.on_style_updated(self.widget)
+        self.connect("style-updated", self.model.on_style_updated)
+        self.model.on_style_updated(self)
         self.treeview.set_model(self.model)
         self.treeview.get_selection().connect(
             "changed", self.on_treeview_selection_changed)
@@ -185,41 +268,47 @@ class VcView(MeldDoc, Component):
             self.status_renderer, markup=COL_STATUS)
         self.extra_column.set_attributes(
             self.extra_renderer, markup=COL_OPTIONS)
-        self.location_column.bind_property(
-            'visible', self.actiongroup.get_action("VcFlatten"), 'active')
 
         self.consolestream = ConsoleStream(self.consoleview)
         self.location = None
         self.vc = None
 
-        settings.bind('vc-console-visible',
-                      self.actiongroup.get_action('VcConsoleVisible'),
-                      'active', Gio.SettingsBindFlags.DEFAULT)
         settings.bind('vc-console-visible', self.console_vbox, 'visible',
                       Gio.SettingsBindFlags.DEFAULT)
         settings.bind('vc-console-pane-position', self.vc_console_vpaned,
                       'position', Gio.SettingsBindFlags.DEFAULT)
 
-        for s in self.props.status_filters:
-            if s in self.state_actions:
-                self.actiongroup.get_action(
-                    self.state_actions[s][0]).set_active(True)
-
-    def _set_external_action_sensitivity(self, focused):
-        try:
-            self.main_actiongroup.get_action("OpenExternal").set_sensitive(
-                focused)
-        except AttributeError:
-            pass
-
-    def on_container_switch_in_event(self, ui):
-        super().on_container_switch_in_event(ui)
-        self._set_external_action_sensitivity(True)
+    def on_container_switch_in_event(self, window):
+        super().on_container_switch_in_event(window)
+        # FIXME: open-external should be tied to having a treeview selection
+        self.set_action_enabled("open-external", True)
         self.scheduler.add_task(self.on_treeview_cursor_changed)
 
-    def on_container_switch_out_event(self, ui):
-        self._set_external_action_sensitivity(False)
-        super().on_container_switch_out_event(ui)
+    def on_container_switch_out_event(self, window):
+        self.set_action_enabled("open-external", False)
+        super().on_container_switch_out_event(window)
+
+    def get_default_vc(self, vcs):
+        target_name = self.vc.NAME if self.vc else None
+
+        for i, (name, vc, enabled) in enumerate(vcs):
+            if not enabled:
+                continue
+
+            if target_name and name == target_name:
+                return i
+
+        depths = [len(getattr(vc, 'root', [])) for name, vc, enabled in vcs]
+        target_depth = max(depths, default=0)
+
+        for i, (name, vc, enabled) in enumerate(vcs):
+            if not enabled:
+                continue
+
+            if target_depth and len(vc.root) == target_depth:
+                return i
+
+        return 0
 
     def populate_vcs_for_location(self, location):
         """Display VC plugin(s) that can handle the location"""
@@ -238,18 +327,22 @@ class VcView(MeldDoc, Component):
             location = parent_location
         else:
             # existing parent directory was found
-            for avc in get_vcs(location):
+            for avc, enabled in get_vcs(location):
                 err_str = ''
                 vc_details = {'name': avc.NAME, 'cmd': avc.CMD}
 
-                if not avc.is_installed():
+                if not enabled:
+                    # Translators: This error message is shown when no
+                    # repository of this type is found.
+                    err_str = _("%(name)s (not found)")
+                elif not avc.is_installed():
                     # Translators: This error message is shown when a version
                     # control binary isn't installed.
                     err_str = _("%(name)s (%(cmd)s not installed)")
                 elif not avc.valid_repo(location):
                     # Translators: This error message is shown when a version
                     # controlled repository is invalid.
-                    err_str = _("%(name)s (Invalid repository)")
+                    err_str = _("%(name)s (invalid repository)")
 
                 if err_str:
                     vcs_model.append([err_str % vc_details, avc, False])
@@ -257,29 +350,20 @@ class VcView(MeldDoc, Component):
 
                 vcs_model.append([avc.NAME, avc(location), True])
 
-        valid_vcs = [(i, r[1].NAME) for i, r in enumerate(vcs_model) if r[2]]
-        default_active = min(valid_vcs)[0] if valid_vcs else 0
+        default_active = self.get_default_vc(vcs_model)
 
-        # Keep the same VC plugin active on refresh, otherwise use the first
-        current_vc_name = self.vc.NAME if self.vc else None
-        same_vc = [i for i, name in valid_vcs if name == current_vc_name]
-        if same_vc:
-            default_active = same_vc[0]
-
-        if not valid_vcs:
+        if not any(enabled for _, _, enabled in vcs_model):
             # If we didn't get any valid vcs then fallback to null
             null_vcs = _null.Vc(location)
             vcs_model.insert(0, [null_vcs.NAME, null_vcs, True])
             tooltip = _("No valid version control system found in this folder")
-        elif len(vcs_model) == 1:
-            tooltip = _("Only one version control system found in this folder")
         else:
             tooltip = _("Choose which version control system to use")
 
         self.combobox_vcs.set_tooltip_text(tooltip)
-        self.combobox_vcs.set_sensitive(len(vcs_model) > 1)
         self.combobox_vcs.set_active(default_active)
 
+    @Gtk.Template.Callback()
     def on_vc_change(self, combobox_vcs):
         active_iter = combobox_vcs.get_active_iter()
         if active_iter is None:
@@ -329,7 +413,7 @@ class VcView(MeldDoc, Component):
         self.label_text = os.path.basename(self.location)
         # TRANSLATORS: This is the location of the directory being viewed
         self.tooltip_text = _("%s: %s") % (_("Location"), self.location)
-        self.label_changed()
+        self.label_changed.emit(self.label_text, self.tooltip_text)
 
     def _search_recursively_iter(self, start_path, replace=False):
 
@@ -408,8 +492,10 @@ class VcView(MeldDoc, Component):
                     self.treeview.expand_to_path(treepath)
 
         self.treeview.expand_row(Gtk.TreePath.new_first(), False)
+        self.treeview.set_cursor(Gtk.TreePath.new_first())
 
     # TODO: This doesn't fire when the user selects a shortcut folder
+    @Gtk.Template.Callback()
     def on_fileentry_file_set(self, fileentry):
         directory = fileentry.get_file()
         path = directory.get_path()
@@ -417,9 +503,10 @@ class VcView(MeldDoc, Component):
 
     def on_delete_event(self):
         self.scheduler.remove_all_tasks()
-        self.emit('close', 0)
+        self.close_signal.emit(0)
         return Gtk.ResponseType.OK
 
+    @Gtk.Template.Callback()
     def on_row_activated(self, treeview, path, tvc):
         it = self.model.get_iter(path)
         if self.model.iter_has_child(it):
@@ -434,7 +521,7 @@ class VcView(MeldDoc, Component):
 
     def run_diff(self, path):
         if os.path.isdir(path):
-            self.emit("create-diff", [Gio.File.new_for_path(path)], {})
+            self.create_diff_signal.emit([Gio.File.new_for_path(path)], {})
             return
 
         basename = os.path.basename(path)
@@ -490,44 +577,17 @@ class VcView(MeldDoc, Component):
             os.chmod(temp_file, 0o444)
             _temp_files.append(temp_file)
 
-        self.emit("create-diff",
-                  [Gio.File.new_for_path(d) for d in diffs], kwargs)
+        self.create_diff_signal.emit(
+            [Gio.File.new_for_path(d) for d in diffs],
+            kwargs,
+        )
 
-    def do_popup_treeview_menu(self, widget, event):
-        if event:
-            button = event.button
-            time = event.time
-        else:
-            button = 0
-            time = Gtk.get_current_event_time()
-        self.popup_menu.popup(None, None, None, None, button, time)
+    def action_filter_state_change(self, action, value):
+        action.set_state(value)
 
-    def on_treeview_popup_menu(self, treeview):
-        self.do_popup_treeview_menu(treeview, None)
-        return True
-
-    def on_button_press_event(self, treeview, event):
-        if (event.triggers_context_menu() and
-                event.type == Gdk.EventType.BUTTON_PRESS):
-            path = treeview.get_path_at_pos(int(event.x), int(event.y))
-            if path is None:
-                return False
-            selection = treeview.get_selection()
-            model, rows = selection.get_selected_rows()
-
-            if path[0] not in rows:
-                selection.unselect_all()
-                selection.select_path(path[0])
-                treeview.set_cursor(path[0])
-
-            self.do_popup_treeview_menu(treeview, event)
-            return True
-        return False
-
-    def on_filter_state_toggled(self, button):
         active_filters = [
             k for k, (action_name, fn) in self.state_actions.items()
-            if self.actiongroup.get_action(action_name).get_active()
+            if self.get_action_state(action_name)
         ]
 
         if set(active_filters) == set(self.props.status_filters):
@@ -546,18 +606,18 @@ class VcView(MeldDoc, Component):
 
         valid_actions = self.vc.get_valid_actions(path_states)
         action_sensitivity = {
-            "VcCompare": 'compare' in valid_actions,
-            "VcCommit": 'commit' in valid_actions,
-            "VcUpdate": 'update' in valid_actions,
-            "VcPush": 'push' in valid_actions,
-            "VcAdd": 'add' in valid_actions,
-            "VcResolved": 'resolve' in valid_actions,
-            "VcRemove": 'remove' in valid_actions,
-            "VcRevert": 'revert' in valid_actions,
-            "VcDeleteLocally": bool(paths) and self.vc.root not in paths,
+            'compare': 'compare' in valid_actions,
+            'vc-add': 'add' in valid_actions,
+            'vc-commit': 'commit' in valid_actions,
+            'vc-delete-locally': bool(paths) and self.vc.root not in paths,
+            'vc-push': 'push' in valid_actions,
+            'vc-remove': 'remove' in valid_actions,
+            'vc-resolve': 'resolve' in valid_actions,
+            'vc-revert': 'revert' in valid_actions,
+            'vc-update': 'update' in valid_actions,
         }
         for action, sensitivity in action_sensitivity.items():
-            self.actiongroup.get_action(action).set_sensitive(sensitivity)
+            self.set_action_enabled(action, sensitivity)
 
     def _get_selected_files(self):
         model, rows = self.treeview.get_selection().get_selected_rows()
@@ -645,29 +705,29 @@ class VcView(MeldDoc, Component):
         for it in self._command_iter(command, files, refresh, working_dir):
             pass
 
-    def on_button_update_clicked(self, obj):
+    def action_update(self, *args):
         self.vc.update(self.runner)
 
-    def on_button_push_clicked(self, obj):
+    def action_push(self, *args):
         response = PushDialog(self).run()
         if response == Gtk.ResponseType.OK:
             self.vc.push(self.runner)
 
-    def on_button_commit_clicked(self, obj):
+    def action_commit(self, *args):
         response, commit_msg = CommitDialog(self).run()
         if response == Gtk.ResponseType.OK:
             self.vc.commit(
                 self.runner, self._get_selected_files(), commit_msg)
 
-    def on_button_add_clicked(self, obj):
+    def action_add(self, *args):
         self.vc.add(self.runner, self._get_selected_files())
 
-    def on_button_remove_clicked(self, obj):
+    def action_remove(self, *args):
         selected = self._get_selected_files()
         if any(os.path.isdir(p) for p in selected):
             # TODO: Improve and reuse this dialog for the non-VC delete action
             dialog = Gtk.MessageDialog(
-                parent=self.widget.get_toplevel(),
+                parent=self.get_toplevel(),
                 flags=(Gtk.DialogFlags.MODAL |
                        Gtk.DialogFlags.DESTROY_WITH_PARENT),
                 type=Gtk.MessageType.WARNING,
@@ -685,13 +745,13 @@ class VcView(MeldDoc, Component):
 
         self.vc.remove(self.runner, selected)
 
-    def on_button_resolved_clicked(self, obj):
+    def action_resolved(self, *args):
         self.vc.resolve(self.runner, self._get_selected_files())
 
-    def on_button_revert_clicked(self, obj):
+    def action_revert(self, *args):
         self.vc.revert(self.runner, self._get_selected_files())
 
-    def on_button_delete_clicked(self, obj):
+    def action_delete(self, *args):
         files = self._get_selected_files()
         for name in files:
             gfile = Gio.File.new_for_path(name)
@@ -709,12 +769,15 @@ class VcView(MeldDoc, Component):
         workdir = os.path.dirname(os.path.commonprefix(files))
         self.refresh_partial(workdir)
 
-    def on_button_diff_clicked(self, obj):
+    def action_diff(self, *args):
+        # TODO: Review the compare/diff action. It doesn't really add much
+        # over activate, since the folder compare doesn't work and hasn't
+        # for... a long time.
         files = self._get_selected_files()
         for f in files:
             self.run_diff(f)
 
-    def open_external(self):
+    def action_open_external(self, *args):
         self._open_files(self._get_selected_files())
 
     def refresh(self):
@@ -724,7 +787,7 @@ class VcView(MeldDoc, Component):
         self.set_location(self.model.get_file_path(root))
 
     def refresh_partial(self, where):
-        if not self.actiongroup.get_action("VcFlatten").get_active():
+        if not self.get_action_state('vc-flatten'):
             it = self.find_iter_by_name(where)
             if not it:
                 return
@@ -780,6 +843,7 @@ class VcView(MeldDoc, Component):
                 break
         return None
 
+    @Gtk.Template.Callback()
     def on_consoleview_populate_popup(self, textview, menu):
         buf = textview.get_buffer()
         clear_action = Gtk.MenuItem.new_with_label(_("Clear"))
@@ -789,10 +853,21 @@ class VcView(MeldDoc, Component):
         menu.insert(Gtk.SeparatorMenuItem(), 1)
         menu.show_all()
 
+    @Gtk.Template.Callback()
+    def on_treeview_popup_menu(self, treeview):
+        tree.TreeviewCommon.on_treeview_popup_menu(self, treeview)
+
+    @Gtk.Template.Callback()
+    def on_treeview_button_press_event(self, treeview, event):
+        tree.TreeviewCommon.on_treeview_button_press_event(
+            self, treeview, event)
+
+    @Gtk.Template.Callback()
     def on_treeview_cursor_changed(self, *args):
         cursor_path, cursor_col = self.treeview.get_cursor()
         if not cursor_path:
-            self.emit("next-diff-changed", False, False)
+            self.set_action_enabled("previous-change", False)
+            self.set_action_enabled("next-change", False)
             self.current_path = cursor_path
             return
 
@@ -822,10 +897,10 @@ class VcView(MeldDoc, Component):
                         skip = self.prev_path < cursor_path < self.next_path
 
         if not skip:
-            prev, next = self.model._find_next_prev_diff(cursor_path)
-            self.prev_path, self.next_path = prev, next
-            have_next_diffs = (prev is not None, next is not None)
-            self.emit("next-diff-changed", *have_next_diffs)
+            prev, next_ = self.model._find_next_prev_diff(cursor_path)
+            self.prev_path, self.next_path = prev, next_
+            self.set_action_enabled("previous-change", prev is not None)
+            self.set_action_enabled("next-change", next_ is not None)
         self.current_path = cursor_path
 
     def next_diff(self, direction):
@@ -837,10 +912,16 @@ class VcView(MeldDoc, Component):
             self.treeview.expand_to_path(path)
             self.treeview.set_cursor(path)
 
-    def on_refresh_activate(self, *extra):
+    def action_previous_change(self, *args):
+        self.next_diff(Gdk.ScrollDirection.UP)
+
+    def action_next_change(self, *args):
+        self.next_diff(Gdk.ScrollDirection.DOWN)
+
+    def action_refresh(self, *args):
         self.on_fileentry_file_set(self.fileentry)
 
-    def on_find_activate(self, *extra):
+    def action_find(self, *args):
         self.treeview.emit("start-interactive-search")
 
     def auto_compare(self):

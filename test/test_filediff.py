@@ -4,9 +4,6 @@ from unittest import mock
 import pytest
 from gi.repository import Gtk
 
-from meld.filediff import FileDiff
-from meld.filters import FilterEntry
-
 
 @pytest.mark.parametrize("text, ignored_ranges, expected_text", [
     #    0123456789012345678901234567890123456789012345678901234567890123456789
@@ -73,12 +70,15 @@ from meld.filters import FilterEntry
 
 ])
 def test_filter_text(text, ignored_ranges, expected_text):
+    from meld.filediff import FileDiff
+    from meld.filters import FilterEntry
+
     filter_patterns = [
         '#.*',
-        '/\*.*\*/',
+        r'/\*.*\*/',
         'a(.*)b',
         'x(.*)y(.*)z',
-        '\$\w+:([^\n$]+)\$'
+        r'\$\w+:([^\n$]+)\$'
     ]
     filters = [
         FilterEntry.new_from_gsetting(("name", True, f), FilterEntry.REGEX)

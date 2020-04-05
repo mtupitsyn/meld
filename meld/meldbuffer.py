@@ -15,7 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
-import sys
 
 from gi.repository import Gio
 from gi.repository import GLib
@@ -23,7 +22,7 @@ from gi.repository import GObject
 from gi.repository import GtkSource
 
 from meld.conf import _
-from meld.settings import bind_settings, meldsettings
+from meld.settings import bind_settings
 
 log = logging.getLogger(__name__)
 
@@ -41,12 +40,6 @@ class MeldBuffer(GtkSource.Buffer):
         bind_settings(self)
         self.data = MeldBufferData()
         self.undo_sequence = None
-        meldsettings.connect('changed', self.on_setting_changed)
-        self.set_style_scheme(meldsettings.style_scheme)
-
-    def on_setting_changed(self, meldsettings, key):
-        if key == 'style-scheme':
-            self.set_style_scheme(meldsettings.style_scheme)
 
     def do_begin_user_action(self, *args):
         if self.undo_sequence:
@@ -87,14 +80,14 @@ class MeldBuffer(GtkSource.Buffer):
 
 class MeldBufferData(GObject.GObject):
 
-    __gsignals__ = {
-        str('file-changed'): (GObject.SignalFlags.RUN_FIRST, None, ()),
-    }
+    @GObject.Signal('file-changed')
+    def file_changed_signal(self) -> None:
+        ...
 
     encoding = GObject.Property(
         type=GtkSource.Encoding,
         nick="The file encoding of the linked GtkSourceFile",
-        default=None,
+        default=GtkSource.Encoding.get_utf8(),
     )
 
     def __init__(self):
@@ -160,7 +153,7 @@ class MeldBufferData(GObject.GObject):
     def _handle_file_change(self, monitor, f, other_file, event_type):
         mtime = self._query_mtime(f)
         if self._disk_mtime and mtime and mtime > self._disk_mtime:
-            self.emit('file-changed')
+            self.file_changed_signal.emit()
         self._disk_mtime = mtime or self._disk_mtime
 
     @property
@@ -224,10 +217,6 @@ class BufferLines:
     This class allows a Gtk.TextBuffer to be treated as a list of lines of
     possibly-filtered text. If no filter is given, the raw output from the
     Gtk.TextBuffer is used.
-
-    The logic here (and in places in FileDiff) requires that Python's
-    unicode splitlines() implementation and Gtk.TextBuffer agree on where
-    linebreaks occur. Happily, this is usually the case.
     """
 
     def __init__(self, buf, textfilter=None):
@@ -240,48 +229,18 @@ class BufferLines:
     def __getitem__(self, key):
         if isinstance(key, slice):
             lo, hi, _ = key.indices(self.buf.get_line_count())
-
-            # FIXME: If we ask for arbitrary slices past the end of the buffer,
-            # this will return the last line.
-            start = self.buf.get_iter_at_line_or_eof(lo)
+            line_start = self.buf.get_iter_at_line_or_eof(lo)
             end = self.buf.get_iter_at_line_or_eof(hi)
-            txt = self.buf.get_text(start, end, False)
 
-            filter_txt = self.textfilter(txt, self.buf, start, end)
-            lines = filter_txt.splitlines()
-            ends = filter_txt.splitlines(True)
-
-            # The last line in a Gtk.TextBuffer is guaranteed never to end in a
-            # newline. As splitlines() discards an empty line at the end, we
-            # need to artificially add a line if the requested slice is past
-            # the end of the buffer, and the last line in the slice ended in a
-            # newline.
-            if hi >= self.buf.get_line_count() and \
-               lo < self.buf.get_line_count() and \
-               (len(lines) == 0 or len(lines[-1]) != len(ends[-1])):
-                lines.append("")
-                ends.append("")
-
-            hi = self.buf.get_line_count() if hi == sys.maxsize else hi
-            if hi - lo != len(lines):
-                # These codepoints are considered line breaks by Python, but
-                # not by GtkTextStore.
-                additional_breaks = set(('\x0c', '\x85', '\u2028'))
-                i = 0
-                while i < len(ends):
-                    line, end = lines[i], ends[i]
-                    # It's possible that the last line in a file would end in a
-                    # line break character, which requires no joining.
-                    if end and end[-1] in additional_breaks and \
-                       (not line or line[-1] not in additional_breaks):
-                        assert len(ends) >= i + 1
-                        lines[i:i + 2] = [line + end[-1] + lines[i + 1]]
-                        ends[i:i + 2] = [end + ends[i + 1]]
-                    else:
-                        # We only increment if we don't correct a line, to
-                        # handle the case of a single line having multiple
-                        # additional_breaks characters that need correcting.
-                        i += 1
+            lines = []
+            while line_start.compare(end) < 0:
+                line_end = line_start.copy()
+                if not line_end.ends_line():
+                    line_end.forward_to_line_end()
+                txt = self.buf.get_text(line_start, line_end, False)
+                filter_txt = self.textfilter(txt, self.buf, line_start, end)
+                lines.append(filter_txt)
+                line_start.forward_visible_line()
 
             return lines
 

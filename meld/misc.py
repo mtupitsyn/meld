@@ -25,14 +25,26 @@ import os
 import shutil
 import subprocess
 from pathlib import PurePath
-from typing import List
+from typing import (
+    AnyStr,
+    Callable,
+    Generator,
+    List,
+    Optional,
+    Pattern,
+    Sequence,
+    Tuple,
+    TYPE_CHECKING,
+    Union,
+)
 
-from gi.repository import Gdk
 from gi.repository import GLib
 from gi.repository import Gtk
-from gi.repository import GtkSource
 
 from meld.conf import _
+
+if TYPE_CHECKING:
+    from meld.vcview import ConsoleStream
 
 
 if os.name != "nt":
@@ -55,7 +67,8 @@ def with_focused_pane(function):
     return wrap_function
 
 
-def get_modal_parent(widget: Gtk.Widget = None) -> Gtk.Window:
+def get_modal_parent(widget: Optional[Gtk.Widget] = None) -> Gtk.Window:
+    parent: Gtk.Window
     if not widget:
         from meld.meldapp import app
         parent = app.get_active_window()
@@ -66,7 +79,7 @@ def get_modal_parent(widget: Gtk.Widget = None) -> Gtk.Window:
     return parent
 
 
-def error_dialog(primary, secondary) -> Gtk.ResponseType:
+def error_dialog(primary: str, secondary: str) -> Gtk.ResponseType:
     """A common error dialog handler for Meld
 
     This should only ever be used as a last resort, and for errors that
@@ -81,8 +94,12 @@ def error_dialog(primary, secondary) -> Gtk.ResponseType:
 
 
 def modal_dialog(
-        primary, secondary, buttons, parent=None,
-        messagetype=Gtk.MessageType.WARNING) -> Gtk.ResponseType:
+            primary: str,
+            secondary: str,
+            buttons: Union[Gtk.ButtonsType, Sequence[Tuple[str, int]]],
+            parent: Optional[Gtk.Window] = None,
+            messagetype: Gtk.MessageType = Gtk.MessageType.WARNING
+        ) -> Gtk.ResponseType:
     """A common message dialog handler for Meld
 
     This should only ever be used for interactions that must be resolved
@@ -91,9 +108,8 @@ def modal_dialog(
     Primary must be plain text. Secondary must be valid markup.
     """
 
-    if isinstance(buttons, Gtk.ButtonsType):
-        custom_buttons = []
-    else:
+    custom_buttons: Sequence[Tuple[str, int]] = []
+    if not isinstance(buttons, Gtk.ButtonsType):
         custom_buttons, buttons = buttons, Gtk.ButtonsType.NONE
 
     dialog = Gtk.MessageDialog(
@@ -113,7 +129,8 @@ def modal_dialog(
     return response
 
 
-def user_critical(primary, message):
+def user_critical(
+        primary: str, message: str) -> Callable[[Callable], Callable]:
     """Decorator for when the user must be told about failures
 
     The use case here is for e.g., saving a file, where even if we
@@ -143,154 +160,7 @@ def user_critical(primary, message):
     return wrap
 
 
-# Taken from epiphany
-def position_menu_under_widget(menu, x, y, widget):
-    container = widget.get_ancestor(Gtk.Container)
-
-    widget_width = widget.get_allocation().width
-    menu_width = menu.get_allocation().width
-    menu_height = menu.get_allocation().height
-
-    screen = menu.get_screen()
-    monitor_num = screen.get_monitor_at_window(widget.get_window())
-    if monitor_num < 0:
-        monitor_num = 0
-    monitor = screen.get_monitor_geometry(monitor_num)
-
-    unused, x, y = widget.get_window().get_origin()
-    allocation = widget.get_allocation()
-    if not widget.get_has_window():
-        x += allocation.x
-        y += allocation.y
-
-    if container.get_direction() == Gtk.TextDirection.LTR:
-        x += allocation.width - widget_width
-    else:
-        x += widget_width - menu_width
-
-    if (y + allocation.height + menu_height) <= monitor.y + monitor.height:
-        y += allocation.height
-    elif (y - menu_height) >= monitor.y:
-        y -= menu_height
-    elif monitor.y + monitor.height - (y + allocation.height) > y:
-        y += allocation.height
-    else:
-        y -= menu_height
-
-    return (x, y, False)
-
-
-def make_tool_button_widget(label):
-    """Make a GtkToolButton label-widget suggestive of a menu dropdown"""
-    arrow = Gtk.Arrow(
-        arrow_type=Gtk.ArrowType.DOWN, shadow_type=Gtk.ShadowType.NONE)
-    label = Gtk.Label(label=label)
-    hbox = Gtk.HBox(spacing=3)
-    hbox.pack_end(arrow, True, True, 0)
-    hbox.pack_end(label, True, True, 0)
-    hbox.show_all()
-    return hbox
-
-
-MELD_STYLE_SCHEME = "meld-base"
-MELD_STYLE_SCHEME_DARK = "meld-dark"
-
-
-def get_base_style_scheme():
-
-    global base_style_scheme
-
-    if base_style_scheme:
-        return base_style_scheme
-
-    env_theme = GLib.getenv('GTK_THEME')
-    if env_theme:
-        use_dark = env_theme.endswith(':dark')
-    else:
-        gtk_settings = Gtk.Settings.get_default()
-        use_dark = gtk_settings.props.gtk_application_prefer_dark_theme
-
-    try:
-        from Foundation import NSUserDefaults
-        standardUserDefaults = NSUserDefaults.standardUserDefaults()
-        if standardUserDefaults.stringForKey_("AppleInterfaceStyle") == 'Dark':
-            use_dark = True
-    except:
-        pass
-
-    # As of 3.28, the global dark theme switch is going away.
-    if not use_dark:
-        from meld.sourceview import MeldSourceView
-        stylecontext = MeldSourceView().get_style_context()
-        background_set, rgba = (
-            stylecontext.lookup_color('theme_bg_color'))
-
-        # This heuristic is absolutely dire. I made it up. There's
-        # literally no basis to this.
-        if background_set and rgba.red + rgba.green + rgba.blue < 1.0:
-            use_dark = True
-
-    base_scheme_name = (
-        MELD_STYLE_SCHEME_DARK if use_dark else MELD_STYLE_SCHEME)
-
-    manager = GtkSource.StyleSchemeManager.get_default()
-    base_style_scheme = manager.get_scheme(base_scheme_name)
-
-    return base_style_scheme
-
-
-base_style_scheme = None
-
-
-def colour_lookup_with_fallback(name, attribute):
-    from meld.settings import meldsettings
-    source_style = meldsettings.style_scheme
-
-    style = source_style.get_style(name) if source_style else None
-    style_attr = getattr(style.props, attribute) if style else None
-    if not style or not style_attr:
-        base_style = get_base_style_scheme()
-        try:
-            style = base_style.get_style(name)
-            style_attr = getattr(style.props, attribute)
-        except AttributeError:
-            pass
-
-    if not style_attr:
-        import sys
-        print(_(
-            "Couldn’t find colour scheme details for %s-%s; "
-            "this is a bad install") % (name, attribute), file=sys.stderr)
-        sys.exit(1)
-
-    colour = Gdk.RGBA()
-    colour.parse(style_attr)
-    return colour
-
-
-def get_common_theme():
-    lookup = colour_lookup_with_fallback
-    fill_colours = {
-        "insert": lookup("meld:insert", "background"),
-        "delete": lookup("meld:insert", "background"),
-        "conflict": lookup("meld:conflict", "background"),
-        "replace": lookup("meld:replace", "background"),
-        "error": lookup("meld:error", "background"),
-        "focus-highlight": lookup("meld:current-line-highlight", "foreground"),
-        "current-chunk-highlight": lookup(
-            "meld:current-chunk-highlight", "background")
-    }
-    line_colours = {
-        "insert": lookup("meld:insert", "line-background"),
-        "delete": lookup("meld:insert", "line-background"),
-        "conflict": lookup("meld:conflict", "line-background"),
-        "replace": lookup("meld:replace", "line-background"),
-        "error": lookup("meld:error", "line-background"),
-    }
-    return fill_colours, line_colours
-
-
-def all_same(iterable):
+def all_same(iterable: Sequence) -> bool:
     """Return True if all elements of the list are equal"""
     sample, has_no_sample = None, True
     for item in iterable or ():
@@ -301,7 +171,7 @@ def all_same(iterable):
     return True
 
 
-def shorten_names(*names) -> List[str]:
+def shorten_names(*names: str) -> List[str]:
     """Remove common parts of a list of paths
 
     For example, `('/tmp/foo1', '/tmp/foo2')` would be summarised as
@@ -323,7 +193,7 @@ def shorten_names(*names) -> List[str]:
     basenames = [p.name for p in paths]
 
     if all_same(basenames):
-        def firstpart(path: PurePath):
+        def firstpart(path: PurePath) -> str:
             if len(path.parts) > 1 and path.parts[0]:
                 return "[%s] " % path.parts[0]
             else:
@@ -333,7 +203,15 @@ def shorten_names(*names) -> List[str]:
     return [name or _("[None]") for name in basenames]
 
 
-def read_pipe_iter(command, workdir, errorstream, yield_interval=0.1):
+SubprocessGenerator = Generator[Union[Tuple[int, str], None], None, None]
+
+
+def read_pipe_iter(
+            command: List[str],
+            workdir: str,
+            errorstream: 'ConsoleStream',
+            yield_interval: float = 0.1,
+        ) -> SubprocessGenerator:
     """Read the output of a shell command iteratively.
 
     Each time 'callback_interval' seconds pass without reading any data,
@@ -342,24 +220,26 @@ def read_pipe_iter(command, workdir, errorstream, yield_interval=0.1):
     """
     class Sentinel:
 
-        def __init__(self):
+        proc: Optional[subprocess.Popen]
+
+        def __init__(self) -> None:
             self.proc = None
 
-        def __del__(self):
+        def __del__(self) -> None:
             if self.proc:
                 errorstream.error("killing '%s'\n" % command[0])
                 self.proc.terminate()
                 errorstream.error("killed (status was '%i')\n" %
                                   self.proc.wait())
 
-        def __call__(self):
+        def __call__(self) -> SubprocessGenerator:
             self.proc = subprocess.Popen(
                 command, cwd=workdir, stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 universal_newlines=True)
             self.proc.stdin.close()
             childout, childerr = self.proc.stdout, self.proc.stderr
-            bits = []
+            bits: List[str] = []
             while len(bits) == 0 or bits[-1] != "":
                 state = select([childout, childerr], [], [childout, childerr],
                                yield_interval)
@@ -392,7 +272,8 @@ def read_pipe_iter(command, workdir, errorstream, yield_interval=0.1):
     return Sentinel()()
 
 
-def write_pipe(command, text, error=None):
+def write_pipe(
+        command: List[str], text: str, error: Optional[int] = None) -> int:
     """Write 'text' into a shell command and discard its stdout output.
     """
     proc = subprocess.Popen(command, stdin=subprocess.PIPE,
@@ -401,7 +282,7 @@ def write_pipe(command, text, error=None):
     return proc.wait()
 
 
-def copy2(src, dst):
+def copy2(src: str, dst: str) -> None:
     """Like shutil.copy2 but ignores chmod errors, and copies symlinks as links
     See [Bug 568000] Copying to NTFS fails
     """
@@ -424,7 +305,7 @@ def copy2(src, dst):
             raise
 
 
-def copytree(src, dst):
+def copytree(src: str, dst: str) -> None:
     """Similar to shutil.copytree, but always copies symlinks and doesn't
     error out if the destination path already exists.
     """
@@ -456,7 +337,8 @@ def copytree(src, dst):
             raise
 
 
-def merge_intervals(interval_list):
+def merge_intervals(
+        interval_list: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
     """Merge a list of intervals
 
     Returns a list of itervals as 2-tuples with all overlapping
@@ -469,12 +351,12 @@ def merge_intervals(interval_list):
     if len(interval_list) < 2:
         return interval_list
 
-    interval_list = collections.deque(sorted(interval_list))
-    merged_intervals = [interval_list.popleft()]
+    interval_deque = collections.deque(sorted(interval_list))
+    merged_intervals = [interval_deque.popleft()]
     current_start, current_end = merged_intervals[-1]
 
-    while interval_list:
-        new_start, new_end = interval_list.popleft()
+    while interval_deque:
+        new_start, new_end = interval_deque.popleft()
 
         if current_end >= new_end:
             continue
@@ -491,7 +373,11 @@ def merge_intervals(interval_list):
     return merged_intervals
 
 
-def apply_text_filters(txt, regexes, apply_fn=None):
+def apply_text_filters(
+            txt: AnyStr,
+            regexes: Sequence[Pattern],
+            apply_fn: Optional[Callable[[int, int], None]] = None
+        ) -> AnyStr:
     """Apply text filters
 
     Text filters "regexes", resolved as regular expressions are applied
@@ -537,7 +423,7 @@ def apply_text_filters(txt, regexes, apply_fn=None):
     return empty_string.join(result_txts)
 
 
-def calc_syncpoint(adj):
+def calc_syncpoint(adj: Gtk.Adjustment) -> float:
     """Calculate a cross-pane adjustment synchronisation point
 
     Our normal syncpoint is the middle of the screen. If the
@@ -565,69 +451,99 @@ def calc_syncpoint(adj):
     syncpoint += 0.5 * max(0, last_scale)
     return syncpoint
 
+# The functions below are Mac specific to help with shell integration
 
-def add_shell_symlink():
-    from pathlib import Path
-    link_name = '/usr/local/bin/meld'
+class MacShellIntegration:
+    alias_name = 'meld'
+    re = '\s*alias\s*meld=.*'
 
-    if Path(link_name).is_file():
-        add_shortcut = modal_dialog(
-            primary=_(
-                "Overwrite symlink for meld?"
-            ),
-            secondary=_(
-                "Overwrite symlink for meld in /usr/local/bin/meld? "
-                "Note: A file/link with the same name already exists "
-            ),
-            buttons=[
-                (_("_Cancel"), Gtk.ResponseType.CANCEL),
-                (_("Overwrite Symlink"), Gtk.ResponseType.OK),
-            ],
-            messagetype=Gtk.MessageType.WARNING
-        )
-    else:
-        add_shortcut = modal_dialog(
-            primary=_(
-                "Create symlink for meld?"
-            ),
-            secondary=_(
-                "Create symlink for meld in /usr/local/bin/meld? "
-                "This should allow you to use meld from the shell. "
-            ),
-            buttons=[
-                (_("_Cancel"), Gtk.ResponseType.CANCEL),
-                (_("Create Symlink"), Gtk.ResponseType.OK),
-            ],
-            messagetype=Gtk.MessageType.QUESTION
-        )
-
-    if add_shortcut == Gtk.ResponseType.OK:
+    def __init__(self):
         from Foundation import NSBundle
+        from pathlib import Path, PurePath
+        self.bashrc_file = str(PurePath(Path.home(), '.bashrc'))
         bundle = NSBundle.mainBundle()
-        executable_path = bundle.executablePath().fileSystemRepresentation().decode("utf-8")
+        self.executable_path = bundle.executablePath().fileSystemRepresentation().decode("utf-8")
 
-        os.makedirs('/usr/local/bin', exist_ok=True)
-        
-        try:
-            try:
-                os.symlink(executable_path, link_name)
-            except OSError as e:
-                if e.errno == errno.EEXIST:
-                    os.remove(link_name)
-                    os.symlink(executable_path, link_name)
+
+    def is_alias_found(self):
+        from pathlib import Path
+        import re
+        if Path(self.bashrc_file).is_file():
+            pattern = re.compile(self.re)
+            content = []
+            with open (self.bashrc_file, "r") as myfile:
+                content = myfile.readlines()
+            for line in content:
+                if pattern.match(line):
+                    return True
+            return False
+        else:
+            return False
+
+
+    def create_shell_alias(self):
+        from pathlib import Path
+        import re
+        if self.is_alias_found():
+            pattern = re.compile(self.re)
+            content = []
+            with open (self.bashrc_file, "r") as myfile:
+                content = myfile.readlines()
+            f = open(self.bashrc_file, "w")
+            for line in content:
+                if pattern.match(line):
+                    f.write("alias {}={}\n".format(self.alias_name, self.executable_path))
                 else:
-                    raise e
-        except:
-            modal_dialog(
-                primary=_(
-                    "Failed to create/update symlink"
-                ),
-                secondary=_(
-                    "Meld was unable to create the symlink required for shell operation. "
-                    "Please run the following command manually: sudo ln -sf {}  /usr/local/bin/meld ".format(executable_path)
-                ),
+                    f.write(line)
+            f.close()
+        else:
+            f = open(self.bashrc_file, "a+")
+            f.write("\n# Added by Meld for OSX\n")
+            f.write("alias {}={}\n".format(self.alias_name, self.executable_path))
+            f.close()
+    
+    def setup_integration(self):
+        if self.is_alias_found():
+            add_shortcut = modal_dialog(
+                primary=_("Mac Shell Integration already exists"),
+                secondary=_("Overwrite alias for meld?" "\n\n*Note*: alias already exists "),
                 buttons=[
-                    (_("OK"), Gtk.ResponseType.OK),
+                    (_("_Cancel"), Gtk.ResponseType.CANCEL),
+                    (_("Overwrite"), Gtk.ResponseType.OK),
                 ],
-                messagetype=Gtk.MessageType.WARNING
+                messagetype=Gtk.MessageType.QUESTION
             )
+        else:
+            add_shortcut = Gtk.ResponseType.OK
+
+        if add_shortcut == Gtk.ResponseType.OK:
+            try: 
+                self.create_shell_alias()
+                modal_dialog(
+                    primary=_(
+                        "Alias created"
+                    ),
+                    secondary=_(
+                        "You should be able to use meld from the command line.\n\n"
+                        "New Terminals will work automatically. For Terminals that are already open, issue the command:\n\n"
+                        "source ~/.bashrc"
+                    ),
+                    buttons=[
+                        (_("OK"), Gtk.ResponseType.OK),
+                    ],
+                    messagetype=Gtk.MessageType.INFO
+                )
+            except:
+                modal_dialog(
+                    primary=_(
+                        "Failed to create/update alias"
+                    ),
+                    secondary=_(
+                        "Meld was unable to create the alias required for shell operation. "
+                        "Edit your ~/.bashrc and add the line: alias meld={}".format(self.executable_path)
+                    ),
+                    buttons=[
+                        (_("OK"), Gtk.ResponseType.OK),
+                    ],
+                    messagetype=Gtk.MessageType.WARNING
+                )

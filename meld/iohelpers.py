@@ -1,4 +1,6 @@
 
+from typing import Optional
+
 from gi.repository import Gio
 from gi.repository import GLib
 from gi.repository import Gtk
@@ -8,7 +10,7 @@ from meld.misc import get_modal_parent, modal_dialog
 from meld.ui.filechooser import MeldFileChooserDialog
 
 
-def trash_or_confirm(gfile: Gio.File):
+def trash_or_confirm(gfile: Gio.File) -> bool:
     """Trash or delete the given Gio.File
 
     Files and folders will be moved to the system Trash location
@@ -22,10 +24,16 @@ def trash_or_confirm(gfile: Gio.File):
     try:
         gfile.trash(None)
         return True
-    except GLib.GError as e:
-        # Only handle not-supported, as that's due to trashing
-        # the target mount-point, not an underlying problem.
-        if e.code != Gio.IOErrorEnum.NOT_SUPPORTED:
+    except GLib.Error as e:
+        # Handle not-supported, as that's due to the trashing target
+        # being a (probably network) mount-point, not an underlying
+        # problem. We also have to handle the generic FAILED code
+        # because that's what we get with NFS mounts.
+        expected_error = (
+            e.code == Gio.IOErrorEnum.NOT_SUPPORTED or
+            e.code == Gio.IOErrorEnum.FAILED
+        )
+        if not expected_error:
             raise RuntimeError(str(e))
 
     file_type = gfile.query_file_type(
@@ -63,8 +71,12 @@ def trash_or_confirm(gfile: Gio.File):
     except Exception as e:
         raise RuntimeError(str(e))
 
+    return True
 
-def prompt_save_filename(title: str, parent: Gtk.Widget = None) -> Gio.File:
+
+def prompt_save_filename(
+        title: str, parent: Optional[Gtk.Widget] = None) -> Optional[Gio.File]:
+
     dialog = MeldFileChooserDialog(
         title,
         transient_for=get_modal_parent(parent),
@@ -76,18 +88,22 @@ def prompt_save_filename(title: str, parent: Gtk.Widget = None) -> Gio.File:
     dialog.destroy()
 
     if response != Gtk.ResponseType.ACCEPT or not gfile:
-        return
+        return None
 
     try:
         file_info = gfile.query_info(
-            'standard::name,standard::display-name', 0, None)
+            'standard::name,standard::display-name',
+            Gio.FileQueryInfoFlags.NONE,
+            None,
+        )
     except GLib.Error as err:
         if err.code == Gio.IOErrorEnum.NOT_FOUND:
             return gfile
         raise
 
     # The selected file exists, so we need to prompt for overwrite.
-    parent_name = gfile.get_parent().get_parse_name()
+    parent_folder = gfile.get_parent()
+    parent_name = parent_folder.get_parse_name() if parent_folder else ''
     file_name = file_info.get_display_name()
 
     replace = modal_dialog(
@@ -103,6 +119,6 @@ def prompt_save_filename(title: str, parent: Gtk.Widget = None) -> Gio.File:
         messagetype=Gtk.MessageType.WARNING,
     )
     if replace != Gtk.ResponseType.OK:
-        return
+        return None
 
     return gfile

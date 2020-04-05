@@ -31,6 +31,15 @@ import platform
 import sys
 from distutils.log import info
 
+try:
+    import distro
+except ImportError:
+    python_version = tuple(int(x) for x in platform.python_version_tuple()[:2])
+    if python_version >= (3, 8):
+        print(
+            'Missing build requirement "distro" Python module; '
+            'install paths may be incorrect', file=sys.stderr)
+
 
 def has_help(self):
     return "build_help" in self.distribution.cmdclass and os.name != 'nt'
@@ -78,6 +87,11 @@ class build_data(distutils.cmd.Command):
         ('share/meld', ['data/gschemas.compiled']),
     ]
 
+    # FIXME: This is way too much hard coding, but I really hope
+    # it also doesn't last that long.
+    resource_source = "meld/resources/meld.gresource.xml"
+    resource_target = "org.gnome.meld.gresource"
+
     def initialize_options(self):
         pass
 
@@ -85,10 +99,31 @@ class build_data(distutils.cmd.Command):
         pass
 
     def get_data_files(self):
+        data_files = []
+
+        build_path = os.path.join('build', 'data')
+        if not os.path.exists(build_path):
+            os.makedirs(build_path)
+
+        info("compiling gresources")
+        resource_dir = os.path.dirname(self.resource_source)
+        target = os.path.join(build_path, self.resource_target)
+        self.spawn([
+            "glib-compile-resources",
+            "--target={}".format(target),
+            "--sourcedir={}".format(resource_dir),
+            self.resource_source,
+        ])
+
+        data_files.append(('share/meld', [target]))
+
         if os.name == 'nt':
-            return self.frozen_gschemas
+            gschemas = self.frozen_gschemas
         else:
-            return self.gschemas
+            gschemas = self.gschemas
+        data_files.extend(gschemas)
+
+        return data_files
 
     def run(self):
         data_files = self.distribution.data_files
@@ -378,11 +413,21 @@ class install(distutils.command.install.install):
 
     def finalize_options(self):
         special_cases = ('debian', 'ubuntu', 'linuxmint')
-        if (platform.system() == 'Linux' and
-                platform.linux_distribution()[0].lower() in special_cases):
-            # Maintain an explicit install-layout, but use deb by default
-            specified_layout = getattr(self, 'install_layout', None)
-            self.install_layout = specified_layout or 'deb'
+        if platform.system() == 'Linux':
+            # linux_distribution has been removed in Python 3.8; we require
+            # the third-party distro package for future handling.
+            try:
+                distribution = platform.linux_distribution()[0].lower()
+            except AttributeError:
+                try:
+                    distribution = distro.id()
+                except NameError:
+                    distribution = 'unknown'
+
+            if distribution in special_cases:
+                # Maintain an explicit install-layout, but use deb by default
+                specified_layout = getattr(self, 'install_layout', None)
+                self.install_layout = specified_layout or 'deb'
 
         distutils.command.install.install.finalize_options(self)
 

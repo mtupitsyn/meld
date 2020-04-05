@@ -23,20 +23,25 @@ from gi.repository import Gtk
 from gi.repository import Pango
 
 from meld.conf import _
-from meld.settings import meldsettings, settings
-from meld.ui.gnomeglade import Component
+from meld.settings import get_meld_settings, settings
 
 
-class CommitDialog(GObject.GObject, Component):
+@Gtk.Template(resource_path='/org/gnome/meld/ui/commit-dialog.ui')
+class CommitDialog(Gtk.Dialog):
 
     __gtype_name__ = "CommitDialog"
 
     break_commit_message = GObject.Property(type=bool, default=False)
 
+    changedfiles = Gtk.Template.Child()
+    textview = Gtk.Template.Child()
+    scrolledwindow1 = Gtk.Template.Child()
+    previousentry = Gtk.Template.Child()
+
     def __init__(self, parent):
-        GObject.GObject.__init__(self)
-        Component.__init__(self, "vcview.ui", "commitdialog")
-        self.widget.set_transient_for(parent.widget.get_toplevel())
+        super().__init__()
+
+        self.set_transient_for(parent.get_toplevel())
         selected = parent._get_selected_files()
 
         try:
@@ -52,7 +57,9 @@ class CommitDialog(GObject.GObject, Component):
         self.changedfiles.set_text("(in %s)\n%s" %
                                    (topdir, "\n".join(to_commit)))
 
-        self.textview.modify_font(meldsettings.font)
+        font = get_meld_settings().font
+
+        self.textview.modify_font(font)
         commit_prefill = parent.vc.get_commit_message_prefill()
         if commit_prefill:
             buf = self.textview.get_buffer()
@@ -62,10 +69,10 @@ class CommitDialog(GObject.GObject, Component):
         # Try and make the textview wide enough for a standard 80-character
         # commit message.
         context = self.textview.get_pango_context()
-        metrics = context.get_metrics(meldsettings.font,
-                                      context.get_language())
+        metrics = context.get_metrics(None, None)
         char_width = metrics.get_approximate_char_width() / Pango.SCALE
-        self.scrolledwindow1.set_size_request(80 * char_width, -1)
+        width_request, height_request = self.scrolledwindow1.get_size_request()
+        self.scrolledwindow1.set_size_request(80 * char_width, height_request)
 
         settings.bind('vc-show-commit-margin', self.textview,
                       'show-right-margin', Gio.SettingsBindFlags.DEFAULT)
@@ -73,12 +80,12 @@ class CommitDialog(GObject.GObject, Component):
                       'right-margin-position', Gio.SettingsBindFlags.DEFAULT)
         settings.bind('vc-break-commit-message', self,
                       'break-commit-message', Gio.SettingsBindFlags.DEFAULT)
-        self.widget.show_all()
+        self.show_all()
 
     def run(self):
         self.previousentry.set_active(-1)
         self.textview.grab_focus()
-        response = self.widget.run()
+        response = super().run()
         msg = None
         if response == Gtk.ResponseType.OK:
             show_margin = self.textview.get_show_right_margin()
@@ -91,9 +98,10 @@ class CommitDialog(GObject.GObject, Component):
                 msg = "\n\n".join(textwrap.fill(p, margin) for p in paragraphs)
             if msg.strip():
                 self.previousentry.prepend_history(msg)
-        self.widget.destroy()
+        self.destroy()
         return response, msg
 
+    @Gtk.Template.Callback()
     def on_previousentry_activate(self, gentry):
         idx = gentry.get_active()
         if idx != -1:
@@ -102,17 +110,21 @@ class CommitDialog(GObject.GObject, Component):
             buf.set_text(model[idx][1])
 
 
-class PushDialog(Component):
+@Gtk.Template(resource_path='/org/gnome/meld/ui/push-dialog.ui')
+class PushDialog(Gtk.MessageDialog):
+
+    __gtype_name__ = "PushDialog"
 
     def __init__(self, parent):
-        super().__init__("vcview.ui", "pushdialog")
-        self.widget.set_transient_for(parent.widget.get_toplevel())
-        self.widget.show_all()
+        super().__init__()
+
+        self.set_transient_for(parent.get_toplevel())
+        self.show_all()
 
     def run(self):
         # TODO: Ask the VC for a more informative label for what will happen.
         # In git, this is probably the parsed output of push --dry-run.
 
-        response = self.widget.run()
-        self.widget.destroy()
+        response = super().run()
+        self.destroy()
         return response

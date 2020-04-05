@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <!-- interface-requires gtk+ 3.20 -->
+  <!-- interface-requires meld.ui.gladesupport 0.0 -->
+  <template class="VcView" parent="GtkVBox">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <child>
+      <object class="GtkToolbar" id="file_toolbar">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="show_arrow">False</property>
+        <property name="icon_size">1</property>
+        <style>
+          <class name="meld-notebook-toolbar"/>
+        </style>
+        <child>
+          <object class="GtkToolItem" id="fileentry_toolitem0">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="margin-start">4</property>
+            <property name="margin-end">12</property>
+            <child>
+              <object class="GtkFileChooserButton" id="fileentry">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="action">select-folder</property>
+                <signal name="file-set" handler="on_fileentry_file_set" swapped="no"/>
+              </object>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkToolItem" id="fileentry_toolitem1">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="margin-end">4</property>
+            <child>
+              <object class="GtkComboBox" id="combobox_vcs">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="model">liststore_vcs</property>
+                <property name="popup_fixed_width">False</property>
+                <signal name="changed" handler="on_vc_change" swapped="no"/>
+                <child>
+                  <object class="GtkCellRendererText">
+                    <property name="ellipsize">PANGO_ELLIPSIZE_END</property>
+                    <property name="width-chars">12</property>
+                    <property name="max-width-chars">30</property>
+                  </object>
+                  <attributes>
+                    <attribute name="text">0</attribute>
+                    <attribute name="sensitive">2</attribute>
+                  </attributes>
+                </child>
+              </object>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkToolItem">
+            <property name="visible">True</property>
+            <child>
+              <object class="GtkModelButton">
+                <property name="visible">True</property>
+                <property name="action_name">view.vc-commit</property>
+                <property name="text" translatable="yes">Commit…</property>
+                <property name="tooltip_text" translatable="yes">Commit changes to version control</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkToolItem">
+            <property name="visible">True</property>
+            <child>
+              <object class="GtkModelButton">
+                <property name="visible">True</property>
+                <property name="action_name">view.vc-update</property>
+                <property name="text" translatable="yes">Update</property>
+                <property name="tooltip_text" translatable="yes">Update working copy from version control</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkToolItem">
+            <property name="visible">True</property>
+            <child>
+              <object class="GtkModelButton">
+                <property name="visible">True</property>
+                <property name="action_name">view.vc-push</property>
+                <property name="text" translatable="yes">Push</property>
+                <property name="tooltip_text" translatable="yes">Push local changes to remote</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkToolItem">
+            <property name="visible">True</property>
+            <child>
+              <object class="GtkModelButton">
+                <property name="visible">True</property>
+                <property name="action_name">view.vc-add</property>
+                <property name="text" translatable="yes">Add</property>
+                <property name="tooltip_text" translatable="yes">Add to version control</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkToolItem">
+            <property name="visible">True</property>
+            <child>
+              <object class="GtkModelButton">
+                <property name="visible">True</property>
+                <property name="action_name">view.vc-remove</property>
+                <property name="text" translatable="yes">Remove</property>
+                <property name="tooltip_text" translatable="yes">Remove from version control</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkToolItem">
+            <property name="visible">True</property>
+            <child>
+              <object class="GtkModelButton">
+                <property name="visible">True</property>
+                <property name="action_name">view.vc-resolve</property>
+                <property name="text" translatable="yes">Mark as Resolved</property>
+                <property name="tooltip_text" translatable="yes">Mark as resolved in version control</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkToolItem">
+            <property name="visible">True</property>
+            <child>
+              <object class="GtkModelButton">
+                <property name="visible">True</property>
+                <property name="action_name">view.vc-revert</property>
+                <property name="text" translatable="yes">Revert</property>
+                <property name="tooltip_text" translatable="yes">Revert working copy to original state</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkToolItem">
+            <property name="visible">True</property>
+            <child>
+              <object class="GtkModelButton">
+                <property name="visible">True</property>
+                <property name="action_name">view.vc-delete-locally</property>
+                <property name="text" translatable="yes">Delete</property>
+                <property name="tooltip_text" translatable="yes">Delete from working copy</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+      <packing>
+        <property name="expand">False</property>
+        <property name="fill">True</property>
+        <property name="position">0</property>
+      </packing>
+    </child>
+    <child>
+      <object class="MsgAreaController" id="msgarea_mgr">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+      </object>
+      <packing>
+        <property name="expand">False</property>
+        <property name="fill">True</property>
+        <property name="position">1</property>
+      </packing>
+    </child>
+    <child>
+      <object class="GtkPaned" id="vc_console_vpaned">
+        <property name="visible">True</property>
+        <property name="can_focus">True</property>
+        <property name="orientation">vertical</property>
+        <property name="position">250</property>
+        <child>
+          <object class="GtkScrolledWindow" id="scrolledwindow">
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <child>
+              <object class="GtkTreeView" id="treeview">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <signal name="button-press-event" handler="on_treeview_button_press_event" swapped="no"/>
+                <signal name="cursor-changed" handler="on_treeview_cursor_changed" swapped="no"/>
+                <signal name="row-activated" handler="on_row_activated" swapped="no"/>
+                <signal name="popup-menu" handler="on_treeview_popup_menu" swapped="no"/>
+                <child>
+                  <object class="GtkTreeViewColumn" id="name_column">
+                    <property name="title" translatable="yes">Name</property>
+                    <property name="resizable">True</property>
+                    <child>
+                      <object class="EmblemCellRenderer" id="emblem_renderer"/>
+                    </child>
+                    <child>
+                      <object class="GtkCellRendererText" id="name_renderer"/>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkTreeViewColumn" id="location_column">
+                    <property name="title" translatable="yes">Location</property>
+                    <property name="resizable">True</property>
+                    <child>
+                      <object class="GtkCellRendererText" id="location_renderer"/>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkTreeViewColumn" id="status_column">
+                    <property name="title" translatable="yes">Status</property>
+                    <property name="resizable">True</property>
+                    <child>
+                      <object class="GtkCellRendererText" id="status_renderer"/>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkTreeViewColumn" id="extra_column">
+                    <property name="title" translatable="yes">Extra</property>
+                    <property name="resizable">True</property>
+                    <child>
+                      <object class="GtkCellRendererText" id="extra_renderer"/>
+                    </child>
+                  </object>
+                </child>
+                <child internal-child="selection">
+                  <object class="GtkTreeSelection" id="treeview-selection">
+                    <property name="mode">multiple</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+          <packing>
+            <property name="resize">True</property>
+            <property name="shrink">False</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkBox" id="console_vbox">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="margin-start">6</property>
+            <property name="margin-end">6</property>
+            <property name="orientation">vertical</property>
+            <child>
+              <object class="GtkLabel" id="label5">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="xalign">0</property>
+                <property name="label" translatable="yes">Console output</property>
+                <attributes>
+                  <attribute name="weight" value="bold"/>
+                </attributes>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkScrolledWindow" id="console_scrolledwindow">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="shadow_type">in</property>
+                <child>
+                  <object class="GtkTextView" id="consoleview">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="editable">False</property>
+                    <property name="cursor_visible">False</property>
+                    <signal name="populate-popup" handler="on_consoleview_populate_popup" swapped="no"/>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="padding">6</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="resize">True</property>
+            <property name="shrink">False</property>
+          </packing>
+        </child>
+      </object>
+      <packing>
+        <property name="expand">True</property>
+        <property name="fill">True</property>
+        <property name="pack_type">end</property>
+        <property name="position">2</property>
+      </packing>
+    </child>
+  </template>
+  <object class="GtkListStore" id="liststore_vcs">
+    <columns>
+      <!-- column-name gchararray1 -->
+      <column type="gchararray"/>
+      <!-- column-name gpointer1 -->
+      <column type="PyObject"/>
+      <!-- column-name gboolean1 -->
+      <column type="gboolean"/>
+    </columns>
+  </object>
+</interface>
