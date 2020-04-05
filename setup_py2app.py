@@ -37,7 +37,7 @@ PLIST = {
     'CFBundleSignature': '???',
     'CFBundleVersion': VERSION_STRING,
     'LSPrefersPPC': FORCE_32_BIT,
-    'NSHumanReadableCopyright': u'Copyright © 2018',
+    'NSHumanReadableCopyright': u'Copyright © 2020',
     'CFBundleDisplayName': 'Meld',
     'CFBundleName': 'Meld',
     'NSHighResolutionCapable': True,
@@ -108,27 +108,29 @@ setup(
     app=['bin/meld'],
     setup_requires=["py2app"],
     options={'py2app': {
-                'includes': 'cairo, gi, weakref, encodings',
+                'includes': [ 'cairo', 'gi', 'weakref', 'encodings' ],
+                'excludes': [ 'ctypes' ],
+                'dylib_excludes': [ 'Python' ],
                 'frameworks':
-                    'libpython3.6m.dylib'
-                    'libatk-1.0.0.dylib'
-                    'libcairo-gobject.2.dylib'
-                    'libcairo-script-interpreter.2.dylib'
-                    'libcairo.2.dylib'
-                    'libgio-2.0.0.dylib'
-                    'libgirepository-1.0.1.dylib'
-                    'libglib-2.0.0.dylib'
-                    'libgmodule-2.0.0.dylib'
-                    'libgobject-2.0.0.dylib'
-                    'libgtk-3.0.dylib'
-                    'libgtkmacintegration-gtk3.2.dylib'
-                    'libgtksourceview-4.dylib'
-                    'libgtksourceview-4.0.dylib'
-                    'libharfbuzz.0.dylib'
-                    'libpango-1.0.0.dylib'
-                    'libpangocairo-1.0.0.dylib'
-                    'libpangoft2-1.0.0.dylib'
-                    'librsvg-2.2.dylib',
+                    [ 'libpython3.6m.dylib',
+                    'libatk-1.0.0.dylib',
+                    'libcairo-gobject.2.dylib',
+                    'libcairo-script-interpreter.2.dylib',
+                    'libcairo.2.dylib',
+                    'libgio-2.0.0.dylib',
+                    'libgirepository-1.0.1.dylib',
+                    'libglib-2.0.0.dylib',
+                    'libgmodule-2.0.0.dylib',
+                    'libgobject-2.0.0.dylib',
+                    'libgtk-3.0.dylib',
+                    'libgtkmacintegration-gtk3.2.dylib',
+                    'libgtksourceview-4.dylib',
+                    'libgtksourceview-4.0.dylib',
+                    'libharfbuzz.0.dylib',
+                    'libpango-1.0.0.dylib',
+                    'libpangocairo-1.0.0.dylib',
+                    'libpangoft2-1.0.0.dylib',
+                    'librsvg-2.2.dylib' ],
                 'argv_emulation': True,
                 'no_chdir': True,
                 'iconfile': 'osx/meld.icns',

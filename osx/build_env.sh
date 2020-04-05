@@ -1,8 +1,8 @@
 #!/bin/bash
 
-set -o nounset
 set -o errexit
-set -o functrace
+set -o pipefail
+set -o nounset
 
 trap "exit" INT
 failure() {
@@ -19,7 +19,7 @@ export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH
 
 pushd . > /dev/null
 jhbuild bootstrap
-jhbuild buildone libffi openssl python3 libxml2
+jhbuild buildone libffi openssl python3 libxml2 pkg-config
 (cd $HOME/gtk/inst/bin && touch itstool && chmod +x itstool)
 $HOME/gtk/inst/bin/python3 -m ensurepip
 $HOME/gtk/inst/bin/pip3 install six
@@ -27,6 +27,7 @@ PYTHON=$HOME/gtk/inst/bin/python3 jhbuild build --nodeps --ignore-suggests -s fr
 $HOME/gtk/inst/bin/pip3 install pyobjc-core
 $HOME/gtk/inst/bin/pip3 install pyobjc-framework-Cocoa
 $HOME/gtk/inst/bin/pip3 install py2app
+$HOME/gtk/inst/bin/pip3 install pygobject
 (cd $HOME/gtk/inst/lib && ln -s libpython3.6m.dylib libpython3.6.dylib)
 (cd $HOME/Source/gtk && ([ -d Mojave-gtk-theme ] || git clone https://github.com/vinceliuice/Mojave-gtk-theme.git))
 (cd $HOME/Source/gtk/Mojave-gtk-theme && sed -i.bak 's/cp -ur/cp -r/' install.sh && ./install.sh  --dest $HOME/gtk/inst/share/themes)
@@ -38,7 +39,7 @@ curl -OL https://gitlab.gnome.org/GNOME/gtksourceview/-/archive/4.4.0/gtksourcev
 tar xvf gtksourceview-4.4.0.tar.bz2
 WORKDIR=$(mktemp -d)
 cd $WORKDIR
-jhbuild run meson --prefix $HOME/gtk/inst --libdir lib --buildtype release --optimization 3 -Dgtk_doc=false -Db_bitcode=true -Db_ndebug=true -Dvapi=false $HOME/Source/gtk/gtksourceview-4.4.0
+jhbuild run meson --prefix $HOME/gtk/inst --libdir lib --buildtype release --optimization 3 -Dgtk_doc=false -Db_bitcode=true -Db_ndebug=true -Dvapi=false $HOME/Source/gtksourceview-4.4.0
 jhbuild run ninja install
 
 popd

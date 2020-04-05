@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 set -o nounset
 set -o errexit
@@ -20,16 +20,21 @@ RES="$MAIN/Contents/Resources/"
 FRAMEWORKS="$MAIN/Contents/Frameworks/"
 INSTROOT="$HOME/gtk/inst/"
 
+cp meld/conf.py meld/conf.py.orig
 cp osx/conf.py meld/conf.py
+
+python3 -c "import sys; print('\n'.join(sys.path))"
 
 glib-compile-schemas data
 python3 setup_py2app.py build
-python3 setup_py2app.py py2app --use-faulthandler
+python3 setup_py2app.py py2app --use-faulthandler --graph
+
+mv meld/conf.py.orig meld/conf.py
 
 # py2app copies all Python framework to target..
 # too busy to figure out how to solve this at the moment. Let's just 
 # delete the files after they've been copied.
-rm -fr $FRAMEWORKS/Python.framework
+# rm -fr $FRAMEWORKS/Python.framework
 
 # icon themes
 rsync -r -t --ignore-existing ${INSTROOT}/share/icons/Adwaita ${RES}/share/icons

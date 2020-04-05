@@ -3,18 +3,28 @@
 
 print("Using Meld for OSX customization")
 
+import os.path
+from os import path
+
 #prefix = "/tmp/meldroot"
 checkoutroot = os.path.expanduser("~/Source/gtk")
 setup_sdk(target="10.13", sdk_version="native", architectures=["x86_64"])
 _gtk_osx_use_jhbuild_python = True
 
-os.environ["CC"] = "/usr/local/bin/ccache /usr/bin/clang"
-os.environ["CXX"] = "/usr/local/bin/ccache /usr/bin/clang++"
-environ_prepend('CFLAGS', "-O3")
-environ_prepend('CXXFLAGS', "-std=c++11 -stdlib=libc++ -O3")
+if path.exists("/usr/local/bin/ccache"):
+  print("Using ccache")
+  os.environ["CC"] = "/usr/local/bin/ccache /usr/bin/clang"
+  os.environ["CXX"] = "/usr/local/bin/ccache /usr/bin/clang++"
+else:
+  print("Not using ccache")
+  os.environ["CC"] = "/usr/bin/clang"
+  os.environ["CXX"] = "/usr/bin/clang++"
+
+os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = "@executable_path/../Frameworks/:@executable_path/../Resources/lib"
+environ_prepend('CFLAGS', "-O3 -mtune=intel -msse -mmmx")
+environ_prepend('CXXFLAGS', "-std=c++11 -stdlib=libc++ -O3 -mtune=intel -msse -mmmx")
 environ_prepend('OBJCFLAGS', "-O3")
 os.environ["MACOSX_DEPLOYMENT_TARGET"] = "10.13"
-os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = "@executable_path/../Frameworks/:@executable_path/../Resources/lib"
 
 #skip.append("libiconv") # Lion issues
 skip.append("cups")
@@ -23,10 +33,10 @@ skip.append("berkeleydb")
 skip.append("berkeleydb-nonsrctree")
 skip.append("gnome-user-docs")
 skip.append("cmake")
-skip.append("openssl")
+skip.append("openssl")  # We'll install it manually
 skip.append("python")
-skip.append("python3")
-#skip.append("libxml2")
+skip.append("python3")  # We'll install it manually
+#skip.append("libxml2") # We'll install it manually
 #skip.append("gtk-doc")
 skip.append("itstool")
 skip.append("libxslt")
@@ -40,14 +50,12 @@ skip.append('pulseaudio')
 
 # moduleset="https://gitlab.gnome.org/GNOME/gtk-osx/raw/master/modulesets-unstable/gtk-osx.modules"
 
-
 # gtk-doc required to build pango. We generate nothing with it, though.
 #   libxslt
 #   libxsltpython
 #   gtk-doc
 #   yelp-xsl
 #   yelp-tools
-#
 
 modules = [
   "zlib", "libjpeg", "libtiff", "libpng",
@@ -74,6 +82,7 @@ autogenargs = autogenargs + ' --disable-documentation --disable-docs --enable-in
 # branches["gtk+-3.0"] = "http://ftp.gnome.org/pub/gnome/sources/gtk/3.96/gtk-3.96.0.tar.xz"
 
 module_autogenargs['gettext-tools'] = 'CFLAGS=-O'
+module_autogenargs['gettext'] = '--disable-rpath --disable-nls --enable-relocatable --disable-java --disable-native-java --disable-curses --without-emacs --without-bzip2 CFLAGS=-O2'
 module_autogenargs['yelp'] = '--disable-Werror'
 module_autogenargs['zlib']= ''# + autogenargs
 module_autogenargs['librsvg'] = '--disable-Bsymbolic --enable-pixbuf-loader --enable-shared=yes --enable-static=yes ' + autogenargs
@@ -82,10 +91,10 @@ module_autogenargs['gobject-introspection']= '--with-cairo=yes ' + autogenargs
 module_autogenargs['tango-icon-theme']='--disable-nls --disable-icon-framing ' + autogenargs
 module_autogenargs['gtk+-3.0'] = '--enable-quartz-backend --enable-quartz-relocation --disable-Bsymbolic --disable-cloudprint --with-included-immodules=am-et,cedilla,cyrillic-translit,inuktitut,ipa,multipress,thai,ti-er,ti-et,viqr --disable-modules --disable-rpath --disable-cups --disable-papi --disable-cloudprint --disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --enable-debug=no ' + autogenargs  #--disable-schemas-compile ?
 module_autogenargs['gnome-themes-standard'] = '--disable-gtk2-engine ' + autogenargs
-module_autogenargs['harfbuzz'] = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext ' + autogenargs
-module_autogenargs['root-harfbuzz'] = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext ' + autogenargs
+module_autogenargs['harfbuzz'] = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext --without-icu ' + autogenargs
+module_autogenargs['root-harfbuzz'] = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext --without-icu ' + autogenargs
 module_autogenargs['fontconfig'] = '--with-cache-dir="~/Library/Caches/org.gnome.meld.fontconfig" --with-default-fonts=/System/Library/Fonts --with-add-fonts=/Library/Fonts,/Network/Library/Fonts,/System/Library/Fonts ' + autogenargs
-module_autogenargs['python3'] = '--enable-optimizations --with-system-ffi --with-system-expat --without-lto --without-gcc  --disable-ipv6 --with-ensurepip=yes --without-tests --disable-tests ' + autogenargs
+module_autogenargs['python3'] = '--enable-optimizations --with-system-ffi --with-system-expat --without-gcc  --disable-ipv6 --with-ensurepip=yes --without-tests --disable-tests --with-threads --with-system-expat ' + autogenargs
 
 module_mesonargs['atk']        = '-Ddocs=false -Dintrospection=true'
 module_mesonargs['gdk-pixbuf'] = '--buildtype release --optimization 3 -Dbuiltin_loaders=all -Drelocatable=true -Ddocs=false'
