@@ -1,6 +1,10 @@
-#!/bin/sh
+#!/bin/sh -x
 
-export PATH=$HOME/.local/bin:$HOME/gtk/inst/bin:$PATH
+set -o errexit
+set -o pipefail
+set -o nounset
+
+export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH
 
 APP="$PWD/dist/Meld.app"
 MAIN="$APP/"
@@ -8,16 +12,19 @@ RES="$MAIN/Contents/Resources/"
 FRAMEWORKS="$MAIN/Contents/Frameworks/"
 INSTROOT="$HOME/gtk/inst/"
 
+cp meld/conf.py meld/conf.py.orig
 cp osx/conf.py meld/conf.py
 
 glib-compile-schemas data
 python3 setup_py2app.py build
 python3 setup_py2app.py py2app --use-faulthandler # -A
 
+mv meld/conf.py.orig meld/conf.py
+
 # py2app copies all Python framework to target..
 # too busy to figure out how to solve this at the moment. Let's just 
 # delete the files after they've been copied.
-rm -fr $FRAMEWORKS/Python.framework
+# rm -fr $FRAMEWORKS/Python.framework
 
 # icon themes
 mkdir -p $RES/share/icons

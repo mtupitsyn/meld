@@ -1,15 +1,19 @@
 #!/bin/bash
 
+set -o errexit
+set -o pipefail
+set -o nounset
+
 trap "exit" INT
 
-export MACOSX_DEPLOYMENT_TARGET=10.9
-export PATH=$HOME/.local/bin:$HOME/gtk/inst/bin:$PATH
+export MACOSX_DEPLOYMENT_TARGET=10.10
+export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH
 
 # brew install python2 ccache
 
 pushd . > /dev/null
 jhbuild bootstrap
-jhbuild buildone libffi openssl python3 libxml2
+jhbuild buildone libffi openssl python3 libxml2 pkg-config
 (cd $HOME/gtk/inst/bin && touch itstool && chmod +x itstool)
 $HOME/gtk/inst/bin/python3 -m ensurepip
 $HOME/gtk/inst/bin/pip3 install six
@@ -17,6 +21,7 @@ PYTHON=$HOME/gtk/inst/bin/python3 jhbuild build
 $HOME/gtk/inst/bin/pip3 install pyobjc-core
 $HOME/gtk/inst/bin/pip3 install pyobjc-framework-Cocoa
 $HOME/gtk/inst/bin/pip3 install py2app
+$HOME/gtk/inst/bin/pip3 install pygobject
 (cd $HOME/gtk/inst/lib && ln -s libpython3.6m.dylib libpython3.6.dylib)
 (cd $HOME/Source/gtk && ([ -d Mojave-gtk-theme ] || git clone https://github.com/vinceliuice/Mojave-gtk-theme.git))
 (cd $HOME/Source/gtk/Mojave-gtk-theme && sed -i.bak 's/cp -ur/cp -r/' install.sh && ./install.sh  --dest $HOME/gtk/inst/share/themes)
