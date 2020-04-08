@@ -177,11 +177,9 @@ class MacWindow:
     def on_window_state_event(self, window, event):
         # FIXME: We don't receive notification on fullscreen on OSX
         # We'll have to figure this out some other way..
-        print("I'm here")
         if self.app_ready == False:
             force_focus()
             self.app_ready = True
-        pass
 
     def on_menu_file_new_activate(self, menuitem):
         self.append_new_comparison()

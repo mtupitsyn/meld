@@ -1,45 +1,49 @@
+include: 'https://gitlab.gnome.org/GNOME/citemplates/raw/master/flatpak/flatpak_ci_initiative.yml'
+
 image: registry.gitlab.gnome.org/gnome/gnome-runtime-images/gnome:master
 
 stages:
   - check
+  - test
   - build
+  - deploy
 
 variables:
-  DEPENDENCIES: python3
-                python3-pip
-                python3-pytest
-                python3-gobject
-                gobject-introspection
-                gtk3
-                gtksourceview4
-                intltool
-                glib2-devel
+    BUNDLE: "meld-dev.flatpak"
 
-.linux-common: &linux-common
-  before_script:
-    - dnf update -y
-    - dnf install -y $DEPENDENCIES
+flatpak:
+    extends: .flatpak
+    stage: build
+    variables:
+        MANIFEST_PATH: "data/org.gnome.MeldDevel.json"
+        MESON_ARGS: "-Dprofile=Devel"
+        FLATPAK_MODULE: "meld"
+        RUNTIME_REPO: "https://nightly.gnome.org/gnome-nightly.flatpakrepo"
+        APP_ID: "org.gnome.MeldDevel"
+
+nightly:
+  extends: '.publish_nightly'
+  dependencies:
+    - 'flatpak'
+
+.pythonchecks:
+  stage: check
+  tags: # test in the same org.gnome.Sdk environment that is used for creating flatpaks
+    - flatpak
+  script:
+    - flatpak run --share=network --filesystem=`pwd` --env=PATH=$PATH:/var/data/python/bin --command=sh org.gnome.Sdk -c 'pip3 install --user -r dev-requirements.txt; $PYTHON_CHECK_COMMAND'
 
 lint:
-  stage: check
-  script:
-    - dnf install -y git
-    - pip3 install -r dev-requirements.txt
-    - pre-commit run --all-files --show-diff-on-failure
+  extends: .pythonchecks
+  variables:
+      PYTHON_CHECK_COMMAND: "pre-commit run --all-files --show-diff-on-failure"
 
-linux-pytest:
-  stage: check
-  script:
-    - py.test-3 test/
-  <<: *linux-common
+pytest:
+  extends: .pythonchecks
+  variables:
+      PYTHON_CHECK_COMMAND: "pytest"
 
-linux-build:
-  stage: build
-  script:
-    - python3 setup.py build
-  <<: *linux-common
-
-.mingw-common: &mingw-common
+.mingw-common:
   stage: build
   tags: # select gitlab runners with specific tag (unrelated to git repo tags)
     - win32
@@ -58,13 +62,13 @@ linux-build:
   allow_failure: true
 
 mingw64-dist:
+  extends: .mingw-common
   variables:
     MSYS2_ARCH: x86_64
     MSYSTEM: MINGW64
-  <<: *mingw-common
 
 mingw32-dist:
+  extends: .mingw-common
   variables:
     MSYS2_ARCH: i686
     MSYSTEM: "MINGW32"
-  <<: *mingw-common

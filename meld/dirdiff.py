@@ -298,6 +298,7 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
     create_diff_signal = MeldDoc.create_diff_signal
     file_changed_signal = MeldDoc.file_changed_signal
     label_changed = MeldDoc.label_changed
+    move_diff = MeldDoc.move_diff
     tab_state_changed = MeldDoc.tab_state_changed
 
     __gsettings_bindings__ = (
@@ -423,6 +424,7 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
             ('previous-change', self.action_previous_change),
             ('previous-pane', self.action_prev_pane),
             ('refresh', self.action_refresh),
+            ('copy-file-paths', self.action_copy_file_paths),
         )
         for name, callback in actions:
             action = Gio.SimpleAction.new(name, None)
@@ -1354,6 +1356,20 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
         if files:
             self._open_files(files)
 
+    def action_copy_file_paths(self, *args):
+        pane = self._get_focused_pane()
+        if pane is None:
+            return
+        files = [
+            self.model.value_path(self.model.get_iter(p), pane)
+            for p in self._get_selected_paths(pane)
+        ]
+        files = [f for f in files if f]
+        if files:
+            clip = Gtk.Clipboard.get_default(Gdk.Display.get_default())
+            clip.set_text('\n'.join(str(f) for f in files), -1)
+            clip.store()
+
     def action_ignore_case_change(self, action, value):
         action.set_state(value)
         self.refresh()
@@ -1634,6 +1650,8 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
         if path:
             self.treeview[pane].expand_to_path(path)
             self.treeview[pane].set_cursor(path)
+        else:
+            self.error_bell()
 
     def action_previous_change(self, *args):
         self.next_diff(Gdk.ScrollDirection.UP)
@@ -1658,3 +1676,6 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
         modified_states = (tree.STATE_MODIFIED, tree.STATE_CONFLICT)
         for it in self.model.state_rows(modified_states):
             self.run_diff_from_iter(it)
+
+
+DirDiff.set_css_name('meld-folder-diff')

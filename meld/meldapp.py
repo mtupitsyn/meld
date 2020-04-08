@@ -55,9 +55,19 @@ class MeldApp(BASE_CLASS):
           flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE,
         )
         GtkosxApplication.Application.__init__(self)
-        GLib.set_application_name("Meld")
+        GLib.set_application_name(meld.conf.APPLICATION_NAME)
         GLib.set_prgname(meld.conf.APPLICATION_ID)
-        Gtk.Window.set_default_icon_name("org.gnome.meld")
+        Gtk.Window.set_default_icon_name(meld.conf.APPLICATION_ID)
+        self.set_resource_base_path(meld.conf.RESOURCE_BASE)
+
+        provider = Gtk.CssProvider()
+        provider.load_from_resource(self.make_resource_path('meld.css'))
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(), provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    def make_resource_path(self, resource_path: str) -> str:
+        return f'{self.props.resource_base_path}/{resource_path}'
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
@@ -126,6 +136,7 @@ class MeldApp(BASE_CLASS):
             '/org/gnome/meld/ui/about-dialog.ui')
         dialog = builder.get_object('about-dialog')
         dialog.set_version(meld.conf.__version__)
+        dialog.set_logo_icon_name(meld.conf.APPLICATION_ID)
         dialog.set_transient_for(self.get_active_window())
         dialog.run()
         dialog.destroy()
@@ -428,10 +439,3 @@ class MeldApp(BASE_CLASS):
 
         parser.command_line = None
         return tab if len(comparisons) == 1 else None
-
-
-app = MeldApp()
-
-# On Mac OSX, this allows the GTK app to exit cleanly and
-# preserve SavedWindowState for the 
-GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, app.quit)

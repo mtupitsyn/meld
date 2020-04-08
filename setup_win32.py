@@ -2,14 +2,12 @@
 
 import glob
 import os.path
+import pathlib
 import platform
 import sys
 import sysconfig
 
 from cx_Freeze import Executable, setup
-
-import meld.build_helpers
-import meld.conf
 
 
 def get_non_python_libs():
@@ -30,6 +28,9 @@ def get_non_python_libs():
     if 'mingw' in sysconfig.get_platform():
         # dll imported by dll dependencies expected to be auto-resolved later
         inst_root = [os.path.join(local_bin, 'libgtksourceview-4-0.dll')]
+
+        # required for communicating multiple instances
+        inst_lib.append(os.path.join(local_bin, 'gdbus.exe'))
 
         # gspawn-helper is needed for Gtk.show_uri function
         if platform.architecture()[0] == '32bit':
@@ -66,10 +67,13 @@ for data_dir in gtk_data_dirs:
             [os.path.join(local_data_subdir, file) for file in files]
         ))
 
-# add libgdk_pixbuf-2.0-0.dll manually to forbid auto-pulling of gdiplus.dll
 manually_added_libs = {
+    # add libgdk_pixbuf-2.0-0.dll manually to forbid auto-pulling of gdiplus.dll
     "libgdk_pixbuf-2.0-0.dll": os.path.join(sys.prefix, 'bin'),
-    }
+    # libcroco and librsvg are needed for SVG loading in gdkpixbuf
+    "libcroco-0.6-3.dll": os.path.join(sys.prefix, 'bin'),
+    "librsvg-2-2.dll": os.path.join(sys.prefix, 'bin'),
+}
 
 for lib, possible_path in manually_added_libs.items():
     local_lib = os.path.join(possible_path, lib)
@@ -125,6 +129,18 @@ if 'mingw' in sysconfig.get_platform():
          "shortcutDir": "ProgramMenuFolder",
     })
 
+# Copy conf.py in place if necessary
+base_path = pathlib.Path(__file__).parent
+conf_path = base_path / 'meld' / 'conf.py'
+
+if not conf_path.exists():
+    import shutil
+    shutil.copyfile(conf_path.with_suffix('.py.in'), conf_path)
+
+import meld.build_helpers  # noqa: E402
+import meld.conf  # noqa: E402
+
+
 setup(
     name="Meld",
     version=meld.conf.__version__,
@@ -133,6 +149,7 @@ setup(
     author_email='meld-list@gnome.org',
     maintainer='Kai Willadsen',
     url='http://meldmerge.org',
+    license='GPLv2+',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Environment :: X11 Applications :: GTK',
@@ -140,10 +157,12 @@ setup(
         'Intended Audience :: System Administrators',
         'License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)',
         'Programming Language :: Python',
+        'Programming Language :: Python :: 3 :: Only',
         'Topic :: Desktop Environment :: Gnome',
         'Topic :: Software Development',
         'Topic :: Software Development :: Version Control',
     ],
+    keywords=['diff', 'merge'],
     options={
         "build_exe": build_exe_options,
         "bdist_msi": bdist_msi_options,
@@ -162,7 +181,8 @@ setup(
         'meld.vc',
     ],
     package_data={
-        'meld': ['README', 'COPYING', 'NEWS']
+        'meld': ['README', 'COPYING', 'NEWS'],
+        'meld.vc': ['README', 'COPYING'],
     },
     scripts=['bin/meld'],
     data_files=[
@@ -171,9 +191,6 @@ setup(
          ),
         ('share/doc/meld-' + meld.conf.__version__,
          ['COPYING', 'NEWS']
-         ),
-        ('share/meld',
-         ['data/meld.css']
          ),
         ('share/meld/icons',
          glob.glob("data/icons/*.png") +

@@ -22,11 +22,14 @@ from gi.repository import Gdk, Gio, GLib, Gtk
 # Import support module to get all builder-constructed widgets in the namespace
 import meld.ui.gladesupport  # noqa: F401
 import meld.ui.util
-from meld.conf import _
-from meld.const import FILE_FILTER_ACTION_FORMAT, TEXT_FILTER_ACTION_FORMAT
+from meld.conf import PROFILE, _
+from meld.const import (
+    FILE_FILTER_ACTION_FORMAT,
+    TEXT_FILTER_ACTION_FORMAT,
+    FileComparisonMode,
+)
 from meld.dirdiff import DirDiff
 from meld.filediff import FileDiff
-from meld.filemerge import FileMerge
 from meld.melddoc import ComparisonState, MeldDoc
 from meld.menuhelpers import replace_menu_section
 from meld.newdifftab import NewDiffTab
@@ -115,6 +118,10 @@ class MeldWindow(Gtk.ApplicationWindow, MacWindow):
         self.idle_hooked = 0
         self.scheduler = LifoScheduler()
         self.scheduler.connect("runnable", self.on_scheduler_runnable)
+
+        if PROFILE != '':
+            style_context = self.get_style_context()
+            style_context.add_class("devel")
 
     def do_realize(self):
         Gtk.ApplicationWindow.do_realize(self)
@@ -319,7 +326,7 @@ class MeldWindow(Gtk.ApplicationWindow, MacWindow):
                 cancelled = self.emit(
                     'delete-event', Gdk.Event.new(Gdk.EventType.DELETE))
                 if not cancelled:
-                    self.emit('destroy')
+                    self.destroy()
 
     def on_page_state_changed(self, page, old_state, new_state):
         if self.should_close and old_state == ComparisonState.Closing:
@@ -403,7 +410,8 @@ class MeldWindow(Gtk.ApplicationWindow, MacWindow):
             raise ValueError(
                 _("Need three files to auto-merge, got: %r") %
                 [f.get_parse_name() for f in gfiles])
-        doc = FileMerge(len(gfiles))
+        doc = FileDiff(
+            len(gfiles), comparison_mode=FileComparisonMode.AutoMerge)
         self._append_page(doc)
         doc.set_files(gfiles)
         if merge_output is not None:
