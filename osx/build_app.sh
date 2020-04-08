@@ -27,7 +27,7 @@ python3 -c "import sys; print('\n'.join(sys.path))"
 
 glib-compile-schemas data
 python3 setup_py2app.py build
-python3 setup_py2app.py py2app --use-faulthandler --graph
+python3 setup_py2app.py py2app --use-faulthandler
 
 mv meld/conf.py.orig meld/conf.py
 
@@ -63,17 +63,17 @@ rsync -r -t $INSTROOT/share/themes/Mac/ $RES/share/themes/Mac
 rsync -r -t $INSTROOT/share/gtksourceview-4 $RES/share
 mkdir -p $RES/share/themes/Meld-Mojave-dark/gtk-3.0
 mkdir -p $RES/share/themes/Meld-Mojave-light/gtk-3.0
-rsync -r -t --ignore-existing $INSTROOT/share/themes/Mojave-dark-solid-alt/gtk-3.0 $RES/share/themes/Meld-Mojave-dark
-rsync -r -t --ignore-existing $INSTROOT/share/themes/Mojave-light-solid-alt/gtk-3.0 $RES/share/themes/Meld-Mojave-light
+### rsync -r -t --ignore-existing $INSTROOT/share/themes/Mojave-dark-solid-alt/gtk-3.0 $RES/share/themes/Meld-Mojave-dark
+### rsync -r -t --ignore-existing $INSTROOT/share/themes/Mojave-light-solid-alt/gtk-3.0 $RES/share/themes/Meld-Mojave-light
 cp $INSTROOT/share/themes/Mac/gtk-3.0/gtk-keys.css $RES/share/themes/Meld-Mojave-dark/gtk-3.0/gtk-keys.css
 cp $INSTROOT/share/themes/Mac/gtk-3.0/gtk-keys.css $RES/share/themes/Meld-Mojave-light/gtk-3.0/gtk-keys.css
 
 # meld specific resources
 mkdir -p $RES/share/meld
 rsync -r -t data/icons/* $RES/share/icons
-rsync -r -t data/meld.css $RES/share/meld
-rsync -r -t data/styles/meld-dark.xml $RES/share/gtksourceview-4/styles
-rsync -r -t data/styles/meld-base.xml $RES/share/gtksourceview-4/styles
+### rsync -r -t data/meld.css $RES/share/meld
+### rsync -r -t data/styles/meld-dark.xml $RES/share/gtksourceview-4/styles
+### rsync -r -t data/styles/meld-base.xml $RES/share/gtksourceview-4/styles
 
 # update icon cache for Adwaita
 rm -fr $RES/share/icons/Adwaita/cursors

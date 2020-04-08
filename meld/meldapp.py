@@ -213,7 +213,6 @@ class MeldApp(BASE_CLASS):
         self.insert_app_menu_item(separator, 4)
 
         self.sync_menubar()
-
         self.ready()
 
     def parse_args(self, command_line):

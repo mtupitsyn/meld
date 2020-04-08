@@ -139,7 +139,7 @@ setup(
     }},
     data_files=[
         ('share/man/man1',
-         ['meld.1']
+         ['data/meld.1']
          ),
         ('share/doc/meld',
          ['COPYING', 'NEWS']
@@ -150,9 +150,6 @@ setup(
         ('share/meld',
          ['data/org.gnome.meld.gschema.xml']
         ),
-        ('share/meld',
-         ['data/meld.css']
-         ),
         ('share/meld/icons',
          glob.glob("data/icons/*.png") +
          glob.glob("data/icons/COPYING*")

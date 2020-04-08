@@ -65,6 +65,9 @@ class MeldWindow(Gtk.ApplicationWindow, MacWindow):
         super(Gtk.ApplicationWindow, self).__init__()
 
         if self.is_quartz:
+            header_bar = self.get_titlebar()
+            self.set_titlebar(None)
+            self.appvbox.pack_start(header_bar, False, True, 0)
             self.install_mac_additions()
 
         # Manually handle GAction additions

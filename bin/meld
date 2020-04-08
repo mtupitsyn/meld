@@ -47,9 +47,9 @@ if gtk_theme is None:
         from Foundation import NSUserDefaults
         standardUserDefaults = NSUserDefaults.standardUserDefaults()
         if standardUserDefaults.stringForKey_("AppleInterfaceStyle") == 'Dark':
-            os.environ['GTK_THEME'] = "Meld-Mojave-dark"
+            os.environ['GTK_THEME'] = "Meld-Os-Catalina-gtk:dark"
         else:
-            os.environ['GTK_THEME'] = "Meld-Mojave:light"
+            os.environ['GTK_THEME'] = "Meld-Os-Catalina-gtk:light"
     except:
         pass
 else:

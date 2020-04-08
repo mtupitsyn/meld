@@ -24,13 +24,17 @@ jhbuild buildone libffi openssl python3 libxml2 pkg-config
 $HOME/gtk/inst/bin/python3 -m ensurepip
 $HOME/gtk/inst/bin/pip3 install six
 PYTHON=$HOME/gtk/inst/bin/python3 jhbuild build --nodeps --ignore-suggests -s freetype-no-harfbuzz
+# meson --prefix $HOME/gtk/inst --libdir lib --buildtype release --optimization 3 -Dgtk_doc=false  $HOME/Source/gtk/pycairo-1.18.1
+# ninja install
+# meson --prefix $HOME/gtk/inst --libdir lib --buildtype release --optimization 3 -Dgtk_doc=false  $HOME/Source/gtk/pygobject-3.32.2
+# ninja install
 $HOME/gtk/inst/bin/pip3 install pyobjc-core
 $HOME/gtk/inst/bin/pip3 install pyobjc-framework-Cocoa
 $HOME/gtk/inst/bin/pip3 install py2app
 $HOME/gtk/inst/bin/pip3 install pygobject
 (cd $HOME/gtk/inst/lib && ln -s libpython3.6m.dylib libpython3.6.dylib)
-(cd $HOME/Source/gtk && ([ -d Mojave-gtk-theme ] || git clone https://github.com/vinceliuice/Mojave-gtk-theme.git))
-(cd $HOME/Source/gtk/Mojave-gtk-theme && sed -i.bak 's/cp -ur/cp -r/' install.sh && ./install.sh  --dest $HOME/gtk/inst/share/themes)
+(cd $HOME/Source/ && ([ -d Mojave-gtk-theme ] || git clone https://github.com/vinceliuice/Mojave-gtk-theme.git))
+(cd $HOME/Source/Mojave-gtk-theme && sed -i.bak 's/cp -ur/cp -r/' install.sh && ./install.sh  --dest $HOME/gtk/inst/share/themes)
 (cd $HOME/gtk/inst/share/themes && ln -sf Mojave-dark-solid-alt Meld-Mojave-dark)
 (cd $HOME/gtk/inst/share/themes && ln -sf Mojave-light-solid-alt Meld-Mojave-light)
 

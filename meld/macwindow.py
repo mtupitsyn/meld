@@ -18,7 +18,8 @@
 import ctypes
 from Cocoa import NSApp
 from Cocoa import NSApplicationActivateIgnoringOtherApps, NSApplicationActivateAllWindows
-from AppKit import NSBundle, NSApp, NSWindow, NSAutoreleasePool, NSApplicationActivationPolicyRegular, NSApplicationActivationPolicyProhibited
+from AppKit import NSBundle, NSApp, NSWindow, NSAutoreleasePool, NSApplicationActivationPolicyRegular, \
+    NSApplicationActivationPolicyProhibited
 
 from gi.repository import Gdk
 from gi.repository import Gio
@@ -26,18 +27,29 @@ from gi.repository import GLib
 from gi.repository import Gtk
 
 import gi
-gi.require_version('GtkosxApplication', '1.0') 
+gi.require_version('GtkosxApplication', '1.0')
 from gi.repository import GtkosxApplication as gtkosx_application
-
 from meld.conf import _, ui_file
 from meld.recent import recent_comparisons, RecentType
+
+
+def disable_focus_workaround():
+    NSApp.activateIgnoringOtherApps_(False)
+
+def enable_focus_workaround():
+    NSApp.activateIgnoringOtherApps_(True)
+
+def force_focus(duration=2000):
+    enable_focus_workaround()
+    GLib.timeout_add(duration, disable_focus_workaround)
+
 
 class MacWindow:
     is_quartz = True
 
     def install_mac_additions(self):
 
-        #header_bar = Gtk.Template.Child()
+        # header_bar = Gtk.Template.Child()
         self.maximize_button = Gtk.Template.Child()
 
         # Manually handle GAction additions
@@ -55,69 +67,69 @@ class MacWindow:
         actions = (
             ("FileMenu", None, _("_File")),
             ("New", Gtk.STOCK_NEW, _("_New Comparison…"), "<Primary>N",
-                _("Start a new comparison"),
-                self.on_menu_file_new_activate),
+             _("Start a new comparison"),
+             self.on_menu_file_new_activate),
             ("Save", Gtk.STOCK_SAVE, None, None,
-                _("Save the current file"),
-                self.on_menu_save_activate),
+             _("Save the current file"),
+             self.on_menu_save_activate),
             ("SaveAs", Gtk.STOCK_SAVE_AS, _("Save As…"), "<Primary><shift>S",
-                _("Save the current file with a different name"),
-                self.on_menu_save_as_activate),
+             _("Save the current file with a different name"),
+             self.on_menu_save_as_activate),
             ("Close", Gtk.STOCK_CLOSE, None, None,
-                _("Close the current file"),
-                self.on_menu_close_activate),
+             _("Close the current file"),
+             self.on_menu_close_activate),
 
             ("EditMenu", None, _("_Edit")),
             ("Undo", Gtk.STOCK_UNDO, None, "<Primary>Z",
-                _("Undo the last action"),
-                self.on_menu_undo_activate),
+             _("Undo the last action"),
+             self.on_menu_undo_activate),
             ("Redo", Gtk.STOCK_REDO, None, "<Primary><shift>Z",
-                _("Redo the last undone action"),
-                self.on_menu_redo_activate),
+             _("Redo the last undone action"),
+             self.on_menu_redo_activate),
             ("Cut", Gtk.STOCK_CUT, None, None, _("Cut the selection"),
-                self.on_menu_cut_activate),
+             self.on_menu_cut_activate),
             ("Copy", Gtk.STOCK_COPY, None, None, _("Copy the selection"),
-                self.on_menu_copy_activate),
+             self.on_menu_copy_activate),
             ("Paste", Gtk.STOCK_PASTE, None, None, _("Paste the clipboard"),
-                self.on_menu_paste_activate),
+             self.on_menu_paste_activate),
             ("Find", Gtk.STOCK_FIND, _("Find…"), None, _("Search for text"),
-                self.on_menu_find_activate),
+             self.on_menu_find_activate),
             ("FindNext", None, _("Find Ne_xt"), "<Primary>G",
-                _("Search forwards for the same text"),
-                self.on_menu_find_next_activate),
+             _("Search forwards for the same text"),
+             self.on_menu_find_next_activate),
             ("FindPrevious", None, _("Find _Previous"), "<Primary><shift>G",
-                _("Search backwards for the same text"),
-                self.on_menu_find_previous_activate),
+             _("Search backwards for the same text"),
+             self.on_menu_find_previous_activate),
             ("Replace", Gtk.STOCK_FIND_AND_REPLACE,
-                _("_Replace…"), "<Primary>H",
-                _("Find and replace text"),
-                self.on_menu_replace_activate),
+             _("_Replace…"), "<Primary>H",
+             _("Find and replace text"),
+             self.on_menu_replace_activate),
             ("GoToLine", None, _("Go to _Line"), "<Primary>I",
-                _("Go to a specific line"),
-                self.on_menu_go_to_line_activate),
+             _("Go to a specific line"),
+             self.on_menu_go_to_line_activate),
 
             ("ChangesMenu", None, _("_Changes")),
             ("NextChange", Gtk.STOCK_GO_DOWN, _("Next Change"), "<Alt>Down",
-                _("Go to the next change"),
-                self.on_menu_edit_down_activate),
+             _("Go to the next change"),
+             self.on_menu_edit_down_activate),
             ("PrevChange", Gtk.STOCK_GO_UP, _("Previous Change"), "<Alt>Up",
-                _("Go to the previous change"),
-                self.on_menu_edit_up_activate),
+             _("Go to the previous change"),
+             self.on_menu_edit_up_activate),
             ("OpenExternal", None, _("Open Externally"), None,
-                _("Open selected file or directory in the default external "
-                    "application"),
-                self.on_open_external),
+             _("Open selected file or directory in the default external "
+               "application"),
+             self.on_open_external),
 
             ("ViewMenu", None, _("_View")),
             ("FileStatus", None, _("File Status")),
             ("VcStatus", None, _("Version Status")),
             ("FileFilters", None, _("File Filters")),
             ("Stop", Gtk.STOCK_STOP, None, "Escape",
-                _("Stop the current action"),
-                self.on_toolbar_stop_clicked),
+             _("Stop the current action"),
+             self.on_toolbar_stop_clicked),
             ("Refresh", Gtk.STOCK_REFRESH, None, "<Primary>R",
-                _("Refresh the view"),
-                self.on_menu_refresh_activate),
+             _("Refresh the view"),
+             self.on_menu_refresh_activate),
         )
 
         self.actiongroup = Gtk.ActionGroup(name='MainActions')
@@ -125,7 +137,7 @@ class MacWindow:
         self.actiongroup.add_actions(actions)
 
         recent_action = Gtk.RecentAction(
-            name="Recent",  label=_("Open Recent"),
+            name="Recent", label=_("Open Recent"),
             tooltip=_("Open recent files"), stock_id=None)
         recent_action.set_show_private(True)
         recent_action.set_filter(recent_comparisons.recent_filter)
@@ -143,7 +155,8 @@ class MacWindow:
         self.menubar = self.ui.get_widget('/Menubar')
 
         self.menubar.hide()
-        self.quartz_ready = False
+        self.menu_created = False
+        self.app_ready = False
 
         # Alternate keybindings for a few commands.
         extra_accels = (
@@ -164,6 +177,10 @@ class MacWindow:
     def on_window_state_event(self, window, event):
         # FIXME: We don't receive notification on fullscreen on OSX
         # We'll have to figure this out some other way..
+        print("I'm here")
+        if self.app_ready == False:
+            force_focus()
+            self.app_ready = True
         pass
 
     def on_menu_file_new_activate(self, menuitem):
@@ -261,7 +278,7 @@ class MacWindow:
         app.quit()
 
     def action_minimize_window(self, *extra):
-        # self.get_window().iconify()  # Not working!
+        self.get_window().iconify()  # Not working!
         # self.iconify() # Not working!!
         # window = NSApp.mainWindow()      # keyWindow isn't working either!
         # window.performMiniaturize_(window)  # Not working!!
@@ -271,7 +288,7 @@ class MacWindow:
         #   and GDK_QUARTZ_MINIATURIZABLE_WINDOW is not being set.. All because of the GtkHeaderBar.. argh.
         #   I'll have to fix this in the gdk code inside gtk
         # self.get_window().hide() # Nope..
-        pass # FIXME.. This is terribly annoyting.. Highest priority for next release..
+        pass  # FIXME.. This is terribly annoyting.. Highest priority for next release..
 
     def action_maximize_window(self, *extra):
         window_state = self.get_window().get_state()
@@ -288,25 +305,25 @@ class MacWindow:
         # self.maximize_button.add(maximize_image)
         # FIXME: Figure out how gtk ui builder works and complete this
 
-    def osx_menu_setup(self):       
-        if self.quartz_ready == False:
+    def osx_menu_setup(self):
+        if not self.menu_created:
             self.get_application().setup_mac_integration(self.menubar)
-            self.quartz_ready = True
+            self.menu_created = True
 
     def osx_bring_to_front(self):
-        NSApp.setActivationPolicy_(NSApplicationActivationPolicyRegular)
-        # NSApp.activateIgnoringOtherApps_(True)
-        # NSApp.activateWithOptions_(NSApplicationActivateIgnoringOtherApps | NSApplicationActivateAllWindows)
-        macapp = self.get_application()
-            #gtkosx_application.Application()
-        self.set_keep_above(True)
-        self.set_keep_above(False)
-
-        macapp.attention_request(gtkosx_application.ApplicationAttentionType.NFO_REQUEST)
+        pass
+        #
+        # NSApp.setActivationPolicy_(NSApplicationActivationPolicyRegular)
+        # # NSApp.activateIgnoringOtherApps_(True)
+        # # NSApp.activateWithOptions_(NSApplicationActivateIgnoringOtherApps | NSApplicationActivateAllWindows)
+        # macapp = self.get_application()
+        # self.set_keep_above(True)
+        # self.set_keep_above(False)
+        #self.osx_dock_bounce()
 
     def osx_dock_bounce(self):
-        macapp = self.get_application()
-        macapp.attention_request(gtkosx_application.ApplicationAttentionType.NFO_REQUEST)
+        app = self.get_application()
+        app.attention_request(gtkosx_application.ApplicationAttentionType.NFO_REQUEST)
 
     def osx_toggle_fullscreen(self):
         # FIXME: Implement
