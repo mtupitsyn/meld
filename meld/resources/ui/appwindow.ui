@@ -15,6 +15,7 @@
         <property name="decoration-layout">close,minimize,maximize,menu:</property>
         <property name="show-close-button">false</property>
         <property name="visible">true</property>
+        <!--
         <child>
           <object class="GtkBox">
             <property name="visible">True</property>
@@ -95,6 +96,7 @@
             </child>
           </object>
         </child>
+        -->
         <child>
           <object class="GtkBox">
             <property name="visible">True</property>

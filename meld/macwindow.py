@@ -32,16 +32,32 @@ from gi.repository import GtkosxApplication as gtkosx_application
 from meld.conf import _, ui_file
 from meld.recent import recent_comparisons, RecentType
 
-
+dialog = None
+glib_id = None
+app_window = None
 def disable_focus_workaround():
-    NSApp.activateIgnoringOtherApps_(False)
+    global dialog
+    global glib_id
+    app_window.show()
+    #NSApp.activateIgnoringOtherApps_(False)
+    GLib.idle_remove_by_data(glib_id)
 
-def enable_focus_workaround():
+def enable_focus_workaround(window):
+    global dialog
+    app_window.hide()
+    NSApp.activateIgnoringOtherApps_(False)
+    builder = Gtk.Builder.new_from_resource(
+        '/org/gnome/meld/ui/about-dialog.ui')
+    dialog = builder.get_object('about-dialog')
+    dialog.set_transient_for(app_window)
     NSApp.activateIgnoringOtherApps_(True)
 
-def force_focus(duration=2000):
-    enable_focus_workaround()
-    GLib.timeout_add(duration, disable_focus_workaround)
+def force_focus(window, duration=500):
+    global glib_id
+    global app_window
+    app_window = window
+    enable_focus_workaround(window)
+    glib_id = GLib.timeout_add(duration, disable_focus_workaround)
 
 
 class MacWindow:
@@ -177,18 +193,18 @@ class MacWindow:
     def on_window_state_event(self, window, event):
         # FIXME: We don't receive notification on fullscreen on OSX
         # We'll have to figure this out some other way..
-        if self.app_ready == False:
-            force_focus()
+        if not self.app_ready:
+            force_focus(self)
             self.app_ready = True
 
     def on_menu_file_new_activate(self, menuitem):
         self.append_new_comparison()
 
     def on_menu_save_activate(self, menuitem):
-        self.current_doc().save()
+        self.current_doc().action_save()
 
     def on_menu_save_as_activate(self, menuitem):
-        self.current_doc().save_as()
+        self.current_doc().action_save_as()
 
     def on_action_recent(self, action):
         uri = action.get_current_uri()
@@ -207,28 +223,28 @@ class MacWindow:
             page.on_delete_event()
 
     def on_menu_undo_activate(self, *extra):
-        self.current_doc().on_undo_activate()
+        self.current_doc().action_undo()
 
     def on_menu_redo_activate(self, *extra):
-        self.current_doc().on_redo_activate()
+        self.current_doc().action_redo()
 
     def on_menu_refresh_activate(self, *extra):
-        self.current_doc().on_refresh_activate()
+        self.current_doc().action_refresh()
 
     def on_menu_find_activate(self, *extra):
-        self.current_doc().on_find_activate()
+        self.current_doc().action_find()
 
     def on_menu_find_next_activate(self, *extra):
-        self.current_doc().on_find_next_activate()
+        self.current_doc().action_find_next()
 
     def on_menu_find_previous_activate(self, *extra):
-        self.current_doc().on_find_previous_activate()
+        self.current_doc().action_find_previous()
 
     def on_menu_replace_activate(self, *extra):
-        self.current_doc().on_replace_activate()
+        self.current_doc().action_find_replace()
 
     def on_menu_go_to_line_activate(self, *extra):
-        self.current_doc().on_go_to_line_activate()
+        self.current_doc().action_go_to_line()
 
     def on_menu_copy_activate(self, *extra):
         widget = self.get_focus()
@@ -266,7 +282,7 @@ class MacWindow:
         self.current_doc().next_diff(Gdk.ScrollDirection.UP)
 
     def on_open_external(self, *args):
-        self.current_doc().open_external()
+        self.current_doc().action_open_external()
 
     def on_toolbar_stop_clicked(self, *args):
         self.current_doc().action_stop()

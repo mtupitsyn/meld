@@ -20,7 +20,13 @@ RES="$MAIN/Contents/Resources/"
 FRAMEWORKS="$MAIN/Contents/Frameworks/"
 INSTROOT="$HOME/gtk/inst/"
 
-cp meld/conf.py meld/conf.py.orig
+icon_sizes=( "16" "22" "24" "32" "48" "64" "72" "96" "128" "256" "512"  )
+for icon_size in ${icon_sizes[@]}; do
+  inkscape -z -w ${icon_size} -h ${icon_size} data/icons/hicolor/scalable/apps/org.gnome.meld.svg \
+    -o ${INSTROOT}/share/icons/hicolor/${icon_size}x${icon_size}/apps/org.gnome.meld.png
+done;
+
+cp meld/conf.py.in meld/conf.py.in.orig
 cp osx/conf.py meld/conf.py
 
 python3 -c "import sys; print('\n'.join(sys.path))"
@@ -29,7 +35,8 @@ glib-compile-schemas data
 python3 setup_py2app.py build
 python3 setup_py2app.py py2app --use-faulthandler
 
-mv meld/conf.py.orig meld/conf.py
+mv meld/conf.py.in.orig meld/conf.py.in
+rm meld/conf.py
 
 # py2app copies all Python framework to target..
 # too busy to figure out how to solve this at the moment. Let's just 
@@ -61,12 +68,9 @@ mkdir -p $RES/share/themes
 rsync -r -t $INSTROOT/share/themes/Default/ $RES/share/themes/Default
 rsync -r -t $INSTROOT/share/themes/Mac/ $RES/share/themes/Mac
 rsync -r -t $INSTROOT/share/gtksourceview-4 $RES/share
-mkdir -p $RES/share/themes/Meld-Mojave-dark/gtk-3.0
-mkdir -p $RES/share/themes/Meld-Mojave-light/gtk-3.0
-### rsync -r -t --ignore-existing $INSTROOT/share/themes/Mojave-dark-solid-alt/gtk-3.0 $RES/share/themes/Meld-Mojave-dark
-### rsync -r -t --ignore-existing $INSTROOT/share/themes/Mojave-light-solid-alt/gtk-3.0 $RES/share/themes/Meld-Mojave-light
-cp $INSTROOT/share/themes/Mac/gtk-3.0/gtk-keys.css $RES/share/themes/Meld-Mojave-dark/gtk-3.0/gtk-keys.css
-cp $INSTROOT/share/themes/Mac/gtk-3.0/gtk-keys.css $RES/share/themes/Meld-Mojave-light/gtk-3.0/gtk-keys.css
+mkdir -p $RES/share/themes/Meld-Os-Catalina-gtk/gtk-3.0
+rsync -r -t --ignore-existing $INSTROOT/share/themes/Meld-Os-Catalina-gtk/gtk-3.0 $RES/share/themes/Meld-Os-Catalina-gtk
+cp $INSTROOT/share/themes/Mac/gtk-3.0/gtk-keys.css $RES/share/themes/Meld-Os-Catalina-gtk/gtk-3.0/gtk-keys.css
 
 # meld specific resources
 mkdir -p $RES/share/meld

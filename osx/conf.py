@@ -7,7 +7,9 @@ from Foundation import NSBundle
 __package__ = "meld"
 __version__ = "3.21.0.osx1"
 
-APPLICATION_ID = "org.gnome.meld"
+APPLICATION_NAME = 'Meld'
+APPLICATION_ID = 'org.gnome.Meld'
+SETTINGS_SCHEMA_ID = 'org.gnome.meld'
 RESOURCE_BASE = '/org/gnome/meld'
 
 # START; these paths are clobbered on install by meld.build_helpers
@@ -15,9 +17,18 @@ DATADIR = Path(sys.prefix) / "share" / "meld"
 LOCALEDIR = Path(sys.prefix) / "share" / "locale"
 # END
 
+CONFIGURED = '@configured@'
+PROFILE = ''
+
+if CONFIGURED == 'True':
+    APPLICATION_ID = '@application_id@'
+    DATADIR = '@pkgdatadir@'
+    LOCALEDIR = '@localedir@'
+    PROFILE = '@profile@'
+
 # Flag enabling some workarounds if data dir isn't installed in standard prefix
 DATADIR_IS_UNINSTALLED = False
-PYTHON_REQUIREMENT_TUPLE = (3, 4)
+PYTHON_REQUIREMENT_TUPLE = (3, 6)
 
 
 # Installed from main script

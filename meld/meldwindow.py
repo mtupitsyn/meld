@@ -156,11 +156,11 @@ class MeldWindow(Gtk.ApplicationWindow, MacWindow):
 
         meld.ui.util.extract_accels_from_menu(menu, self.get_application())
 
-    def do_show(self):
-        Gtk.ApplicationWindow.do_show(self)
         if self.is_quartz:
             self.osx_menu_setup()
-            self.osx_bring_to_front()
+
+    def do_show(self):
+        Gtk.ApplicationWindow.do_show(self)
 
     def _on_recentmenu_map(self, recentmenu):
         for imagemenuitem in recentmenu.get_children():
