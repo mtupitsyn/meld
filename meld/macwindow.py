@@ -19,7 +19,7 @@ import ctypes
 from Cocoa import NSApp
 from Cocoa import NSApplicationActivateIgnoringOtherApps, NSApplicationActivateAllWindows
 from AppKit import NSBundle, NSApp, NSWindow, NSAutoreleasePool, NSApplicationActivationPolicyRegular, \
-    NSApplicationActivationPolicyProhibited
+    NSApplicationActivationPolicyProhibited, NSApplicationActivationPolicyAccessory
 
 from gi.repository import Gdk
 from gi.repository import Gio
@@ -38,19 +38,16 @@ app_window = None
 def disable_focus_workaround():
     global dialog
     global glib_id
+    NSApp.setActivationPolicy_(NSApplicationActivationPolicyRegular)
+    NSApp.activateIgnoringOtherApps_(True)
     app_window.show()
-    #NSApp.activateIgnoringOtherApps_(False)
     GLib.idle_remove_by_data(glib_id)
 
 def enable_focus_workaround(window):
     global dialog
+    global app_window
     app_window.hide()
-    NSApp.activateIgnoringOtherApps_(False)
-    builder = Gtk.Builder.new_from_resource(
-        '/org/gnome/meld/ui/about-dialog.ui')
-    dialog = builder.get_object('about-dialog')
-    dialog.set_transient_for(app_window)
-    NSApp.activateIgnoringOtherApps_(True)
+    NSApp.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
 
 def force_focus(window, duration=500):
     global glib_id
@@ -194,6 +191,7 @@ class MacWindow:
         # FIXME: We don't receive notification on fullscreen on OSX
         # We'll have to figure this out some other way..
         if not self.app_ready:
+            self.osx_menu_setup()
             force_focus(self)
             self.app_ready = True
 

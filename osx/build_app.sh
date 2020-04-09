@@ -20,11 +20,15 @@ RES="$MAIN/Contents/Resources/"
 FRAMEWORKS="$MAIN/Contents/Frameworks/"
 INSTROOT="$HOME/gtk/inst/"
 
-icon_sizes=( "16" "22" "24" "32" "48" "64" "72" "96" "128" "256" "512"  )
-for icon_size in ${icon_sizes[@]}; do
-  inkscape -z -w ${icon_size} -h ${icon_size} data/icons/hicolor/scalable/apps/org.gnome.meld.svg \
-    -o ${INSTROOT}/share/icons/hicolor/${icon_size}x${icon_size}/apps/org.gnome.meld.png
-done;
+
+# TODO: Move this to build_env.sh
+#icon_sizes=( "16" "22" "24" "32" "48" "64" "72" "96" "128" "256" "512"  )
+#for icon_size in ${icon_sizes[@]}; do
+#  rm -f ${INSTROOT}/share/icons/hicolor/${icon_size}x${icon_size}/apps/org.gnome.Meld.png
+#  inkscape -z -w ${icon_size} -h ${icon_size} data/icons/hicolor/scalable/apps/org.gnome.meld.svg \
+#    -o ${INSTROOT}/share/icons/hicolor/${icon_size}x${icon_size}/apps/org.gnome.Meld.png
+#done;
+#(cd ${INSTROOT}/share/icons/hicolor/ && gtk-update-icon-cache -fqt .)
 
 cp meld/conf.py.in meld/conf.py.in.orig
 cp osx/conf.py meld/conf.py
@@ -198,4 +202,7 @@ hdiutil convert myimg.dmg -format UDZO -o meldmerge.dmg
 # Cleanup
 mkdir -p osx/Archives
 mv meldmerge.dmg osx/Archives
-#rm -f myimg.dmg
+rm -f myimg.dmg
+rm -fr build
+rm -fr dist
+open osx/Archives

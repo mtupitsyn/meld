@@ -86,6 +86,7 @@ class MeldApp(BASE_CLASS):
             self.add_action(action)
 
         self.new_window()
+        self.ready()
 
     def do_activate(self):
         self.get_active_window().present()
