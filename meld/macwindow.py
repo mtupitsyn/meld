@@ -21,6 +21,8 @@ from Cocoa import NSApplicationActivateIgnoringOtherApps, NSApplicationActivateA
 from AppKit import NSBundle, NSApp, NSWindow, NSAutoreleasePool, NSApplicationActivationPolicyRegular, \
     NSApplicationActivationPolicyProhibited, NSApplicationActivationPolicyAccessory
 
+import _signal
+from _signal import *
 from gi.repository import Gdk
 from gi.repository import Gio
 from gi.repository import GLib
@@ -38,18 +40,19 @@ app_window = None
 def disable_focus_workaround():
     global dialog
     global glib_id
+    app_window.show()
     NSApp.setActivationPolicy_(NSApplicationActivationPolicyRegular)
     NSApp.activateIgnoringOtherApps_(True)
-    app_window.show()
     GLib.idle_remove_by_data(glib_id)
 
 def enable_focus_workaround(window):
     global dialog
     global app_window
     app_window.hide()
+    NSApp.activateIgnoringOtherApps_(False)
     NSApp.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
 
-def force_focus(window, duration=500):
+def force_focus(window, duration=150):
     global glib_id
     global app_window
     app_window = window
@@ -57,10 +60,17 @@ def force_focus(window, duration=500):
     glib_id = GLib.timeout_add(duration, disable_focus_workaround)
 
 
+def invalidate_state():
+    NSApp.invalidateRestorableState()
+
+
 class MacWindow:
     is_quartz = True
 
     def install_mac_additions(self):
+
+        #GLib.unix_signal_add(
+        #    GLib.PRIORITY_HIGH, 2, lambda *args: invalidate_state())
 
         # header_bar = Gtk.Template.Child()
         self.maximize_button = Gtk.Template.Child()
