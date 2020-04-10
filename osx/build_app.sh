@@ -87,8 +87,15 @@ rsync -r -t data/icons/* $RES/share/icons
 rm -fr $RES/share/icons/Adwaita/cursors
 rm -fr $RES/share/icons/Adwaita/256x256
 rm -fr $RES/share/icons/Adwaita/512x512
-rm -fr $RES/share/icons/Adwaita/96x96
-(cd $RES/share/icons/Adwaita && gtk-update-icon-cache -f .)
+icon_sizes=( "16" "22" "24" "32" "48" "64" "72" "96" "128"  )
+for icon_size in ${icon_sizes[@]}; do
+  rm -fr ${RES}/share/icons/Adwaita/${icon_size}x${icon_size}/apps/   || true
+  rm -fr ${RES}/share/icons/Adwaita/${icon_size}x${icon_size}/legacy/ || true
+  rm -fr ${RES}/share/icons/Adwaita/${icon_size}x${icon_size}/emotes/ || true
+  rm -fr ${RES}/share/icons/Adwaita/${icon_size}x${icon_size}/categories/ || true
+  rm -fr ${RES}/share/icons/Adwaita/${icon_size}x${icon_size}/status/ || true
+done;
+(cd $RES/share/icons/Adwaita && gtk-update-icon-cache -fqt .)
 
 # update icon cache for hicolor
 (cd $RES/share/icons/hicolor && gtk-update-icon-cache -f .)
