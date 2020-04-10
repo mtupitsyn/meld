@@ -36,15 +36,19 @@ PLIST = {
     'CFBundleShortVersionString': VERSION_STRING,
     'CFBundleSignature': '???',
     'CFBundleVersion': VERSION_STRING,
-    'LSPrefersPPC': FORCE_32_BIT,
+    'LSPrefersPPC': False,
+    'LSArchitecturePriority': 'x86_64',
     'NSHumanReadableCopyright': u'Copyright © 2020',
     'CFBundleDisplayName': 'Meld',
     'CFBundleName': 'Meld',
     'NSHighResolutionCapable': True,
+    'NSSupportsSuddenTermination': False,
     'LSApplicationCategoryType': 'public.app-category.productivity',
     'LSRequiresNativeExecution': True,
+    'MinimumSystemVersion': '10.13.0',
     'NSRequiresAquaSystemAppearance': False,
-    'NSUIElement': 1
+    'NSQuitAlwaysKeepsWindows': False,
+    'ApplePersistenceIgnoreState': True
 }
 
 #find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"])
