@@ -303,7 +303,7 @@ def setup_platform_gtk_style():
         Gdk.Screen.get_default(),
         style_provider,
         Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-    ) 
+    )
 
 
 def setup_resources():
@@ -491,7 +491,7 @@ def run_application():
     if sys.platform != 'win32':
         from gi.repository import GLib
         GLib.unix_signal_add(
-            GLib.PRIORITY_DEFAULT, signal.SIGINT, lambda *args: app.quit())
+            GLib.PRIORITY_DEFAULT, signal.SIGINT, lambda *args: app.quit_callback(None, None))
 
     return app.run(sys.argv)
 
