@@ -197,8 +197,17 @@ class MeldApp(BASE_CLASS):
         parser.values.diff.append(diff_files_args)
 
     def setup_mac_integration(self, menubar):
+        import warnings
+
+        def ignore_warning(message, category, filename, lineno, file, line):
+            return
+        old_showwarning = warnings.showwarning
+        warnings.showwarning = ignore_warning
+
         self.set_use_quartz_accelerators(True)
-        self.set_menu_bar(menubar)
+        self.set_menu_bar(menubar)      # We're skipping the cast warning in here
+
+        warnings.showwarning = old_showwarning
 
         item = Gtk.MenuItem.new_with_label(_("About"))
         item.connect("activate", self.about_callback, None)
