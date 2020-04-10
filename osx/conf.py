@@ -18,7 +18,7 @@ LOCALEDIR = Path(sys.prefix) / "share" / "locale"
 # END
 
 CONFIGURED = '@configured@'
-PROFILE = ''
+PROFILE = 'macOS'
 
 if CONFIGURED == 'True':
     APPLICATION_ID = '@application_id@'
