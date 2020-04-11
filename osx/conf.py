@@ -71,6 +71,16 @@ def frozen():
     os.environ['XDG_CONFIG_DIRS'] = os.path.join(etc_path, "xdg")
     os.environ['XDG_DATA_DIRS'] = ":".join((share_path, os.path.join(share_path, "meld")))
     os.environ['XDG_CONFIG_HOME'] = etc_path
+    home_dir = os.path.expanduser('~')
+    if home_dir is not None:
+        cache_dir = os.path.join(home_dir, 'Library', 'Caches', 'org.gnome.meld')
+        try:
+            os.makedirs(cache_dir, mode=0o755, exist_ok=True)
+            os.environ['XDG_CACHE_HOME'] = cache_dir
+        except EnvironmentError:
+            pass
+        if os.path.isdir(cache_dir):
+            os.environ['XDG_CACHE_HOME'] = cache_dir
 
     # Pango environment variables
     os.environ['PANGO_RC_FILE'] = os.path.join(etc_path, "pango", "pangorc")
