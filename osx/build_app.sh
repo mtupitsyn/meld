@@ -19,8 +19,8 @@ MAIN="$APP/"
 RES="$MAIN/Contents/Resources/"
 FRAMEWORKS="$MAIN/Contents/Frameworks/"
 INSTROOT="$HOME/gtk/inst/"
-CODE_SIGN_ID="Apple Distribution: Youssef Abou-Kewik"
 CODE_SIGN_ID=""
+INSTALLER_CODE_SIGN_ID=""
 
 # TODO: Move this to build_env.sh
 #icon_sizes=( "16" "22" "24" "32" "48" "64" "72" "96" "128" "256" "512"  )
@@ -51,8 +51,8 @@ rm meld/conf.py
 # icon themes
 rsync -r -t --ignore-existing ${INSTROOT}/share/icons/Adwaita ${RES}/share/icons
 rsync -r -t --ignore-existing ${INSTROOT}/share/icons/hicolor ${RES}/share/icons
-rsync -r -t --ignore-existing ${INSTROOT}/share/icons/Materia-Manjaro ${RES}/share/icons
-(cd ${RES}/share/icons && ln -sf Materia-Manjaro MeldIcons)
+rsync -r -t --ignore-existing ${INSTROOT}/share/icons/Os-Catalina-icons ${RES}/share/icons
+(cd ${RES}/share/icons && ln -sf Os-Catalina-icons MeldIcons)
 
 # glib schemas
 rsync -r -t  $INSTROOT/share/glib-2.0/schemas $RES/share/glib-2.0
@@ -87,17 +87,18 @@ rsync -r -t data/icons/* $RES/share/icons
 ### rsync -r -t data/styles/meld-base.xml $RES/share/gtksourceview-4/styles
 
 # update icon cache for Adwaita
-rm -fr $RES/share/icons/Adwaita/cursors
-rm -fr $RES/share/icons/Adwaita/256x256
-rm -fr $RES/share/icons/Adwaita/512x512
-icon_sizes=( "16" "22" "24" "32" "48" "64" "72" "96" "128"  )
-for icon_size in ${icon_sizes[@]}; do
-  rm -fr ${RES}/share/icons/Adwaita/${icon_size}x${icon_size}/apps/   || true
-  rm -fr ${RES}/share/icons/Adwaita/${icon_size}x${icon_size}/legacy/ || true
-  rm -fr ${RES}/share/icons/Adwaita/${icon_size}x${icon_size}/emotes/ || true
-  rm -fr ${RES}/share/icons/Adwaita/${icon_size}x${icon_size}/categories/ || true
-  rm -fr ${RES}/share/icons/Adwaita/${icon_size}x${icon_size}/status/ || true
-done;
+# We now trinm Adwaita instead..
+# rm -fr $RES/share/icons/Adwaita/cursors
+# rm -fr $RES/share/icons/Adwaita/256x256
+# rm -fr $RES/share/icons/Adwaita/512x512
+# icon_sizes=( "16" "22" "24" "32" "48" "64" "72" "96" "128"  )
+# for icon_size in ${icon_sizes[@]}; do
+#   rm -fr ${RES}/share/icons/Adwaita/${icon_size}x${icon_size}/apps/   || true
+#   rm -fr ${RES}/share/icons/Adwaita/${icon_size}x${icon_size}/legacy/ || true
+#   rm -fr ${RES}/share/icons/Adwaita/${icon_size}x${icon_size}/emotes/ || true
+#   rm -fr ${RES}/share/icons/Adwaita/${icon_size}x${icon_size}/categories/ || true
+#   rm -fr ${RES}/share/icons/Adwaita/${icon_size}x${icon_size}/status/ || true
+# done;
 (cd $RES/share/icons/Adwaita && gtk-update-icon-cache -fqt .)
 
 # update icon cache for hicolor
@@ -199,7 +200,7 @@ popd
 signed=0
 if [ -z "${CODE_SIGN_ID}" ]; then
   echo "Not signing code - no identity provided."
-  echo "   Set CODE_SIGN_ID to your 'Apple Distribution: xxxx' in order to sign the app."
+  echo "   Set CODE_SIGN_ID to your 'Developer ID Application: xxxx' in order to sign the app."
 else
   codesign --deep --signature-size 9400 -f -s "${CODE_SIGN_ID}" "${APP}"
   codesign --verify --deep --strict --verbose=2 "${APP}" && signed=1
@@ -219,6 +220,16 @@ popd
 cp osx/DS_Store /Volumes/Meld\ Merge/.DS_Store
 hdiutil detach $DEV
 hdiutil convert myimg.dmg -format UDZO -o meldmerge.dmg
+
+#dmg_signed=0
+if [ -z "${INSTALLER_CODE_SIGN_ID}" ]; then
+  echo "Not signing dmg - no identity provided."
+  echo "   Set INSTALLER_CODE_SIGN_ID to your 'Developer IDxx' in order to sign the dmg."
+else
+  codesign --deep --signature-size 9400 -f -s "${INSTALLER_CODE_SIGN_ID}" "meldmerge.dmg"
+  #spctl -a -t exec -vv "meldmerge.dmg" && dmg_signed=1
+fi
+
 
 # Cleanup
 mkdir -p osx/Archives
