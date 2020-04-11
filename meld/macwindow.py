@@ -345,7 +345,9 @@ class MacWindow:
 
     def osx_dock_bounce(self):
         app = self.get_application()
-        app.attention_request(gtkosx_application.ApplicationAttentionType.NFO_REQUEST)
+        # We could get called upon closing
+        if app is not None:
+            app.attention_request(gtkosx_application.ApplicationAttentionType.NFO_REQUEST)
 
     def osx_toggle_fullscreen(self):
         # FIXME: Implement
