@@ -15,7 +15,13 @@ trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 export MACOSX_DEPLOYMENT_TARGET=10.13
 export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH
 
-# brew install python2 ccache
+#brew install python3 ccache
+#brew tap homebrew/cask
+#brew cask install inkscape
+#brew install sassc
+#brew install optipng
+#brew install imagemagick
+#brew install librsvg
 
 pushd . > /dev/null
 jhbuild bootstrap
@@ -46,6 +52,7 @@ cd $WORKDIR
 jhbuild run meson --prefix $HOME/gtk/inst --libdir lib --buildtype release --optimization 3 -Dgtk_doc=false -Db_bitcode=true -Db_ndebug=true -Dvapi=false $HOME/Source/gtksourceview-4.4.0
 jhbuild run ninja install
 
+cp settings.ini $HOME/gtk/inst/etc/gtk-3.0
 popd
 
 
