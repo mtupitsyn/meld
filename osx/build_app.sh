@@ -19,7 +19,8 @@ MAIN="$APP/"
 RES="$MAIN/Contents/Resources/"
 FRAMEWORKS="$MAIN/Contents/Frameworks/"
 INSTROOT="$HOME/gtk/inst/"
-
+CODE_SIGN_ID="Apple Distribution: Youssef Abou-Kewik"
+CODE_SIGN_ID=""
 
 # TODO: Move this to build_env.sh
 #icon_sizes=( "16" "22" "24" "32" "48" "64" "72" "96" "128" "256" "512"  )
@@ -50,6 +51,8 @@ rm meld/conf.py
 # icon themes
 rsync -r -t --ignore-existing ${INSTROOT}/share/icons/Adwaita ${RES}/share/icons
 rsync -r -t --ignore-existing ${INSTROOT}/share/icons/hicolor ${RES}/share/icons
+rsync -r -t --ignore-existing ${INSTROOT}/share/icons/Materia-Manjaro ${RES}/share/icons
+(cd ${RES}/share/icons && ln -sf Materia-Manjaro MeldIcons)
 
 # glib schemas
 rsync -r -t  $INSTROOT/share/glib-2.0/schemas $RES/share/glib-2.0
@@ -98,9 +101,11 @@ done;
 (cd $RES/share/icons/Adwaita && gtk-update-icon-cache -fqt .)
 
 # update icon cache for hicolor
-(cd $RES/share/icons/hicolor && gtk-update-icon-cache -f .)
+(cd $RES/share/icons/hicolor && gtk-update-icon-cache -fqt .)
+(cd $RES/share/icons/MeldIcons && gtk-update-icon-cache -fqt .)
 
 # copy fontconfig configuration files
+(cd $INSTROOT/etc/fonts/conf.d && ln -sf ../../../share/fontconfig/conf.avail/10-autohint.conf .)
 mkdir -p $RES/etc/fontconfig/conf.d
 [ -f $INSTROOT/etc/fonts/fonts.conf ] && cp $INSTROOT/etc/fonts/fonts.conf $RES/etc/fontconfig
 for i in $(find $INSTROOT/etc/fonts/conf.d); do
@@ -191,12 +196,21 @@ rm -fr ${WORKDIR}
 #done
 popd
 
+signed=0
+if [ -z "${CODE_SIGN_ID}" ]; then
+  echo "Not signing code - no identity provided."
+  echo "   Set CODE_SIGN_ID to your 'Apple Distribution: xxxx' in order to sign the app."
+else
+  codesign --deep --signature-size 9400 -f -s "${CODE_SIGN_ID}" "${APP}"
+  codesign --verify --deep --strict --verbose=2 "${APP}" && signed=1
+fi
+
 # Create the dmg file..
 hdiutil create -size 250m -fs HFS+ -volname "Meld Merge" myimg.dmg
 hdiutil attach myimg.dmg
 DEVS=$(hdiutil attach myimg.dmg | cut -f 1)
-DEV=$(echo $DEVS | cut -f 1 -d ' ')
-rsync  -avzh  $APP /Volumes/Meld\ Merge/
+DEV=$(echo ${DEVS} | cut -f 1 -d ' ')
+rsync  -avzh  "${APP}" /Volumes/Meld\ Merge/
 pushd .
 (cd /Volumes/Meld\ Merge/ && ln -sf /Applications "Drag Meld Here")
 popd
@@ -213,3 +227,9 @@ rm -f myimg.dmg
 rm -fr build
 rm -fr dist
 open osx/Archives
+
+if (( $signed == 1 )); then
+  echo "Built application was signed."
+else
+  echo "Built application was NOT signed."
+fi
