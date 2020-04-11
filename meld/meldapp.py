@@ -224,10 +224,11 @@ class MeldApp(BASE_CLASS):
         menubar.add(item)
         self.insert_app_menu_item(item, 2)
 
-        item = Gtk.MenuItem.new_with_label(_("Shell Integration"))
-        item.connect("activate", self.mac_shell_integration_callback, None)
-        menubar.add(item)
-        self.insert_app_menu_item(item, 3)
+        # TODO: Re-enable shell integration for Catalina now that zsh is default
+        # item = Gtk.MenuItem.new_with_label(_("Shell Integration"))
+        # item.connect("activate", self.mac_shell_integration_callback, None)
+        # menubar.add(item)
+        # self.insert_app_menu_item(item, 3)
 
         separator = Gtk.SeparatorMenuItem()
         menubar.add(separator)
