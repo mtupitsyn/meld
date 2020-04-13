@@ -41,16 +41,16 @@ def disable_focus_workaround():
     global dialog
     global glib_id
     app_window.show()
-    NSApp.setActivationPolicy_(NSApplicationActivationPolicyRegular)
-    NSApp.activateIgnoringOtherApps_(True)
+    NSApp().setActivationPolicy_(NSApplicationActivationPolicyRegular)
+    NSApp().activateIgnoringOtherApps_(True)
     GLib.idle_remove_by_data(glib_id)
 
 def enable_focus_workaround(window):
     global dialog
     global app_window
     app_window.hide()
-    NSApp.activateIgnoringOtherApps_(False)
-    NSApp.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
+    NSApp().activateIgnoringOtherApps_(False)
+    NSApp().setActivationPolicy_(NSApplicationActivationPolicyAccessory)
 
 def force_focus(window, duration=150):
     global glib_id
@@ -61,7 +61,7 @@ def force_focus(window, duration=150):
 
 
 def invalidate_state():
-    NSApp.invalidateRestorableState()
+    NSApp().invalidateRestorableState()
 
 
 class MacWindow:
@@ -200,9 +200,15 @@ class MacWindow:
     def on_window_state_event(self, window, event):
         # FIXME: We don't receive notification on fullscreen on OSX
         # We'll have to figure this out some other way..
+        window = NSApp().mainWindow()
+        if window is not None:
+            window.disableSnapshotRestoration()
+
         if not self.app_ready:
             self.osx_menu_setup()
-            force_focus(self)
+            NSApp().setActivationPolicy_(NSApplicationActivationPolicyRegular)
+            NSApp().activateIgnoringOtherApps_(True)
+            #force_focus(self)
             self.app_ready = True
 
     def on_menu_file_new_activate(self, menuitem):
@@ -358,15 +364,17 @@ class MacWindow:
 
     def _find_lib_path(self):
         # FIXME: Implement
-        return ""
+        return "/Users/yousseb/gtk/inst/lib/"
 
     def get_window_handle_helper(self):
+        Gdk.threads_enter()
         window = self.get_property('window')
         ctypes.pythonapi.PyCapsule_GetPointer.restype = ctypes.c_void_p
         ctypes.pythonapi.PyCapsule_GetPointer.argtypes = [ctypes.py_object]
         gpointer = ctypes.pythonapi.PyCapsule_GetPointer(window.__gpointer__, None)
         libgdk = ctypes.CDLL(self._find_lib_path() + "/libgdk-3.dylib")
-        libgdk.gdk_quartz_window_get_nsview.restype = ctypes.c_void_p
-        libgdk.gdk_quartz_window_get_nsview.argtypes = [ctypes.c_void_p]
-        handle = libgdk.gdk_quartz_window_get_nsview(gpointer)
+        libgdk.gdk_quartz_window_get_nswindow.restype = ctypes.c_void_p
+        libgdk.gdk_quartz_window_get_nswindow.argtypes = [ctypes.c_void_p]
+        handle = libgdk.gdk_quartz_window_get_nswindow(gpointer)
+        Gdk.threads_leave()
         return handle
