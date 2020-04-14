@@ -213,8 +213,6 @@ if home_dir is not None:
 
 $(cat $MAIN/Contents/Resources/__boot__.py)" > $MAIN/Contents/Resources/__boot__.py
 
-exit
-
 signed=0
 if [ -z "${CODE_SIGN_ID}" ]; then
   echo "Not signing code - no identity provided."
