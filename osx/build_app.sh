@@ -197,6 +197,24 @@ rm -fr ${WORKDIR}
 #done
 popd
 
+# Patch __boot__.py to delete savedState folder
+# Fixes issue
+
+cat <<< "import os
+import shutil
+home_dir = os.path.expanduser('~')
+if home_dir is not None:
+    saved_state_dir = os.path.join(home_dir, 'Library', 'Saved Application State', 'org.gnome.meld.savedState')
+    if os.path.isdir(saved_state_dir):
+        try:
+            shutil.rmtree(saved_state_dir, ignore_errors=1)
+        except:
+            pass
+
+$(cat $MAIN/Contents/Resources/__boot__.py)" > $MAIN/Contents/Resources/__boot__.py
+
+exit
+
 signed=0
 if [ -z "${CODE_SIGN_ID}" ]; then
   echo "Not signing code - no identity provided."
