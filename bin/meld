@@ -321,6 +321,7 @@ def setup_resources():
                 "glib-compile-resources",
                 "--target={}".format(resource_file),
                 "--sourcedir=meld/resources",
+                "--sourcedir=data/icons/hicolor",
                 "meld/resources/meld.gresource.xml",
             ],
             cwd=melddir
@@ -481,6 +482,10 @@ def environment_hacks():
             del os.environ[var]
         except KeyError:
             pass
+
+    # Force the fontconfig backend for font fallback and metric handling
+    if sys.platform == 'win32' and 'PANGOCAIRO_BACKEND' not in os.environ:
+        os.environ['PANGOCAIRO_BACKEND'] = 'fontconfig'
 
 
 def run_application():

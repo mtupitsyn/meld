@@ -97,6 +97,7 @@
           </object>
         </child>
         -->
+        <property name="title" translatable="yes">Meld</property>
         <child>
           <object class="GtkBox">
             <property name="visible">True</property>
@@ -200,7 +201,7 @@
               <class name="linked"/>
             </style>
             <child>
-              <object class="GtkButton">
+              <object class="GtkButton" id="previous_conflict_button">
                 <property name="visible">True</property>
                 <property name="action-name">view.file-previous-conflict</property>
                 <property name="tooltip-text" translatable="yes">Go to the previous conflict</property>
@@ -220,7 +221,7 @@
               </packing>
             </child>
             <child>
-              <object class="GtkButton">
+              <object class="GtkButton" id="next_conflict_button">
                 <property name="visible">True</property>
                 <property name="action-name">view.file-next-conflict</property>
                 <property name="tooltip-text" translatable="yes">Go to the next conflict</property>
@@ -251,6 +252,7 @@
         </child>
         <child>
           <object class="GtkMenuButton" id="gear_menu_button">
+            <property name="action-name">win.gear-menu</property>
             <property name="visible">true</property>
             <property name="can_focus">False</property>
             <child>
@@ -334,7 +336,6 @@
             <property name="show_border">False</property>
             <signal name="switch-page" handler="on_switch_page" swapped="no"/>
             <signal name="switch-page" handler="after_switch_page" after="yes" swapped="no"/>
-            <signal name="page-label-changed" handler="on_page_label_changed" swapped="no"/>
           </object>
           <packing>
             <property name="expand">True</property>

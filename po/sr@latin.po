@@ -2123,8 +2123,8 @@ msgid "Save the current file"
 msgstr "Sačuvajte trenutnu datoteku"
 
 #: ../meld/meldwindow.py:56
-msgid "Save As..."
-msgstr "Sačuvaj kao..."
+msgid "Save As…"
+msgstr "Sačuvaj kao…"
 
 #: ../meld/meldwindow.py:57
 msgid "Save the current file with a different name"

@@ -6,8 +6,8 @@ from gi.repository import Gtk
 VIEW_ACCELERATORS: Dict[str, Union[str, Sequence[str]]] = {
     'app.quit': '<Primary>Q',
     'view.find': '<Primary>F',
-    'view.find-next': '<Primary>G',
-    'view.find-previous': '<Primary><Shift>G',
+    'view.find-next': ('<Primary>G', 'F3'),
+    'view.find-previous': ('<Primary><Shift>G', '<Shift>F3'),
     'view.find-replace': '<Primary>H',
     'view.go-to-line': '<Primary>I',
     # Overridden in CSS
@@ -23,6 +23,7 @@ VIEW_ACCELERATORS: Dict[str, Union[str, Sequence[str]]] = {
     'view.save-as': '<Primary><Shift>S',
     'view.undo': '<Primary>Z',
     'win.close': '<Primary>W',
+    'win.gear-menu': 'F10',
     'win.new-tab': '<Primary>N',
     'win.stop': 'Escape',
     # File comparison actions

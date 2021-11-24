@@ -1769,8 +1769,8 @@ msgid "Save the current file"
 msgstr "Αποθήκευση του τρέχοντος αρχείου"
 
 #: ../meld/meldwindow.py:55
-msgid "Save As..."
-msgstr "Αποθήκευση ως..."
+msgid "Save As…"
+msgstr "Αποθήκευση ως…"
 
 #: ../meld/meldwindow.py:56
 msgid "Save the current file with a different name"

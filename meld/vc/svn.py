@@ -81,8 +81,9 @@ class Vc(_vc.Vc):
             raise _vc.InvalidVCPath(self, path, "Path not in repository")
         path = path[len(self.root) + 1:]
 
+        suffix = os.path.splitext(path)[1]
         args = [self.CMD, "cat", "-r", commit, path]
-        return _vc.call_temp_output(args, cwd=self.root)
+        return _vc.call_temp_output(args, cwd=self.root, suffix=suffix)
 
     def get_path_for_conflict(self, path, conflict=None):
         """
@@ -185,14 +186,13 @@ class Vc(_vc.Vc):
                     raise
 
         for target in tree.findall("target") + tree.findall("changelist"):
-            for entry in (t for t in target.getchildren() if t.tag == "entry"):
+            for entry in target.iter(tag="entry"):
                 path = entry.attrib["path"]
                 if not path:
                     continue
                 if not os.path.isabs(path):
                     path = os.path.abspath(os.path.join(self.location, path))
-                for status in (e for e in entry.getchildren()
-                               if e.tag == "wc-status"):
+                for status in entry.iter(tag="wc-status"):
                     item = status.attrib["item"]
                     if item == "":
                         continue

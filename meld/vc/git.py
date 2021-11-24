@@ -86,18 +86,23 @@ class Vc(_vc.Vc):
         unpushed_commits = sum(len(v) for v in branch_refs.values())
         if unpushed_commits:
             if unpushed_branches > 1:
-                # Translators: First %s is replaced by translated "%d unpushed
-                # commits", second %s is replaced by translated "%d branches"
-                label = _("%s in %s") % (
-                    ngettext("%d unpushed commit", "%d unpushed commits",
-                             unpushed_commits) % unpushed_commits,
-                    ngettext("%d branch", "%d branches",
-                             unpushed_branches) % unpushed_branches)
+                # Translators: First element is replaced by translated "%d
+                # unpushed commits", second element is replaced by translated
+                # "%d branches"
+                label = _("{unpushed_commits} in {unpushed_branches}").format(
+                    unpushed_commits=ngettext(
+                        "%d unpushed commit", "%d unpushed commits",
+                        unpushed_commits) % unpushed_commits,
+                    unpushed_branches=ngettext(
+                        "%d branch", "%d branches",
+                        unpushed_branches) % unpushed_branches,
+                )
             else:
                 # Translators: These messages cover the case where there is
                 # only one branch, and are not part of another message.
-                label = ngettext("%d unpushed commit", "%d unpushed commits",
-                                 unpushed_commits) % (unpushed_commits)
+                label = ngettext(
+                    "%d unpushed commit", "%d unpushed commits",
+                    unpushed_commits) % (unpushed_commits)
         else:
             label = ""
         return label
@@ -179,7 +184,7 @@ class Vc(_vc.Vc):
         command = [self.CMD, 'add']
         runner(command, files, refresh=True, working_dir=self.root)
 
-    def remerge_with_ancestor(self, local, base, remote):
+    def remerge_with_ancestor(self, local, base, remote, suffix=''):
         """Reconstruct a mixed merge-plus-base file
 
         This method re-merges a given file to get diff3-style conflicts
@@ -194,7 +199,8 @@ class Vc(_vc.Vc):
             _vc.base_from_diff3(proc.stdout.read()))
 
         prefix = 'meld-tmp-%s-' % _vc.CONFLICT_MERGED
-        with tempfile.NamedTemporaryFile(prefix=prefix, delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+                prefix=prefix, suffix=suffix, delete=False) as f:
             shutil.copyfileobj(vc_file, f)
 
         return f.name, True
@@ -213,7 +219,9 @@ class Vc(_vc.Vc):
                 raise _vc.InvalidVCPath(self, path,
                                         "Couldn't access conflict parents")
 
-            filename, is_temp = self.remerge_with_ancestor(local, base, remote)
+            suffix = os.path.splitext(path)[1]
+            filename, is_temp = self.remerge_with_ancestor(
+                local, base, remote, suffix=suffix)
 
             for temp_file in (local, base, remote):
                 if os.name == "nt":
@@ -226,9 +234,11 @@ class Vc(_vc.Vc):
         if os.name == "nt":
             path = path.replace("\\", "/")
 
+        suffix = os.path.splitext(path)[1]
         args = ["git", "show", ":%s:%s" % (self.conflict_map[conflict], path)]
         filename = _vc.call_temp_output(
-            args, cwd=self.location, file_id=_vc.conflicts[conflict])
+            args, cwd=self.location,
+            file_id=_vc.conflicts[conflict], suffix=suffix)
         return filename, True
 
     def get_path_for_repo_file(self, path, commit=None):
@@ -244,8 +254,9 @@ class Vc(_vc.Vc):
             path = path.replace("\\", "/")
 
         obj = commit + ":" + path
+        suffix = os.path.splitext(path)[1]
         args = [self.CMD, "cat-file", "blob", obj]
-        return _vc.call_temp_output(args, cwd=self.root)
+        return _vc.call_temp_output(args, cwd=self.root, suffix=suffix)
 
     @classmethod
     def valid_repo(cls, path):
@@ -330,8 +341,9 @@ class Vc(_vc.Vc):
                 # Git entries can't be MISSING; that's just an unstaged REMOVED
                 self._add_missing_cache_entry(path, state)
                 if old_mode != new_mode:
-                    msg = _("Mode changed from %s to %s" %
-                            (old_mode, new_mode))
+                    msg = _(
+                        "Mode changed from {old_mode} to {new_mode}".format(
+                            old_mode=old_mode, new_mode=new_mode))
                     tree_meta_cache[path].append(msg)
                 collection = unstaged if new_sha == NULL_SHA else staged
                 collection.add(path)

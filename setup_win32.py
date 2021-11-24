@@ -39,10 +39,10 @@ def get_non_python_libs():
             inst_lib.append(os.path.join(local_bin, 'gspawn-win64-helper.exe'))
 
     return [
-            (f, os.path.basename(f)) for f in inst_root
-        ] + [
-            (f, os.path.join('lib', os.path.basename(f))) for f in inst_lib
-        ]
+        (f, os.path.basename(f)) for f in inst_root
+    ] + [
+        (f, os.path.join('lib', os.path.basename(f))) for f in inst_lib
+    ]
 
 
 gtk_data_dirs = [
@@ -64,14 +64,13 @@ for data_dir in gtk_data_dirs:
         data_subdir = os.path.relpath(local_data_subdir, local_data_dir)
         gtk_data_files.append((
             os.path.join(data_dir, data_subdir),
-            [os.path.join(local_data_subdir, file) for file in files]
+            [os.path.join(local_data_subdir, file) for file in files],
         ))
 
 manually_added_libs = {
     # add libgdk_pixbuf-2.0-0.dll manually to forbid auto-pulling of gdiplus.dll
     "libgdk_pixbuf-2.0-0.dll": os.path.join(sys.prefix, 'bin'),
-    # libcroco and librsvg are needed for SVG loading in gdkpixbuf
-    "libcroco-0.6-3.dll": os.path.join(sys.prefix, 'bin'),
+    # librsvg is needed for SVG loading in gdkpixbuf
     "librsvg-2-2.dll": os.path.join(sys.prefix, 'bin'),
 }
 
@@ -101,32 +100,39 @@ registry_table = [
 # Provide the locator and app search to give MSI the existing install directory
 # for future upgrades
 reg_locator_table = [
-    ('MeldInstallDirLocate', 2, r'SOFTWARE\Meld', 'InstallDir', 0)
+    ('MeldInstallDirLocate', 2, r'SOFTWARE\Meld', 'InstallDir', 0),
 ]
 app_search_table = [('TARGETDIR', 'MeldInstallDirLocate')]
 
 msi_data = {
     'Registry': registry_table,
     'RegLocator': reg_locator_table,
-    'AppSearch': app_search_table
+    'AppSearch': app_search_table,
 }
 
 bdist_msi_options = {
     "upgrade_code": "{1d303789-b4e2-4d6e-9515-c301e155cd50}",
     "data": msi_data,
+    "all_users": True,
+    "add_to_path": True,
+    "install_icon": "data/icons/org.gnome.meld.ico",
 }
 
 executable_options = {
     "script": "bin/meld",
     "icon": "data/icons/org.gnome.meld.ico",
 }
+console_executable_options = dict(executable_options)
 
 if 'mingw' in sysconfig.get_platform():
     executable_options.update({
-         "base": "Win32GUI",  # comment to build console version to see stderr
-         "targetName": "Meld.exe",
-         "shortcutName": "Meld",
-         "shortcutDir": "ProgramMenuFolder",
+        "base": "Win32GUI",  # comment to build console version to see stderr
+        "targetName": "Meld.exe",
+        "shortcutName": "Meld",
+        "shortcutDir": "ProgramMenuFolder",
+    })
+    console_executable_options.update({
+        "targetName": "MeldConsole.exe",
     })
 
 # Copy conf.py in place if necessary
@@ -173,6 +179,7 @@ setup(
     },
     executables=[
         Executable(**executable_options),
+        Executable(**console_executable_options),
     ],
     packages=[
         'meld',

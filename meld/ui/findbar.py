@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from typing import ClassVar, Optional
+
 from gi.repository import GObject, Gtk, GtkSource
 
 
@@ -34,6 +36,7 @@ class FindBar(Gtk.Grid):
     wrap_box = Gtk.Template.Child()
 
     replace_mode = GObject.Property(type=bool, default=False)
+    _cached_search: ClassVar[Optional[str]] = None
 
     @GObject.Signal(
         name='activate-secondary',
@@ -52,9 +55,6 @@ class FindBar(Gtk.Grid):
         self.notify_id = None
         self.set_text_view(None)
 
-        # Setup a signal for when the find bar loses focus
-        parent.connect('set-focus-child', self.on_focus_child)
-
         # Create and bind our GtkSourceSearchSettings
         settings = GtkSource.SearchSettings()
         self.match_case.bind_property('active', settings, 'case-sensitive')
@@ -71,13 +71,6 @@ class FindBar(Gtk.Grid):
         self.bind_property(
             'replace_mode', self, 'row-spacing', GObject.BindingFlags.DEFAULT,
             lambda binding, replace_mode: 6 if replace_mode else 0)
-
-    def on_focus_child(self, container, widget):
-        if widget is not None:
-            visible = self.props.visible
-            if widget is not self and visible:
-                self.hide()
-        return False
 
     def hide(self):
         self.set_text_view(None)
@@ -115,6 +108,9 @@ class FindBar(Gtk.Grid):
         self.set_text_view(textview)
         if text:
             self.find_entry.set_text(text)
+            FindBar._cached_search = text
+        elif FindBar._cached_search:
+            self.find_entry.set_text(FindBar._cached_search)
         self.show()
         self.find_entry.grab_focus()
 
@@ -164,6 +160,7 @@ class FindBar(Gtk.Grid):
 
     @Gtk.Template.Callback()
     def on_find_entry_changed(self, entry):
+        FindBar._cached_search = entry.get_text()
         self._find_text(0)
 
     @Gtk.Template.Callback()

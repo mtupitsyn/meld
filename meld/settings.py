@@ -13,7 +13,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from gi.repository import Gio, GObject, GtkSource, Pango
+import sys
+
+from gi.repository import Gio, GObject, Gtk, GtkSource, Pango
 
 import meld.conf
 import meld.filters
@@ -33,6 +35,7 @@ class MeldSettings(GObject.GObject):
         self.on_setting_changed(settings, 'filename-filters')
         self.on_setting_changed(settings, 'text-filters')
         self.on_setting_changed(settings, 'use-system-font')
+        self.on_setting_changed(settings, 'prefer-dark-theme')
         self.style_scheme = self._style_scheme_from_gsettings()
         settings.connect('changed', self.on_setting_changed)
 
@@ -48,6 +51,10 @@ class MeldSettings(GObject.GObject):
         elif key in ('use-system-font', 'custom-font'):
             self.font = self._current_font_from_gsetting()
             self.emit('changed', 'font')
+        elif key == 'prefer-dark-theme':
+            gtk_settings = Gtk.Settings.get_default()
+            prefer_dark = settings.get_boolean(key)
+            gtk_settings.props.gtk_application_prefer_dark_theme = prefer_dark
         elif key in ('style-scheme'):
             self.style_scheme = self._style_scheme_from_gsettings()
             self.emit('changed', 'style-scheme')
@@ -69,7 +76,11 @@ class MeldSettings(GObject.GObject):
 
     def _current_font_from_gsetting(self, *args):
         if settings.get_boolean('use-system-font'):
-            font_string = interface_settings.get_string('monospace-font-name')
+            if sys.platform == 'win32':
+                font_string = 'Consolas 11'
+            else:
+                font_string = interface_settings.get_string(
+                    'monospace-font-name')
         else:
             font_string = settings.get_string('custom-font')
         return Pango.FontDescription(font_string)

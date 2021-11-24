@@ -51,8 +51,8 @@ class MeldApp(BASE_CLASS):
 
     def __init__(self):
         super().__init__(
-          application_id=meld.conf.APPLICATION_ID,
-          flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE,
+            application_id=meld.conf.APPLICATION_ID,
+            flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE,
         )
         GtkosxApplication.Application.__init__(self)
         GLib.set_application_name(meld.conf.APPLICATION_NAME)
@@ -85,6 +85,10 @@ class MeldApp(BASE_CLASS):
             action.connect('activate', callback)
             self.add_action(action)
 
+        # Keep clipboard contents after application exit
+        clip = Gtk.Clipboard.get_default(Gdk.Display.get_default())
+        clip.set_can_store(None)
+
         self.new_window()
         self.ready()
 
@@ -112,6 +116,11 @@ class MeldApp(BASE_CLASS):
             window.append_new_comparison()
         self.activate()
         return 0
+
+    def do_window_removed(self, widget):
+        Gtk.Application.do_window_removed(self, widget)
+        if not len(self.get_windows()):
+            self.quit()
 
     # We can't override do_local_command_line because it has no introspection
     # annotations: https://bugzilla.gnome.org/show_bug.cgi?id=687912
@@ -385,8 +394,9 @@ class MeldApp(BASE_CLASS):
             # TODO: support for directories specified by URIs
             file_type = f.query_file_type(Gio.FileQueryInfoFlags.NONE, None)
             if not f.is_native() and file_type == Gio.FileType.DIRECTORY:
-                raise ValueError(
-                    _("remote folder “{}” not supported").format(arg))
+                if f.get_path() is None:
+                    raise ValueError(
+                        _("remote folder “{}” not supported").format(arg))
 
             return f
 

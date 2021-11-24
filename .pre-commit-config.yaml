@@ -1,5 +1,5 @@
 default_language_version:
-    python: python3.7
+    python: python3
 
 repos:
 
@@ -36,3 +36,5 @@ repos:
           - flake8-isort
           - pep8-naming
           - pycodestyle
+
+exclude: ^po/.*\.po$

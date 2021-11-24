@@ -216,7 +216,7 @@ class MeldSourceView(GtkSource.View, SourceViewHelperMixin):
         if not getattr(self, '_approx_line_height', None):
             context = self.get_pango_context()
             layout = Pango.Layout(context)
-            layout.set_text('X')
+            layout.set_text('X', -1)
             _width, self._approx_line_height = layout.get_pixel_size()
 
         return self._approx_line_height
@@ -315,6 +315,11 @@ class MeldSourceView(GtkSource.View, SourceViewHelperMixin):
         meld_settings.connect('changed', self.on_setting_changed)
 
         return GtkSource.View.do_realize(self)
+
+    def do_unrealize(self):
+        if self.anim_source_id:
+            GLib.source_remove(self.anim_source_id)
+        return GtkSource.View.do_unrealize(self)
 
     def do_draw_layer(self, layer, context):
         if layer != Gtk.TextViewLayer.BELOW_TEXT:

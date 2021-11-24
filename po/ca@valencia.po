@@ -1771,8 +1771,8 @@ msgid "Save the current file"
 msgstr "Guarda el fitxer actual"
 
 #: ../meld/meldwindow.py:55
-msgid "Save As..."
-msgstr "Anomena i guarda..."
+msgid "Save As…"
+msgstr "Anomena i guarda…"
 
 #: ../meld/meldwindow.py:56
 msgid "Save the current file with a different name"
