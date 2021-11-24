@@ -30,7 +30,7 @@ jobs:
           export MACOSX_DEPLOYMENT_TARGET=10.13
           export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH        
           curl -OL https://gitlab.gnome.org/GNOME/gtk-osx/raw/master/gtk-osx-setup.sh
-          source gtk-osx-setup.sh
+          source gtk-osx-setup.sh || true
           (cd meld/osx && ln -sf ${PWD}/jhbuildrc-custom ${HOME}/.config/jhbuildrc-custom)
 
       - name: Build Environment
