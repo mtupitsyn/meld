@@ -34,9 +34,9 @@ jobs:
           export LC_ALL=en_US.UTF-8
           export LANG=en_US.UTF-8
           export MACOSX_DEPLOYMENT_TARGET=10.13
-          export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH        
-          curl -OL https://gitlab.gnome.org/GNOME/gtk-osx/raw/master/gtk-osx-setup.sh
-          source gtk-osx-setup.sh || true
+          export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH
+          /bin/bash -c "$(curl -fsSL https://gitlab.gnome.org/GNOME/gtk-osx/raw/master/gtk-osx-setup.sh)"
+          $HOME/.new_local/share/pyenv/versions/3.10.0/bin/python3.10 -m pip install --upgrade pip
           (cd meld/osx && ln -sf ${PWD}/jhbuildrc-custom ${HOME}/.config/jhbuildrc-custom)
 
       - name: Build Environment
