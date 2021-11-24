@@ -24,8 +24,9 @@ jobs:
 
       - name: Setup Homebrew & Various Tools
         run: |
-          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          #brew install git python3 ccache sassc optipng imagemagick librsvg
+          #/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          brew install git ccache optipng imagemagick librsvg
+          #brew install sassc python3
           #brew install caskformula/caskformula/inkscape
 
       - name: Setup JHbuild
