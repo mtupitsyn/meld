@@ -1,0 +1,44 @@
+name: CI
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      - name: Exports
+        run: |
+          export LC_ALL=en_US.UTF-8
+          export LANG=en_US.UTF-8
+          export MACOSX_DEPLOYMENT_TARGET=10.13
+          export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH
+
+      - name: Setup Homebrew & Various Tools
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          brew install python3 ccache sassc optipng imagemagick librsvg
+          brew tap homebrew/cask
+          brew cask install inkscape
+
+      - name: Setup JHbuils
+        run: |
+          curl -OL https://gitlab.gnome.org/GNOME/gtk-osx/raw/master/gtk-osx-setup.sh
+          source gtk-osx-setup.sh
+          (cd meld/osx && ln -sf ${PWD}/jhbuildrc-custom ${HOME}/.config/jhbuildrc-custom)
+
+      - name: Build Environment
+        run: |
+          source ./osx/build_env.sh
+
+      
