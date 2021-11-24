@@ -17,13 +17,6 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
-      - name: Exports
-        run: |
-          export LC_ALL=en_US.UTF-8
-          export LANG=en_US.UTF-8
-          export MACOSX_DEPLOYMENT_TARGET=10.13
-          export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH
-
       - name: Setup Homebrew & Various Tools
         run: |
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -32,6 +25,10 @@ jobs:
 
       - name: Setup JHbuild
         run: |
+          export LC_ALL=en_US.UTF-8
+          export LANG=en_US.UTF-8
+          export MACOSX_DEPLOYMENT_TARGET=10.13
+          export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH        
           curl -OL https://gitlab.gnome.org/GNOME/gtk-osx/raw/master/gtk-osx-setup.sh
           source gtk-osx-setup.sh
           (cd meld/osx && ln -sf ${PWD}/jhbuildrc-custom ${HOME}/.config/jhbuildrc-custom)
