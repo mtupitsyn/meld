@@ -17,10 +17,15 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
+      - name: Check System
+        run: |
+          which brew || echo "brew not found"
+          which git || echo "git not found"
+
       - name: Setup Homebrew & Various Tools
         run: |
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          brew install python3 ccache sassc optipng imagemagick librsvg
+          #brew install git python3 ccache sassc optipng imagemagick librsvg
           #brew install caskformula/caskformula/inkscape
 
       - name: Setup JHbuild
