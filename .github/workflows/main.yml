@@ -37,7 +37,8 @@ jobs:
           export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH
           /bin/bash -c "$(curl -fsSL https://gitlab.gnome.org/GNOME/gtk-osx/raw/master/gtk-osx-setup.sh)"
           $HOME/.new_local/share/pyenv/versions/3.10.0/bin/python3.10 -m pip install --upgrade pip
-          (cd meld/osx && ln -sf ${PWD}/jhbuildrc-custom ${HOME}/.config/jhbuildrc-custom)
+          (cd osx && ln -sf ${PWD}/jhbuildrc-custom ${HOME}/.config/jhbuildrc-custom)
+          jhbuild bootstrap
 
       - name: Build Environment
         run: |
