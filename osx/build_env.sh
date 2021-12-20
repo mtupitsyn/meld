@@ -17,7 +17,7 @@ export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH
 
 mkdir -p ~/gtk/inst/bin
 
-#brew install autoconf libtool automake pkg-config sassc optipng python
+brew install autoconf libtool automake pkg-config sassc optipng python bison flex
 ln -sf /usr/local/bin/autoconf ~/gtk/inst/bin
 ln -sf /usr/local/bin/autoreconf ~/gtk/inst/bin
 ln -sf /usr/local/bin/automake ~/gtk/inst/bin
@@ -26,6 +26,7 @@ ln -sf /usr/local/bin/aclocal ~/gtk/inst/bin
 ln -sf /usr/local/bin/glibtoolize  ~/gtk/inst/bin/libtoolize 
 ln -sf /usr/local/bin/glibtool ~/gtk/inst/bin/libtool
 ln -sf /usr/local/bin/cmake ~/gtk/inst/bin
+ln -sf /usr/local/opt/bison/bin/bison ~/gtk/inst/bin
 
 #brew install python3 ccache
 #brew tap homebrew/cask
@@ -43,7 +44,7 @@ $HOME/gtk/inst/bin/python3 -m ensurepip
 #$HOME/gtk/inst/bin/pip3 install six
 /usr/local/bin/pip3 install six pygments --target ~/gtk/inst/lib/python3.9/site-packages
 
-PYTHON=$HOME/gtk/inst/bin/python3 jhbuild build --nodeps --ignore-suggests -s freetype-no-harfbuzz
+PYTHON=$HOME/gtk/inst/bin/python3 jhbuild build --nodeps --ignore-suggests #-s freetype-no-harfbuzz
 
 /usr/local/bin/pip3 install pyobjc-core pyobjc-framework-Cocoa py2app pygobject --target ~/gtk/inst/lib/python3.9/site-packages
 
