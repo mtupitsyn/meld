@@ -8,7 +8,7 @@ from os import path
 
 #prefix = "/tmp/meldroot"
 checkoutroot = os.path.expanduser("~/Source/gtk")
-setup_sdk(target="10.13", sdk_version="native", architectures=["x86_64"])
+setup_sdk(target="10.15", sdk_version="native", architectures=["x86_64"])
 _gtk_osx_use_jhbuild_python = True
 
 if path.exists("/usr/local/bin/ccache"):
@@ -21,10 +21,10 @@ else:
   os.environ["CXX"] = "/usr/bin/clang++"
 
 os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = "@executable_path/../Frameworks/:@executable_path/../Resources/lib"
-environ_prepend('CFLAGS', "-O3 -mtune=intel -msse -mmmx")
-environ_prepend('CXXFLAGS', "-std=c++11 -stdlib=libc++ -O3 -mtune=intel -msse -mmmx")
-environ_prepend('OBJCFLAGS', "-O3")
-os.environ["MACOSX_DEPLOYMENT_TARGET"] = "10.13"
+#environ_prepend('CFLAGS', "-O3")
+environ_prepend('CXXFLAGS', "-std=c++11 -stdlib=libc++")
+#environ_prepend('OBJCFLAGS', "-O2")
+os.environ["MACOSX_DEPLOYMENT_TARGET"] = "10.15"
 
 #skip.append("libiconv") # Lion issues
 skip.append("cups")
