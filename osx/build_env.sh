@@ -38,7 +38,10 @@ ln -sf /usr/local/opt/bison/bin/bison ~/gtk/inst/bin
 #brew install librsvg
 
 pushd . > /dev/null
-jhbuild bootstrap
+#jhbuild bootstrap
+
+export PKG_CONFIG_PATH=$HOME/gtk/inst/lib/pkgconfig:$HOME/gtk/inst/share/pkgconfig
+export XDG_DATA_DIRS=$HOME/gtk/inst/share
 jhbuild buildone libffi python3 libxml2
 (cd $HOME/gtk/inst/bin && touch itstool && chmod +x itstool)
 /usr/local/bin/pip3 install six pygments --target ~/gtk/inst/lib/python3.9/site-packages
