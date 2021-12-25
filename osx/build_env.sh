@@ -15,12 +15,13 @@ trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 export MACOSX_DEPLOYMENT_TARGET=10.15
 export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH
 
-mkdir -p ~/gtk/inst/bin
+mkdir -p $HOME/gtk/inst/bin
 
-brew install autoconf libtool automake pkg-config sassc optipng python bison flex
+#brew install autoconf libtool automake pkg-config sassc optipng python bison flex
 ln -sf /usr/local/bin/autoconf ~/gtk/inst/bin
 ln -sf /usr/local/bin/autoreconf ~/gtk/inst/bin
 ln -sf /usr/local/bin/automake ~/gtk/inst/bin
+ln -sf /usr/local/bin/autopoint ~/gtk/inst/bin
 ln -sf /usr/local/bin/pkg-config ~/gtk/inst/bin
 ln -sf /usr/local/bin/aclocal ~/gtk/inst/bin
 ln -sf /usr/local/bin/glibtoolize  ~/gtk/inst/bin/libtoolize 
@@ -37,36 +38,29 @@ ln -sf /usr/local/opt/bison/bin/bison ~/gtk/inst/bin
 #brew install librsvg
 
 pushd . > /dev/null
-#jhbuild bootstrap
+jhbuild bootstrap
 jhbuild buildone libffi python3 libxml2
 (cd $HOME/gtk/inst/bin && touch itstool && chmod +x itstool)
-$HOME/gtk/inst/bin/python3 -m ensurepip
-#$HOME/gtk/inst/bin/pip3 install six
 /usr/local/bin/pip3 install six pygments --target ~/gtk/inst/lib/python3.9/site-packages
 
 PYTHON=$HOME/gtk/inst/bin/python3 jhbuild build --nodeps --ignore-suggests #-s freetype-no-harfbuzz
+/usr/local/bin/pip3 install pyobjc-core pyobjc-framework-Cocoa py2app --target ~/gtk/inst/lib/python3.9/site-packages
 
-/usr/local/bin/pip3 install pyobjc-core pyobjc-framework-Cocoa py2app pygobject --target ~/gtk/inst/lib/python3.9/site-packages
-
-#$HOME/gtk/inst/bin/pip3 install pyobjc-core
-#$HOME/gtk/inst/bin/pip3 install pyobjc-framework-Cocoa
-#$HOME/gtk/inst/bin/pip3 install py2app
-#$HOME/gtk/inst/bin/pip3 install pygobject
-(cd $HOME/gtk/inst/lib && ln -s libpython3.6m.dylib libpython3.6.dylib)
+# (cd $HOME/gtk/inst/lib && ln -s libpython3.6m.dylib libpython3.6.dylib)
 # (cd $HOME/Source/ && ([ -d Mojave-gtk-theme ] || git clone https://github.com/vinceliuice/Mojave-gtk-theme.git))
 # (cd $HOME/Source/Mojave-gtk-theme && sed -i.bak 's/cp -ur/cp -r/' install.sh && ./install.sh  --dest $HOME/gtk/inst/share/themes)
 # (cd $HOME/gtk/inst/share/themes && ln -sf Mojave-dark-solid-alt Meld-Mojave-dark)
 # (cd $HOME/gtk/inst/share/themes && ln -sf Mojave-light-solid-alt Meld-Mojave-light)
 
+pushd .
 cd $HOME/Source
-curl -OL https://gitlab.gnome.org/GNOME/gtksourceview/-/archive/4.8.2/gtksourceview-4.8.2.tar.bz2
-tar xvf gtksourceview-4.8.2.tar.bz2
-WORKDIR=$(mktemp -d)
-cd $WORKDIR
-jhbuild run meson --prefix $HOME/gtk/inst --libdir lib --buildtype release --optimization 3 -Dgtk_doc=false -Db_bitcode=true -Db_ndebug=true -Dvapi=false $HOME/Source/gtksourceview-4.8.2
-jhbuild run ninja install
+curl -OL https://download.gnome.org/sources/gtksourceview/3.24/gtksourceview-3.24.7.tar.xz
+tar xvf gtksourceview-3.24.7.tar.xz && cd gtksourceview-3.24.7
+jhbuild run ./configure --prefix $HOME/gtk/inst --enable-introspection=yes --enable-gtk-doc-html=no --with-sysroot=$HOME/gtk/inst
+jhbuild run make install -j
+popd
 
-cp settings.ini $HOME/gtk/inst/etc/gtk-3.0
+cp settings.ini $HOME/gtk/inst/etc/gtk-3.0/
 popd
 
 
