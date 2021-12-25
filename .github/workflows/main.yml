@@ -25,9 +25,7 @@ jobs:
       - name: Setup Homebrew & Various Tools
         run: |
           #/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          brew install git ccache optipng imagemagick librsvg
-          #brew install sassc python3
-          #brew install caskformula/caskformula/inkscape
+          brew install git ccache autoconf libtool automake pkg-config sassc optipng python bison flex
 
       - name: Setup JHbuild
         run: |
@@ -35,6 +33,6 @@ jobs:
 
       - name: Build Environment
         run: |
-          bash ./osx/build_env.sh
+          cd osx && /bin/bash ./build_env.sh
 
       
