@@ -18,15 +18,17 @@ import collections
 import copy
 import errno
 import functools
+import logging
 import os
 import shutil
 import stat
 import sys
 import typing
+import unicodedata
 from collections import namedtuple
 from decimal import Decimal
 from mmap import ACCESS_COPY, mmap
-from typing import List, Optional, Tuple
+from typing import DefaultDict, List, NamedTuple, Optional, Tuple
 
 from gi.repository import Gdk, Gio, GLib, GObject, Gtk
 
@@ -44,12 +46,15 @@ from meld.ui.cellrenderers import (
     CellRendererByteSize,
     CellRendererDate,
     CellRendererFileMode,
+    CellRendererISODate,
 )
 from meld.ui.emblemcellrenderer import EmblemCellRenderer
 from meld.ui.util import map_widgets_into_lists
 
 if typing.TYPE_CHECKING:
     from meld.ui.pathlabel import PathLabel
+
+log = logging.getLogger(__name__)
 
 
 class StatItem(namedtuple('StatItem', 'mode size time')):
@@ -243,6 +248,7 @@ def _files_same(files, regexes, comparison_args):
 
 
 EMBLEM_NEW = "emblem-new"
+EMBLEM_SELECTED = "emblem-default-symbolic"
 EMBLEM_SYMLINK = "emblem-symbolic-link"
 
 COL_EMBLEM, COL_EMBLEM_SECONDARY, COL_SIZE, COL_TIME, COL_PERMS, COL_END = (
@@ -263,24 +269,44 @@ class DirDiffTreeStore(tree.DiffTreeStore):
         super().add_error(parent, msg, pane, defaults)
 
 
+class ComparisonOptions:
+    def __init__(
+        self,
+        *,
+        ignore_case: bool = False,
+        normalize_encoding: bool = False,
+    ):
+        self.ignore_case = ignore_case
+        self.normalize_encoding = normalize_encoding
+
+
 class CanonicalListing:
     """Multi-pane lists with canonicalised matching and error detection"""
 
-    def __init__(self, n, canonicalize=None):
+    items: DefaultDict[str, List[Optional[str]]]
+    errors: List[Tuple[int, str, str]]
+
+    def __init__(self, n: int, options: ComparisonOptions):
         self.items = collections.defaultdict(lambda: [None] * n)
         self.errors = []
-        self.canonicalize = canonicalize
-        self.add = self.add_simple if canonicalize is None else self.add_canon
+        self.options = options
 
-    def add_simple(self, pane, item):
-        self.items[item][pane] = item
+    def add(self, pane: int, item: str):
+        # normalize the name depending on settings
+        ci = item
+        if self.options.ignore_case:
+            ci = ci.lower()
+        if self.options.normalize_encoding:
+            # NFC or NFD will work here, changing all composed or decomposed
+            # characters to the same set for matching only.
+            ci = unicodedata.normalize('NFC', ci)
 
-    def add_canon(self, pane, item):
-        ci = self.canonicalize(item)
-        if self.items[ci][pane] is None:
+        # add the item to the comparison tree
+        existing_item = self.items[ci][pane]
+        if existing_item is None:
             self.items[ci][pane] = item
         else:
-            self.errors.append((pane, item, self.items[ci][pane]))
+            self.errors.append((pane, item, existing_item))
 
     def get(self):
         def filled(seq):
@@ -289,9 +315,48 @@ class CanonicalListing:
 
         return sorted(filled(v) for v in self.items.values())
 
-    @staticmethod
-    def canonicalize_lower(element):
-        return element.lower()
+
+class ComparisonMarker(NamedTuple):
+    """A stable row + pane marker
+
+    This marker is used for selecting a specific file or folder when
+    the user wants to compare paths that don't have matching names, and
+    so aren't aligned in our tree view.
+    """
+
+    pane: int
+    row: Gtk.TreeRowReference
+
+    def get_iter(self) -> Gtk.TreeIter:
+        return self.row.get_model().get_iter(self.row.get_path())
+
+    def matches_iter(self, pane: int, it: Gtk.TreeIter) -> bool:
+        return (
+            pane == self.pane and
+            self.row.get_model().get_path(it) == self.row.get_path()
+        )
+
+    @classmethod
+    def from_selection(
+        cls,
+        treeview: Gtk.TreeView,
+        pane: int,
+    ) -> "ComparisonMarker":
+
+        if pane is None or pane == -1:
+            raise ValueError("Invalid pane for marker")
+
+        model = treeview.get_model()
+        _, selected_paths = treeview.get_selection().get_selected_rows()
+
+        # We'll assume that in any multi-select, the first row was the
+        # intended mark.
+        selected_row = Gtk.TreeRowReference.new(model, selected_paths[0])
+
+        return cls(
+            pane=pane,
+            row=selected_row,
+        )
 
 
 @Gtk.Template(resource_path='/org/gnome/meld/ui/dirdiff.ui')
@@ -369,6 +434,9 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
     folder_label0 = Gtk.Template.Child()
     folder_label1 = Gtk.Template.Child()
     folder_label2 = Gtk.Template.Child()
+    folder_open_button0 = Gtk.Template.Child()
+    folder_open_button1 = Gtk.Template.Child()
+    folder_open_button2 = Gtk.Template.Child()
     treeview0 = Gtk.Template.Child()
     treeview1 = Gtk.Template.Child()
     treeview2 = Gtk.Template.Child()
@@ -425,8 +493,11 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
             ('find', self.action_find),
             ('folder-collapse', self.action_folder_collapse),
             ('folder-compare', self.action_diff),
+            ('folder-mark', self.action_mark),
+            ('folder-compare-marked', self.action_diff_marked),
             ('folder-copy-left', self.action_copy_left),
             ('folder-copy-right', self.action_copy_right),
+            ('swap-2-panes', self.action_swap),
             ('folder-delete', self.action_delete),
             ('folder-expand', self.action_folder_expand),
             ('next-change', self.action_next_change),
@@ -450,6 +521,8 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
             ("folder-status-modified", self.action_filter_state_change,
                 GLib.Variant.new_boolean(False)),
             ("folder-ignore-case", self.action_ignore_case_change,
+                GLib.Variant.new_boolean(False)),
+            ("folder-normalize-encoding", self.action_ignore_case_change,
                 GLib.Variant.new_boolean(False)),
         )
         for (name, callback, state) in actions:
@@ -502,7 +575,7 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
             [
                 "treeview", "folder_label", "scrolledwindow", "chunkmap",
                 "linkmap", "msgarea_mgr", "vbox", "dummy_toolbar_linkmap",
-                "pane_actionbar",
+                "pane_actionbar", "folder_open_button",
             ],
         )
 
@@ -563,6 +636,14 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
             column.set_attributes(rentext, timestamp=col_index(COL_TIME, i))
             self.treeview[i].append_column(column)
             self.columns_dict[i]["modification time"] = column
+            # Create ISO-format date-time CellRenderer
+            column = Gtk.TreeViewColumn(_("Modification time (ISO)"))
+            column.set_resizable(True)
+            rentext = CellRendererISODate()
+            column.pack_start(rentext, True)
+            column.set_attributes(rentext, timestamp=col_index(COL_TIME, i))
+            self.treeview[i].append_column(column)
+            self.columns_dict[i]["iso-time"] = column
             # Create permissions CellRenderer
             column = Gtk.TreeViewColumn(_("Permissions"))
             column.set_resizable(True)
@@ -606,6 +687,8 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
 
         self._scan_in_progress = 0
 
+        self.marked = None
+
     def queue_draw(self):
         for treeview in self.treeview:
             treeview.queue_draw()
@@ -621,19 +704,38 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
             _files_same, comparison_args=comparison_args)
         self.refresh()
 
-    def update_treeview_columns(self, settings, key):
+    def update_treeview_columns(
+        self, settings: Gio.Settings, key: str,
+    ) -> None:
         """Update the visibility and order of columns"""
+
         columns = settings.get_value(key)
+        have_extra_columns = any(visible for name, visible in columns)
+
+        # Check for columns missing from the settings, special-casing
+        # the always-present name column
+        configured_columns = [name for name, visible in columns] + ["name"]
+        missing_columns = [
+            c for c in self.columns_dict[0].keys()
+            if c not in configured_columns
+        ]
+
         for i, treeview in enumerate(self.treeview):
-            extra_cols = False
             last_column = treeview.get_column(0)
             for column_name, visible in columns:
-                extra_cols = extra_cols or visible
-                current_column = self.columns_dict[i][column_name]
+                try:
+                    current_column = self.columns_dict[i][column_name]
+                except KeyError:
+                    log.warning(f"Invalid column {column_name} in settings")
+                    continue
                 current_column.set_visible(visible)
                 treeview.move_column_after(current_column, last_column)
                 last_column = current_column
-            treeview.set_headers_visible(extra_cols)
+
+            for column_name in missing_columns:
+                self.columns_dict[i][column_name].set_visible(False)
+
+            treeview.set_headers_visible(have_extra_columns)
 
     def get_filter_visibility(self) -> Tuple[bool, bool, bool]:
         # TODO: Make text filters available in folder comparison
@@ -752,6 +854,7 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
         for pane, folder in enumerate(self.folders):
             self.folder_label[pane].set_file(folder)
             self.folder_label[pane].set_parent_file(parent_path)
+            self.folder_open_button[pane].props.file = folder
 
         # This is difficult to trigger, and to test. Most of the time here we
         # will actually have had UTF-8 from GTK, which has been unicode-ed by
@@ -763,6 +866,7 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
         locations = [os.path.abspath(l) if l else '' for l in locations]
 
         self.current_path = None
+        self.marked = None
         self.model.clear()
         for m in self.msgarea_mgr:
             m.clear()
@@ -783,6 +887,28 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
             uris = []
         return RecentType.Folder, uris
 
+    def mark_in_progress_row(self, it: Gtk.TreeIter) -> None:
+        """Mark a tree row as having a scan in progress
+
+        After the scan is finished, `_update_item_state()` must be
+        called on the row to restore its actual state.
+        """
+
+        for pane in range(self.model.ntree):
+            path = self.model.get_value(
+                it, self.model.column_index(tree.COL_PATH, pane))
+            filename = GLib.markup_escape_text(os.path.basename(path))
+            label = _(f"{filename} (scanning…)")
+
+            self.model.set_state(it, pane, tree.STATE_SPINNER, label, True)
+            self.model.unsafe_set(it, pane, {
+                COL_EMBLEM: None,
+                COL_EMBLEM_SECONDARY: None,
+                COL_TIME: MISSING_TIMESTAMP,
+                COL_SIZE: -1,
+                COL_PERMS: -1
+            })
+
     def recursively_update(self, path):
         """Recursively update from tree path 'path'.
         """
@@ -791,7 +917,11 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
         while child:
             self.model.remove(child)
             child = self.model.iter_children(it)
-        self._update_item_state(it)
+        if self._scan_in_progress == 0:
+            # Starting a scan, so set up progress indicator
+            self.mark_in_progress_row(it)
+        else:
+            self._update_item_state(it)
         self._scan_in_progress += 1
         self.scheduler.add_task(self._search_recursively_iter(path))
 
@@ -813,6 +943,14 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
 
         shadowed_entries = []
         invalid_filenames = []
+
+        # TODO: Map these action states to GObject props instead?
+        comparison_options = ComparisonOptions(
+            ignore_case=self.get_action_state('folder-ignore-case'),
+            normalize_encoding=self.get_action_state(
+                'folder-normalize-encoding'),
+        )
+
         while len(todo):
             todo.sort()  # depth first
             path = todo.pop(0)
@@ -829,12 +967,8 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
             differences = False
             encoding_errors = []
 
-            canonicalize = None
-            # TODO: Map this to a GObject prop instead?
-            if self.get_action_state('folder-ignore-case'):
-                canonicalize = CanonicalListing.canonicalize_lower
-            dirs = CanonicalListing(self.num_panes, canonicalize)
-            files = CanonicalListing(self.num_panes, canonicalize)
+            dirs = CanonicalListing(self.num_panes, comparison_options)
+            files = CanonicalListing(self.num_panes, comparison_options)
 
             for pane, root in enumerate(roots):
                 if not os.path.isdir(root):
@@ -967,6 +1101,10 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
         yield _('[{label}] Done').format(label=self.label_text)
 
         self._scan_in_progress -= 1
+        if self._scan_in_progress == 0:
+            # Finishing a scan, so remove progress indicator
+            self._update_item_state(self.model.get_iter(rootpath))
+
         self.force_cursor_recalculate = True
         self.treeview[0].set_cursor(Gtk.TreePath.new_first())
 
@@ -1088,8 +1226,11 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
                         parent_name = os.path.dirname(dst)
                         folder_name = os.path.basename(dst)
                         dialog_buttons = [
-                            (_("_Cancel"), Gtk.ResponseType.CANCEL),
-                            (_("_Replace"), Gtk.ResponseType.OK),
+                            (_("_Cancel"), Gtk.ResponseType.CANCEL, None),
+                            (
+                                _("_Replace"), Gtk.ResponseType.OK,
+                                Gtk.STYLE_CLASS_DESTRUCTIVE_ACTION,
+                            ),
                         ]
                         replace = misc.modal_dialog(
                             primary=_("Replace folder “%s”?") % folder_name,
@@ -1183,6 +1324,11 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
             self.set_action_enabled('folder-collapse', is_single_foldable_row)
             self.set_action_enabled('folder-expand', is_single_foldable_row)
             self.set_action_enabled('folder-compare', True)
+            self.set_action_enabled('folder-mark', True)
+            self.set_action_enabled(
+                'folder-compare-marked',
+                self.marked is not None and self.marked.pane != pane)
+            self.set_action_enabled('swap-2-panes', self.num_panes == 2)
             self.set_action_enabled('folder-delete', is_valid)
             self.set_action_enabled('folder-copy-left', is_valid and pane > 0)
             self.set_action_enabled(
@@ -1192,6 +1338,8 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
             actions = (
                 'folder-collapse',
                 'folder-compare',
+                'folder-mark',
+                'folder-compare-marked',
                 'folder-copy-left',
                 'folder-copy-right',
                 'folder-delete',
@@ -1311,10 +1459,11 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
         if not rows[pane]:
             return
         if os.path.isfile(rows[pane]):
-            self.create_diff_signal.emit(
-                [Gio.File.new_for_path(r) for r in rows if os.path.isfile(r)],
-                {}
-            )
+            diff_gfiles = [
+                Gio.File.new_for_path(r) if os.path.isfile(r) else None
+                for r in rows
+            ]
+            self.create_diff_signal.emit(diff_gfiles, {})
         elif os.path.isdir(rows[pane]):
             if view.row_expanded(path):
                 view.collapse_row(path)
@@ -1356,6 +1505,47 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
         for row in selected:
             self.run_diff_from_iter(self.model.get_iter(row))
 
+    def action_mark(self, *args):
+        pane = self._get_focused_pane()
+        if pane is None:
+            return
+
+        selected = self._get_selected_paths(pane)
+        if selected is None:
+            return
+
+        old_mark_it = self.marked.get_iter() if self.marked else None
+        self.marked = ComparisonMarker.from_selection(
+            self.treeview[pane], pane)
+
+        self._update_item_state(self.marked.get_iter())
+        if old_mark_it:
+            self._update_item_state(old_mark_it)
+
+    def action_diff_marked(self, *args):
+        pane = self._get_focused_pane()
+        if pane is None:
+            return
+
+        selected = self.model.get_iter(self._get_selected_paths(pane)[0])
+        if selected is None:
+            return
+
+        mark_it = self.marked.get_iter()
+        marked_path = self.model.value_paths(mark_it)[self.marked.pane]
+        selected_path = self.model.value_paths(selected)[pane]
+
+        # Maintain the pane ordering in the new comparison, regardless
+        # of which pane is the marked one.
+        if pane < self.marked.pane:
+            row_paths = [selected_path, marked_path]
+        else:
+            row_paths = [marked_path, selected_path]
+
+        gfiles = [Gio.File.new_for_path(p)
+                  for p in row_paths if os.path.exists(p)]
+        self.create_diff_signal.emit(gfiles, {})
+
     def action_folder_collapse(self, *args):
         pane = self._get_focused_pane()
         if pane is None:
@@ -1390,6 +1580,10 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
 
     def action_copy_right(self, *args):
         self.copy_selected(1)
+
+    def action_swap(self, *args):
+        self.folders.reverse()
+        self.refresh()
 
     def action_delete(self, *args):
         self.delete_selected()
@@ -1569,7 +1763,12 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
             if stats[j]:
                 self.model.set_path_state(
                     it, j, state, isdir[j], display_text=name_overrides[j])
-                emblem = EMBLEM_NEW if j in newest else None
+
+                if self.marked and self.marked.matches_iter(j, it):
+                    emblem = EMBLEM_SELECTED
+                else:
+                    emblem = EMBLEM_NEW if j in newest else None
+
                 link_emblem = EMBLEM_SYMLINK if j in symlinks else None
                 self.model.unsafe_set(it, j, {
                     COL_EMBLEM: emblem,
@@ -1625,12 +1824,20 @@ class DirDiff(Gtk.VBox, tree.TreeviewCommon, MeldDoc):
         filenames = self.model.value_paths(root)
         filenames = [f or _('No folder') for f in filenames]
         if self.custom_labels:
-            label_options = zip(self.custom_labels, filenames)
-            shortnames = [l[0] or l[1] for l in label_options]
+            shortnames = [
+                custom or filename for custom, filename in
+                zip(self.custom_labels, filenames)
+            ]
+            tooltip_names = shortnames
         else:
             shortnames = misc.shorten_names(*filenames)
+            tooltip_names = filenames
+
         self.label_text = " : ".join(shortnames)
-        self.tooltip_text = self.label_text
+        self.tooltip_text = "\n".join((
+            _("Folder comparison:"),
+            *tooltip_names,
+        ))
         self.label_changed.emit(self.label_text, self.tooltip_text)
 
     def set_labels(self, labels):

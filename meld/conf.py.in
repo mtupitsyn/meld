@@ -5,7 +5,7 @@ from pathlib import Path
 from Foundation import NSBundle
 
 __package__ = "meld"
-__version__ = "3.21.1"
+__version__ = "3.21.3"
 
 APPLICATION_NAME = 'Meld'
 APPLICATION_ID = 'org.gnome.Meld'

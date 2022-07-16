@@ -41,6 +41,7 @@ from meld.vc._vc import (  # noqa: F401
     STATE_NONEXIST,
     STATE_NORMAL,
     STATE_REMOVED,
+    STATE_SPINNER,
 )
 
 _GIGtk = None
@@ -102,6 +103,7 @@ class DiffTreeStore(SearchableTreeStore):
             (del_fg, roman,  bold,   True),  # STATE_REMOVED
             (del_fg, roman,  bold,   True),  # STATE_MISSING
             (unk_fg, roman,  normal, True),  # STATE_NONEXIST
+            (None,   italic, normal, None),  # STATE_SPINNER
         ]
 
         self.icon_details = [
@@ -110,7 +112,7 @@ class DiffTreeStore(SearchableTreeStore):
             ("text-x-generic", "folder", None,   None),    # NONE
             ("text-x-generic", "folder", None,   None),    # NORMAL
             ("text-x-generic", "folder", None,   None),    # NOCHANGE
-            ("dialog-warning", None,     None,   None),    # ERROR
+            ("dialog-warning-symbolic", None,     None,   None),    # ERROR
             (None,             None,     None,   None),    # EMPTY
             ("text-x-generic", "folder", new_fg, None),    # NEW
             ("text-x-generic", "folder", mod_fg, None),    # MODIFIED
@@ -119,6 +121,7 @@ class DiffTreeStore(SearchableTreeStore):
             ("text-x-generic", "folder", del_fg, None),    # REMOVED
             ("text-x-generic", "folder", unk_fg, unk_fg),  # MISSING
             ("text-x-generic", "folder", unk_fg, unk_fg),  # NONEXIST
+            ("text-x-generic", "folder", None,   None),    # SPINNER
         ]
 
         assert len(self.icon_details) == len(self.text_attributes) == STATE_MAX

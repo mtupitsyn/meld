@@ -78,8 +78,8 @@ class FilterList(Gtk.Box, EditableListWidget):
 
     def valid_icon_celldata(self, col, cell, model, it, user_data=None):
         is_valid = model.get_value(it, 3)
-        icon_name = "gtk-dialog-warning" if not is_valid else None
-        cell.set_property("stock-id", icon_name)
+        icon_name = "dialog-warning-symbolic" if not is_valid else None
+        cell.set_property("icon-name", icon_name)
 
     @Gtk.Template.Callback()
     def on_add_clicked(self, button):
@@ -131,6 +131,7 @@ class ColumnList(Gtk.VBox, EditableListWidget):
     available_columns = {
         "size": _("Size"),
         "modification time": _("Modification time"),
+        "iso-time": _("Modification time (ISO)"),
         "permissions": _("Permissions"),
     }
 
@@ -158,10 +159,13 @@ class ColumnList(Gtk.VBox, EditableListWidget):
             column_order[column_name] = sort_key
 
         columns = [
-            (column_vis.get(name, True), name, label)
+            (column_vis.get(name, False), name, label)
             for name, label in self.available_columns.items()
         ]
-        columns = sorted(columns, key=lambda c: column_order.get(c[1], 0))
+        columns = sorted(
+            columns,
+            key=lambda c: column_order.get(c[1], len(self.available_columns)),
+        )
 
         for visibility, name, label in columns:
             self.model.append([visibility, name, label])
