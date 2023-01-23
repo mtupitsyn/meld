@@ -44,10 +44,12 @@ export PKG_CONFIG_PATH=$HOME/gtk/inst/lib/pkgconfig:$HOME/gtk/inst/share/pkgconf
 export XDG_DATA_DIRS=$HOME/gtk/inst/share
 jhbuild buildone libffi python3 libxml2
 (cd $HOME/gtk/inst/bin && touch itstool && chmod +x itstool)
-/usr/local/bin/pip3 install six pygments --target ~/gtk/inst/lib/python3.9/site-packages
+
+PY_SITE_PACKAGES=$(~/gtk/inst/bin/python3 -c 'import site; print(site.getsitepackages()[0], end="")')
+/usr/local/bin/pip3 install six pygments --target $PY_SITE_PACKAGES
 
 PYTHON=$HOME/gtk/inst/bin/python3 jhbuild build --nodeps --ignore-suggests #-s freetype-no-harfbuzz
-/usr/local/bin/pip3 install pyobjc-core pyobjc-framework-Cocoa py2app --target ~/gtk/inst/lib/python3.9/site-packages
+/usr/local/bin/pip3 install pyobjc-core pyobjc-framework-Cocoa py2app --target $PY_SITE_PACKAGES
 
 # (cd $HOME/gtk/inst/lib && ln -s libpython3.6m.dylib libpython3.6.dylib)
 # (cd $HOME/Source/ && ([ -d Mojave-gtk-theme ] || git clone https://github.com/vinceliuice/Mojave-gtk-theme.git))
