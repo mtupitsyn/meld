@@ -12,12 +12,11 @@ failure() {
 }
 trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 
-export MACOSX_DEPLOYMENT_TARGET=10.15
 export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH
 
 mkdir -p $HOME/gtk/inst/bin
 
-#brew install autoconf libtool automake pkg-config sassc optipng python bison flex
+#brew install autoconf libtool automake pkg-config sassc optipng python bison flex cmake itstool xz
 ln -sf /usr/local/bin/autoconf ~/gtk/inst/bin
 ln -sf /usr/local/bin/autoreconf ~/gtk/inst/bin
 ln -sf /usr/local/bin/automake ~/gtk/inst/bin
@@ -28,6 +27,8 @@ ln -sf /usr/local/bin/glibtoolize  ~/gtk/inst/bin/libtoolize
 ln -sf /usr/local/bin/glibtool ~/gtk/inst/bin/libtool
 ln -sf /usr/local/bin/cmake ~/gtk/inst/bin
 ln -sf /usr/local/opt/bison/bin/bison ~/gtk/inst/bin
+ln -sf /usr/local/bin/itstool ~/gtk/inst/bin
+ln -sf /usr/local/bin/xz ~/gtk/inst/bin
 
 #brew install python3 ccache
 #brew tap homebrew/cask
@@ -42,8 +43,10 @@ pushd . > /dev/null
 
 export PKG_CONFIG_PATH=$HOME/gtk/inst/lib/pkgconfig:$HOME/gtk/inst/share/pkgconfig
 export XDG_DATA_DIRS=$HOME/gtk/inst/share
-jhbuild buildone libffi python3 libxml2
-(cd $HOME/gtk/inst/bin && touch itstool && chmod +x itstool)
+jhbuild buildone libffi
+jhbuild buildone python3
+jhbuild buildone libxml2
+#(cd $HOME/gtk/inst/bin && touch itstool && chmod +x itstool)
 
 PY_SITE_PACKAGES=$(~/gtk/inst/bin/python3 -c 'import site; print(site.getsitepackages()[0], end="")')
 /usr/local/bin/pip3 install six pygments --target $PY_SITE_PACKAGES
