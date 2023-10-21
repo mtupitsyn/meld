@@ -95,7 +95,7 @@ module_autogenargs['gtk+-3.0'] = '--enable-quartz-backend --enable-quartz-reloca
 module_autogenargs['harfbuzz'] = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext --without-icu ' + autogenargs
 module_autogenargs['root-harfbuzz'] = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext --without-icu ' + autogenargs
 module_autogenargs['fontconfig'] = '--with-cache-dir="~/Library/Caches/org.gnome.meld.fontconfig" --with-default-fonts=/System/Library/Fonts --with-add-fonts=/Library/Fonts,/Network/Library/Fonts,/System/Library/Fonts ' + autogenargs
-module_autogenargs['python3'] = '--enable-optimizations --with-system-expat --without-gcc  --disable-ipv6 --with-ensurepip=yes --without-tests --disable-tests --with-threads --with-system-expat ' + autogenargs
+module_autogenargs['python3'] = 'CC= CXX= --enable-optimizations --with-system-expat --disable-ipv6 --with-ensurepip=yes --without-tests --disable-tests --with-threads --with-system-expat ' + autogenargs
 
 module_mesonargs['atk']        = '--buildtype release --optimization 3 -Ddocs=false -Dintrospection=true'
 module_mesonargs['gdk-pixbuf'] = '--buildtype release --optimization 3 -Dbuiltin_loaders=all -Drelocatable=true -Ddocs=false'
