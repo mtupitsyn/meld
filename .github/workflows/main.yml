@@ -43,10 +43,6 @@ jobs:
           echo Building in $HOME/gtk/inst
           cd osx && /bin/bash ./build_env.sh          
 
-      - name: FIX gir
-        run: |
-          cd osx && /bin/bash ./fix_gir.sh
-
       - name: Upload Environment
         uses: actions/upload-artifact@v3.1.3
         with:
