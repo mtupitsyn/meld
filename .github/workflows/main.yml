@@ -51,7 +51,7 @@ jobs:
 
   build-app:
     name: Build Application
-    runs-on: build-environment
+    runs-on: macos-latest
     needs: build-environment
     steps:
       - name: FIX gir
