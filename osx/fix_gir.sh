@@ -12,7 +12,6 @@ failure() {
 }
 trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 
-export MACOSX_DEPLOYMENT_TARGET=10.9
 export PATH=$HOME/.new_local/bin:$HOME/gtk/inst/bin:$PATH
 
 # Seems like the build system changed for introspection. We now get many

@@ -42,9 +42,12 @@ pushd . > /dev/null
 #jhbuild bootstrap
 
 export PKG_CONFIG_PATH=$HOME/gtk/inst/lib/pkgconfig:$HOME/gtk/inst/share/pkgconfig
+#export PKG_CONFIG_SYSROOT_DIR=$HOME/gtk/inst
 export XDG_DATA_DIRS=$HOME/gtk/inst/share
-jhbuild buildone libffi
+
+jhbuild buildone libffi zlib
 jhbuild buildone python3
+#PYTHON=$HOME/gtk/inst/bin/python3 PYTHON_CFLAGS=-I$HOME/gtk/inst/include/python3.11
 jhbuild buildone libxml2
 #(cd $HOME/gtk/inst/bin && touch itstool && chmod +x itstool)
 
@@ -54,19 +57,27 @@ PY_SITE_PACKAGES=$(~/gtk/inst/bin/python3 -c 'import site; print(site.getsitepac
 PYTHON=$HOME/gtk/inst/bin/python3 jhbuild build --nodeps --ignore-suggests #-s freetype-no-harfbuzz
 /usr/local/bin/pip3 install pyobjc-core pyobjc-framework-Cocoa py2app --target $PY_SITE_PACKAGES
 
+cat /Users/yousseb/gtk/inst/lib/pkgconfig/epoxy.pc | grep -v x11 > /Users/yousseb/gtk/inst/lib/pkgconfig/epoxy.pc.1
+mv /Users/yousseb/gtk/inst/lib/pkgconfig/epoxy.pc /Users/yousseb/gtk/inst/lib/pkgconfig/epoxy.pc.orig
+mv /Users/yousseb/gtk/inst/lib/pkgconfig/epoxy.pc.1 /Users/yousseb/gtk/inst/lib/pkgconfig/epoxy.pc
+
+jhbuild buildone gtksourceview3 gtk-mac-integration gtk-mac-integration-python
+
 # (cd $HOME/gtk/inst/lib && ln -s libpython3.6m.dylib libpython3.6.dylib)
 # (cd $HOME/Source/ && ([ -d Mojave-gtk-theme ] || git clone https://github.com/vinceliuice/Mojave-gtk-theme.git))
 # (cd $HOME/Source/Mojave-gtk-theme && sed -i.bak 's/cp -ur/cp -r/' install.sh && ./install.sh  --dest $HOME/gtk/inst/share/themes)
 # (cd $HOME/gtk/inst/share/themes && ln -sf Mojave-dark-solid-alt Meld-Mojave-dark)
 # (cd $HOME/gtk/inst/share/themes && ln -sf Mojave-light-solid-alt Meld-Mojave-light)
 
-pushd .
-cd $HOME/Source
-curl -OL https://download.gnome.org/sources/gtksourceview/3.24/gtksourceview-3.24.7.tar.xz
-tar xvf gtksourceview-3.24.7.tar.xz && cd gtksourceview-3.24.7
-jhbuild run ./configure --prefix $HOME/gtk/inst --enable-introspection=yes --enable-gtk-doc-html=no --with-sysroot=$HOME/gtk/inst
-jhbuild run make install -j
-popd
+# pushd .
+# cd $HOME/Source
+# GTKSRCVIEW=gtksourceview-4.8.4
+# curl -OL https://download.gnome.org/sources/gtksourceview/4.8/gtksourceview-4.8.4.tar.xz
+# tar xvf ${GTKSRCVIEW}.tar.xz 
+# mkdir -p ${GTKSRCVIEW}/build && cd ${GTKSRCVIEW}/build
+# jhbuild run meson setup --prefix=$HOME/gtk/inst --buildtype=release --optimization 3 -Dvapi=false $HOME/Source/${GTKSRCVIEW} # --Denable-introspection=yes --Denable-gtk-doc-html=no --with-sysroot=$HOME/gtk/inst
+# jhbuild run ninja install
+# popd
 
 cp settings.ini $HOME/gtk/inst/etc/gtk-3.0/
 popd
