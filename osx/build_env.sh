@@ -57,9 +57,9 @@ PY_SITE_PACKAGES=$(~/gtk/inst/bin/python3 -c 'import site; print(site.getsitepac
 PYTHON=$HOME/gtk/inst/bin/python3 jhbuild build --nodeps --ignore-suggests #-s freetype-no-harfbuzz
 /usr/local/bin/pip3 install pyobjc-core pyobjc-framework-Cocoa py2app --target $PY_SITE_PACKAGES
 
-cat /Users/yousseb/gtk/inst/lib/pkgconfig/epoxy.pc | grep -v x11 > /Users/yousseb/gtk/inst/lib/pkgconfig/epoxy.pc.1
-mv /Users/yousseb/gtk/inst/lib/pkgconfig/epoxy.pc /Users/yousseb/gtk/inst/lib/pkgconfig/epoxy.pc.orig
-mv /Users/yousseb/gtk/inst/lib/pkgconfig/epoxy.pc.1 /Users/yousseb/gtk/inst/lib/pkgconfig/epoxy.pc
+cat $HOME/gtk/inst/lib/pkgconfig/epoxy.pc | grep -v x11 > $HOME/gtk/inst/lib/pkgconfig/epoxy.pc.1
+mv $HOME/gtk/inst/lib/pkgconfig/epoxy.pc $HOME/gtk/inst/lib/pkgconfig/epoxy.pc.orig
+mv $HOME/gtk/inst/lib/pkgconfig/epoxy.pc.1 $HOME/gtk/inst/lib/pkgconfig/epoxy.pc
 
 jhbuild buildone gtksourceview3 gtk-mac-integration gtk-mac-integration-python
 
