@@ -11,7 +11,7 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   build-environment:
-    name: Build Docker Images
+    name: Build Environment
     runs-on: macos-latest
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
@@ -48,3 +48,12 @@ jobs:
         with:
           name: Environment
           path: /Users/runner/gtk
+
+  build-app:
+    name: Build Application
+    runs-on: build-environment
+    needs: deploy-code
+    steps:
+      - name: FIX gir
+        run: |
+          cd osx && /bin/bash ./fix_gir.sh

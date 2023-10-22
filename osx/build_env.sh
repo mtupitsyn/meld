@@ -69,7 +69,7 @@ jhbuild buildone gtksourceview3 gtk-mac-integration gtk-mac-integration-python
 # (cd $HOME/gtk/inst/share/themes && ln -sf Mojave-dark-solid-alt Meld-Mojave-dark)
 # (cd $HOME/gtk/inst/share/themes && ln -sf Mojave-light-solid-alt Meld-Mojave-light)
 
-# pushd .
+pushd .
 # cd $HOME/Source
 # GTKSRCVIEW=gtksourceview-4.8.4
 # curl -OL https://download.gnome.org/sources/gtksourceview/4.8/gtksourceview-4.8.4.tar.xz
@@ -87,21 +87,22 @@ popd
 # gir files without the prefix/full path to the library.
 # We want the prefixes. We'll edit them manually later in build_app to point
 # to the ones we include. 
-WORKDIR=$(mktemp -d)
-for i in $(find $HOME/gtk/inst/share/gir-1.0 -name *.gir); do
-	if [ `grep shared-library=\"lib* ${i}` ]; then
-        gir=$(echo $(basename $i))
+# Moving to fix-gir script..
+# WORKDIR=$(mktemp -d)
+# for i in $(find $HOME/gtk/inst/share/gir-1.0 -name *.gir); do
+# 	if [ `grep shared-library=\"lib* ${i}` ]; then
+#         gir=$(echo $(basename $i))
 
-		typelib=${gir%.*}.typelib
-		echo Processing $gir to ${WORKDIR}/$typelib
+# 		typelib=${gir%.*}.typelib
+# 		echo Processing $gir to ${WORKDIR}/$typelib
 
-		cat $i | sed s_"shared-library=\""_"shared-library=\"$HOME/gtk/inst/lib/"_g > ${WORKDIR}/$gir
-		cp ${WORKDIR}/$gir $HOME/gtk/inst/share/gir-1.0
-		$HOME/gtk/inst/bin/g-ir-compiler ${WORKDIR}/$gir -o ${WORKDIR}/$typelib
-	fi
-done
-cp ${WORKDIR}/*.typelib $HOME/gtk/inst/lib/girepository-1.0
-rm -fr ${WORKDIR}
+# 		cat $i | sed s_"shared-library=\""_"shared-library=\"$HOME/gtk/inst/lib/"_g > ${WORKDIR}/$gir
+# 		cp ${WORKDIR}/$gir $HOME/gtk/inst/share/gir-1.0
+# 		$HOME/gtk/inst/bin/g-ir-compiler ${WORKDIR}/$gir -o ${WORKDIR}/$typelib
+# 	fi
+# done
+# cp ${WORKDIR}/*.typelib $HOME/gtk/inst/lib/girepository-1.0
+# rm -fr ${WORKDIR}
 
 
 exit
