@@ -47,13 +47,18 @@ jobs:
         uses: actions/upload-artifact@v3.1.3
         with:
           name: Environment
-          path: /Users/runner/gtk
+          path: |
+            /Users/runner/gtk
+            /Users/runner/.new_local
 
   build-app:
     name: Build Application
     runs-on: macos-latest
     needs: build-environment
     steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
       - name: FIX gir
         run: |
           cd osx && /bin/bash ./fix_gir.sh
