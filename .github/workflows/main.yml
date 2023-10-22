@@ -52,7 +52,7 @@ jobs:
   build-app:
     name: Build Application
     runs-on: build-environment
-    needs: deploy-code
+    needs: build-environment
     steps:
       - name: FIX gir
         run: |
