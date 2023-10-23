@@ -43,7 +43,7 @@ mkdir -p                                                                        
 cp -RP "${SRC_DIR}"/{COPYING,AUTHORS}                                                      ${THEME_DIR}
 cp -RP "${SRC_DIR}"/src/index.theme                                                        ${THEME_DIR}
 
-#sed -i "s/WhiteSur/Meld-Icons/g" ${THEME_DIR}/index.theme
+gsed -i "s/WhiteSur/Meld-Icons/g" ${THEME_DIR}/index.theme
 
 mkdir -p                                                                                  ${THEME_DIR}/status
 cp -RP "${SRC_DIR}"/src/{actions,animations,apps,categories,devices,emblems,mimes,places} ${THEME_DIR}
@@ -76,17 +76,17 @@ if [[ ${color} == '-dark' ]]; then
     # fi
 
     # Change icon color for dark theme
-    sed -i "s/#363636/#dedede/g" "${THEME_DIR}"/{actions,devices,places,status}/{16,22,24}/* || true
-    sed -i "s/#363636/#dedede/g" "${THEME_DIR}"/actions/32/* || true
-    sed -i "s/#363636/#dedede/g" "${THEME_DIR}"/{actions,apps,categories,emblems,devices,mimes,places,status}/symbolic/* "" || true
+    find "${THEME_DIR}"/{actions,devices,places,status}/{16,22,24}/ -type f -exec gsed -i "s/#363636/#dedede/g" {} \;
+    find "${THEME_DIR}"/actions/32/ -type f -exec gsed -i "s/#363636/#dedede/g" {} \;
+    find "${THEME_DIR}"/{actions,apps,categories,emblems,devices,mimes,places,status}/symbolic -type f -exec gsed -i "s/#363636/#dedede/g" {} \;
 
-    cp -RP "${SRC_DIR}"/links/actions/{16,22,24,32,symbolic}                                  ${THEME_DIR}/actions
-    cp -RP "${SRC_DIR}"/links/devices/{16,22,24,symbolic}                                     ${THEME_DIR}/devices
-    cp -RP "${SRC_DIR}"/links/places/{16,22,24,symbolic}                                      ${THEME_DIR}/places
-    cp -RP "${SRC_DIR}"/links/status/{16,22,24,symbolic}                                      ${THEME_DIR}/status
-    cp -RP "${SRC_DIR}"/links/apps/symbolic                                                   ${THEME_DIR}/apps
-    cp -RP "${SRC_DIR}"/links/categories/symbolic                                             ${THEME_DIR}/categories
-    cp -RP "${SRC_DIR}"/links/mimes/symbolic                                                  ${THEME_DIR}/mimes
+    cp -RPf "${SRC_DIR}"/links/actions/{16,22,24,32,symbolic}                                  ${THEME_DIR}/actions
+    cp -RPf "${SRC_DIR}"/links/devices/{16,22,24,symbolic}                                     ${THEME_DIR}/devices
+    cp -RPf "${SRC_DIR}"/links/places/{16,22,24,symbolic}                                      ${THEME_DIR}/places
+    cp -RPf "${SRC_DIR}"/links/status/{16,22,24,symbolic}                                      ${THEME_DIR}/status
+    cp -RPf "${SRC_DIR}"/links/apps/symbolic                                                   ${THEME_DIR}/apps
+    cp -RPf "${SRC_DIR}"/links/categories/symbolic                                             ${THEME_DIR}/categories
+    cp -RPf "${SRC_DIR}"/links/mimes/symbolic                                                  ${THEME_DIR}/mimes
 
     #TODO: Those are breaking.. Later though when we have some time..
     # cd ${dest}
