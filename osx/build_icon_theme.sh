@@ -80,13 +80,13 @@ if [[ ${color} == '-dark' ]]; then
     find "${THEME_DIR}"/actions/32/ -type f -exec gsed -i "s/#363636/#dedede/g" {} \;
     find "${THEME_DIR}"/{actions,apps,categories,emblems,devices,mimes,places,status}/symbolic -type f -exec gsed -i "s/#363636/#dedede/g" {} \;
 
-    cp -cRPf "${SRC_DIR}"/links/actions/{16,22,24,32,symbolic}                                  ${THEME_DIR}/actions
-    cp -cRPf "${SRC_DIR}"/links/devices/{16,22,24,symbolic}                                     ${THEME_DIR}/devices
-    cp -cRPf "${SRC_DIR}"/links/places/{16,22,24,symbolic}                                      ${THEME_DIR}/places
-    cp -cRPf "${SRC_DIR}"/links/status/{16,22,24,symbolic}                                      ${THEME_DIR}/status
-    cp -cRPf "${SRC_DIR}"/links/apps/symbolic                                                   ${THEME_DIR}/apps
-    cp -cRPf "${SRC_DIR}"/links/categories/symbolic                                             ${THEME_DIR}/categories
-    cp -cRPf "${SRC_DIR}"/links/mimes/symbolic                                                  ${THEME_DIR}/mimes
+    #cp -cRPf "${SRC_DIR}"/links/actions/{16,22,24,32,symbolic}                                  ${THEME_DIR}/actions
+    #cp -cRPf "${SRC_DIR}"/links/devices/{16,22,24,symbolic}                                     ${THEME_DIR}/devices
+    #cp -cRPf "${SRC_DIR}"/links/places/{16,22,24,symbolic}                                      ${THEME_DIR}/places
+    #cp -cRPf "${SRC_DIR}"/links/status/{16,22,24,symbolic}                                      ${THEME_DIR}/status
+    #cp -cRPf "${SRC_DIR}"/links/apps/symbolic                                                   ${THEME_DIR}/apps
+    #cp -cRPf "${SRC_DIR}"/links/categories/symbolic                                             ${THEME_DIR}/categories
+    #cp -cRPf "${SRC_DIR}"/links/mimes/symbolic                                                  ${THEME_DIR}/mimes
 
     #TODO: Those are breaking.. Later though when we have some time..
     # cd ${dest}
