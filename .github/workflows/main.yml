@@ -69,6 +69,7 @@ jobs:
         working-directory: /
         shell: 'bash'
         run: |
+          find /Users/runner | grep environment
           tar -xzf /Users/runner/work/environment.tar.gz
           rm -f /Users/runner/work/environment.tar.gz
 
