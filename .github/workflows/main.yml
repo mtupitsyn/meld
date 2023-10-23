@@ -62,3 +62,11 @@ jobs:
       - name: FIX gir
         run: |
           cd osx && /bin/bash ./fix_gir.sh
+
+      - name: Install Icon Theme
+        run: |
+          cd osx && /bin/bash ./build_icon_theme.sh
+
+      - name: Install GTK Theme
+        run: |
+          cd osx && /bin/bash ./build_gtk_theme.sh
