@@ -70,8 +70,10 @@ jobs:
         shell: 'bash'
         run: |
           pwd
+          mkdir -p $HOME/Source          
           tar -xzf /Users/runner/work/meld/meld/Environment/environment.tar.gz
           rm -f /Users/runner/work/meld/meld/Environment/environment.tar.gz
+          ls $HOME/gtk
 
       - name: FIX gir
         run: |
