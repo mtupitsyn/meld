@@ -47,14 +47,14 @@ jobs:
         working-directory: /
         shell: 'bash'
         run: |
-          tar -czf $GITHUB_WORKSPACE/environment.tar.gz $HOME/gtk $HOME/.new_local
+          tar -czf /Users/runner/work/environment.tar.gz $HOME/gtk $HOME/.new_local
 
       - name: Upload Environment
         uses: actions/upload-artifact@v3.1.3
         with:
           name: Environment
           path: |
-            $GITHUB_WORKSPACE/environment.tar.gz
+            /Users/runner/work/environment.tar.gz
 
   build-app:
     name: Build Application
@@ -69,8 +69,8 @@ jobs:
         working-directory: /
         shell: 'bash'
         run: |
-          tar -xzf $GITHUB_WORKSPACE/environment.tar.gz
-          rm -f $GITHUB_WORKSPACE/environment.tar.gz
+          tar -xzf /Users/runner/work/environment.tar.gz
+          rm -f /Users/runner/work/environment.tar.gz
 
       - name: FIX gir
         run: |
