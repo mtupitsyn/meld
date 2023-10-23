@@ -66,10 +66,10 @@ jobs:
       - uses: actions/download-artifact@v2.1.1
 
       - name: Extract Environment
-        working-directory: /
         shell: 'bash'
         run: |
-          find /Users/runner | grep environment
+          pwd
+          ls /Users/runner/work/meld/meld/Environment
           tar -xzf /Users/runner/work/environment.tar.gz
           rm -f /Users/runner/work/environment.tar.gz
 
