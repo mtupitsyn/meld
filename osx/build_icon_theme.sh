@@ -58,14 +58,14 @@ fi
 if [[ ${color} == '-dark' ]]; then
     mkdir -p                                                                              ${THEME_DIR}/{apps,categories,emblems,devices,mimes,places,status}
 
-    cp -RP "${SRC_DIR}"/src/actions                                                       ${THEME_DIR}
-    cp -RP "${SRC_DIR}"/src/apps/symbolic                                                 ${THEME_DIR}/apps
-    cp -RP "${SRC_DIR}"/src/categories/symbolic                                           ${THEME_DIR}/categories
-    cp -RP "${SRC_DIR}"/src/emblems/symbolic                                              ${THEME_DIR}/emblems
-    cp -RP "${SRC_DIR}"/src/mimes/symbolic                                                ${THEME_DIR}/mimes
-    cp -RP "${SRC_DIR}"/src/devices/{16,22,24,symbolic}                                   ${THEME_DIR}/devices
-    cp -RP "${SRC_DIR}"/src/places/{16,22,24,symbolic}                                    ${THEME_DIR}/places
-    cp -RP "${SRC_DIR}"/src/status/{16,22,24,symbolic}                                    ${THEME_DIR}/status
+    cp -cRP "${SRC_DIR}"/src/actions                                                       ${THEME_DIR}
+    cp -cRP "${SRC_DIR}"/src/apps/symbolic                                                 ${THEME_DIR}/apps
+    cp -cRP "${SRC_DIR}"/src/categories/symbolic                                           ${THEME_DIR}/categories
+    cp -cRP "${SRC_DIR}"/src/emblems/symbolic                                              ${THEME_DIR}/emblems
+    cp -cRP "${SRC_DIR}"/src/mimes/symbolic                                                ${THEME_DIR}/mimes
+    cp -cRP "${SRC_DIR}"/src/devices/{16,22,24,symbolic}                                   ${THEME_DIR}/devices
+    cp -cRP "${SRC_DIR}"/src/places/{16,22,24,symbolic}                                    ${THEME_DIR}/places
+    cp -cRP "${SRC_DIR}"/src/status/{16,22,24,symbolic}                                    ${THEME_DIR}/status
 
     if [[ ${bold:-} == 'true' ]]; then
         cp -RP "${SRC_DIR}"/bold/*                                                              ${THEME_DIR}
@@ -80,13 +80,13 @@ if [[ ${color} == '-dark' ]]; then
     find "${THEME_DIR}"/actions/32/ -type f -exec gsed -i "s/#363636/#dedede/g" {} \;
     find "${THEME_DIR}"/{actions,apps,categories,emblems,devices,mimes,places,status}/symbolic -type f -exec gsed -i "s/#363636/#dedede/g" {} \;
 
-    cp -RPf "${SRC_DIR}"/links/actions/{16,22,24,32,symbolic}                                  ${THEME_DIR}/actions
-    cp -RPf "${SRC_DIR}"/links/devices/{16,22,24,symbolic}                                     ${THEME_DIR}/devices
-    cp -RPf "${SRC_DIR}"/links/places/{16,22,24,symbolic}                                      ${THEME_DIR}/places
-    cp -RPf "${SRC_DIR}"/links/status/{16,22,24,symbolic}                                      ${THEME_DIR}/status
-    cp -RPf "${SRC_DIR}"/links/apps/symbolic                                                   ${THEME_DIR}/apps
-    cp -RPf "${SRC_DIR}"/links/categories/symbolic                                             ${THEME_DIR}/categories
-    cp -RPf "${SRC_DIR}"/links/mimes/symbolic                                                  ${THEME_DIR}/mimes
+    cp -cRPf "${SRC_DIR}"/links/actions/{16,22,24,32,symbolic}                                  ${THEME_DIR}/actions
+    cp -cRPf "${SRC_DIR}"/links/devices/{16,22,24,symbolic}                                     ${THEME_DIR}/devices
+    cp -cRPf "${SRC_DIR}"/links/places/{16,22,24,symbolic}                                      ${THEME_DIR}/places
+    cp -cRPf "${SRC_DIR}"/links/status/{16,22,24,symbolic}                                      ${THEME_DIR}/status
+    cp -cRPf "${SRC_DIR}"/links/apps/symbolic                                                   ${THEME_DIR}/apps
+    cp -cRPf "${SRC_DIR}"/links/categories/symbolic                                             ${THEME_DIR}/categories
+    cp -cRPf "${SRC_DIR}"/links/mimes/symbolic                                                  ${THEME_DIR}/mimes
 
     #TODO: Those are breaking.. Later though when we have some time..
     # cd ${dest}
