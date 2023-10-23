@@ -25,7 +25,7 @@ jobs:
       - name: Setup Homebrew & Various Tools
         run: |
           #/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          brew install git ccache autoconf libtool automake pkg-config sassc optipng python bison flex cmake itstool
+          brew install git ccache autoconf libtool automake pkg-config sassc optipng python bison flex cmake itstool gnu-sed
 
       - name: Setup JHbuild
         run: |
@@ -63,12 +63,13 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v2.1.1
+      - uses: actions/download-artifact@v3
 
       - name: Extract Environment
         working-directory: /
         shell: 'bash'
         run: |
+          brew install git ccache autoconf libtool automake pkg-config sassc optipng python bison flex cmake itstool gnu-sed
           pwd
           mkdir -p $HOME/Source          
           tar -xzf /Users/runner/work/meld/meld/Environment/environment.tar.gz
@@ -81,6 +82,7 @@ jobs:
 
       - name: Install Icon Theme
         run: |
+          alias sed=gsed
           cd osx && /bin/bash ./build_icon_theme.sh
 
       - name: Install GTK Theme
