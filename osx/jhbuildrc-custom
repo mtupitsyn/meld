@@ -12,7 +12,7 @@ from os import path
 #prefix = "/tmp/meldroot"
 checkoutroot = os.path.expanduser("~/Source/gtk")
 #setup_sdk(target='native', sdk_version=None, architectures=["x86_64"])
-setup_sdk()
+#setup_sdk()
 setup_release()
 os.environ['CONFIG_SHELL'] = '/bin/bash'
 _gtk_osx_use_jhbuild_python = False
