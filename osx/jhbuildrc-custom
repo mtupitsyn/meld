@@ -6,22 +6,45 @@ print("Using Meld for OSX customization")
 import os.path
 from os import path
 
+# Reference: https://gnome.pages.gitlab.gnome.org/jhbuild/config-reference.html
+
+
 #prefix = "/tmp/meldroot"
 checkoutroot = os.path.expanduser("~/Source/gtk")
 #setup_sdk(target='native', sdk_version=None, architectures=["x86_64"])
+setup_sdk()
+setup_release()
+os.environ['CONFIG_SHELL'] = '/bin/bash'
 _gtk_osx_use_jhbuild_python = False
 
 if path.exists("/usr/local/bin/ccache"):
- print("Using ccache")
- os.environ["CC"] = "/usr/local/bin/ccache /usr/bin/clang"
- os.environ["CXX"] = "/usr/local/bin/ccache /usr/bin/clang++"
+  print("Using ccache")
+  os.environ["CC"] = "/usr/local/bin/ccache /usr/bin/clang"
+  os.environ["CXX"] = "/usr/local/bin/ccache /usr/bin/clang++"
 else:
- print("Not using ccache")
- os.environ["CC"] = "/usr/bin/clang"
- os.environ["CXX"] = "/usr/bin/clang++"
+  print("Not using ccache")
+  os.environ["CC"] = "/usr/bin/clang"
+  os.environ["CXX"] = "/usr/bin/clang++"
 
-environ_prepend('CXXFLAGS', "-std=c++11 -stdlib=libc++")
+environ_prepend('CXXFLAGS', '-std=c++11 -stdlib=libc++')
 
+# From bootstrap (we only want gettext, xz)
+skip.append('m4')
+skip.append('m4-common')
+skip.append('libxml2')
+skip.append("cmake")
+skip.append("autoconf-archive")
+skip.append("libtool")
+skip.append("autoconf")
+skip.append("automake")
+skip.append("pkg-config")
+skip.append("bison")
+skip.append("flex")
+skip.append("gtk-osx-docbook")
+skip.append("gnumake")
+skip.append("intltool")
+
+# From modulesets
 skip.append("libiconv")
 skip.append("icu")
 skip.append("cups")
@@ -29,8 +52,7 @@ skip.append("gnome-themes-standard")
 skip.append("berkeleydb")
 skip.append("berkeleydb-nonsrctree")
 skip.append("gnome-user-docs")
-skip.append("cmake")
-skip.append("openssl")  # We'll install it manually
+skip.append("openssl")
 skip.append("python")
 skip.append("python3")  # We'll install it manually
 skip.append("itstool")
@@ -43,8 +65,8 @@ skip.append('mozilla')
 skip.append('pulseaudio')
 skip.append('gtk-mac-integration')
 skip.append('gtk-mac-integration-python')
-#skip.append('adwaita-icon-theme')
-skip.append('gtk-4')  # gtksourceview4 attempts to grab gtk-4
+skip.append('adwaita-icon-theme')
+skip.append('gtk-4')  # only for gtksourceview4 
 
 #sourceview4
 #  graphene
@@ -78,35 +100,36 @@ modules = [
   "adwaita-icon-theme"
 ]
 
-global autogenargs
-autogenargs = autogenargs + ' --disable-documentation --disable-docs --enable-introspection --enable-gtk-doc=no --enable-gtk-doc-html=no --enable-gtk-doc-pdf=no'
-# autogenargs += ' --cache-file=' + checkoutroot + '/autoconf-cache '
+# global autogenargs
+# autogenargs = autogenargs + ' --disable-documentation --disable-docs --enable-introspection --enable-gtk-doc=no --enable-gtk-doc-html=no --enable-gtk-doc-pdf=no'
 
 # Temporarily until modulesets are fixed...
 branches["openssl"] = "https://ftp.openssl.org/source/old/1.1.1/openssl-1.1.1c.tar.gz"
 
-module_autogenargs['gettext-tools'] = 'CFLAGS=-O'
-module_autogenargs['gettext'] = '--disable-rpath  --disable-option-checking --disable-nls --enable-relocatable --disable-java --disable-native-java --disable-curses --without-emacs --without-bzip2 CFLAGS=-O2'
-module_autogenargs['yelp'] = '--disable-Werror'
-module_autogenargs['zlib']= ''# + autogenargs
-module_autogenargs['librsvg'] = '--disable-Bsymbolic --enable-pixbuf-loader --enable-shared=yes --enable-static=yes ' + autogenargs
-module_autogenargs['cairo'] = '--disable-full-testing --disable-trace --enable-ft --enable-fc --enable-quartz-image --enable-quartz-font --enable-quartz  --enable-png --enable-svg --enable-tee --enable-xml --enable-gobject --enable-pthread --disable-valgrind --disable-gtk-doc  --disable-gtk-doc-html --disable-dependency-tracking ' + autogenargs
-module_autogenargs['gobject-introspection']= '--with-cairo=yes ' + autogenargs
-module_autogenargs['tango-icon-theme']='--disable-nls --disable-icon-framing ' + autogenargs
-#module_autogenargs['gtk+-3.0'] = '--enable-quartz-backend --enable-quartz-relocation --disable-Bsymbolic --disable-cloudprint --with-included-immodules=am-et,cedilla,cyrillic-translit,inuktitut,ipa,multipress,thai,ti-er,ti-et,viqr --disable-modules --disable-rpath --disable-cups --disable-papi --disable-cloudprint --disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --enable-debug=no ' + autogenargs  #--disable-schemas-compile ?
-module_autogenargs['harfbuzz'] = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext --without-icu ' + autogenargs
-module_autogenargs['root-harfbuzz'] = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext --without-icu ' + autogenargs
-module_autogenargs['fontconfig'] = '--with-cache-dir="~/Library/Caches/org.gnome.meld.fontconfig" --with-default-fonts=/System/Library/Fonts --with-add-fonts=/Library/Fonts,/Network/Library/Fonts,/System/Library/Fonts ' + autogenargs
-module_autogenargs['python3'] = '--enable-optimizations --with-system-expat --disable-ipv6 --with-ensurepip=yes --with-system-expat ' 
-module_autogenargs['libxml2'] = '--with-zlib --enable-ipv6=no ' 
+module_extra_env['gettext-tools'] = 'CC=/usr/bin/clang CFLAGS=-O LDFLAGS=-L/usr/lib'
+module_autogenargs['gettext']     = ' --disable-rpath --enable-relocatable --disable-c++ --disable-java --disable-native-java --disable-curses --without-emacs --without-bzip2 --disable-nls '
 
-module_mesonargs['atk']        = '--buildtype release --optimization 3 -Ddocs=false -Dintrospection=true'
-module_mesonargs['gdk-pixbuf'] = '--buildtype release --optimization 3 -Dbuiltin_loaders=all -Drelocatable=true -Ddocs=false'
-module_mesonargs['glib']       = '--buildtype release --optimization 3 -Dbsymbolic_functions=false -Dgtk_doc=false -Db_bitcode=true -Db_ndebug=true'
-module_mesonargs['pango']      = '--buildtype release --optimization 3 -Dintrospection=enabled'
-module_mesonargs['pygobject3'] = '--buildtype release --optimization 3 -Dtests=false  -Dpycairo=enabled'
-module_mesonargs['gtk+-3.0']   = '--buildtype release --optimization 3 -Dx11_backend=false -Dwayland_backend=false -Dbroadway_backend=false -Dwin32_backend=false -Dquartz_backend=true -Dxinerama=no -Dcloudproviders=false -Dprofiler=false -Dtracker3=false -Dcolord=no -Dgtk_doc=false -Dman=false -Dintrospection=true -Ddemos=false -Dexamples=false -Dtests=false -Dinstalled_tests=false -Dbuiltin_immodules=yes'
-module_mesonargs['gtksourceview4'] = '--buildtype release --optimization 3  -Dvapi=false'
+#module_autogenargs['zlib']    = ''
+module_autogenargs['yelp']     = '--disable-Werror'
+module_autogenargs['librsvg']  = '--disable-Bsymbolic --enable-pixbuf-loader --enable-shared=yes --enable-static=yes '# + autogenargs
+module_autogenargs['gobject-introspection'] = '--with-cairo=yes '# + autogenargs
+module_autogenargs['tango-icon-theme']      ='--disable-nls --disable-icon-framing '# + autogenargs
+module_autogenargs['harfbuzz']      = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext --without-icu '# + autogenargs
+module_autogenargs['root-harfbuzz'] = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext --without-icu '# + autogenargs
+module_autogenargs['fontconfig']     = '--with-cache-dir="~/Library/Caches/org.gnome.meld.fontconfig" --with-default-fonts=/System/Library/Fonts --with-add-fonts=/Library/Fonts,/Network/Library/Fonts,/System/Library/Fonts '# + autogenargs
+module_autogenargs['python3']  = '--enable-optimizations --disable-ipv6 --with-ensurepip=yes --with-system-expat --without-readline --with-pkg-config --disable-test-modules ' 
+module_extra_env['python3'] = 'LIBS=""'
+
+module_autogenargs['libxml2']  = '--with-zlib --enable-ipv6=no ' 
+module_autogenargs['cairo']    = '--disable-full-testing --disable-trace --enable-ft --enable-fc --enable-quartz-image --enable-quartz-font --enable-quartz  --enable-png --enable-svg --enable-tee --enable-xml --enable-gobject --enable-pthread --disable-valgrind --disable-gtk-doc  --disable-gtk-doc-html --disable-dependency-tracking '# + autogenargs
+
+module_mesonargs['atk']            = '--buildtype release --optimization 3 -Ddocs=false -Dintrospection=true'
+module_mesonargs['gdk-pixbuf']     = '--buildtype release --optimization 3 -Dbuiltin_loaders=all -Drelocatable=true -Ddocs=false'
+module_mesonargs['glib']           = '--buildtype release --optimization 3 -Dbsymbolic_functions=false -Dgtk_doc=false -Db_bitcode=true -Db_ndebug=true'
+module_mesonargs['pango']          = '--buildtype release --optimization 3 -Dintrospection=enabled'
+module_mesonargs['pygobject3']     = '--buildtype release --optimization 3 -Dtests=false  -Dpycairo=enabled'
+module_mesonargs['gtksourceview4'] = '--buildtype release --optimization 3 -Dvapi=false'
+module_mesonargs['gtk+-3.0']       = '--buildtype release --optimization 3 -Dx11_backend=false -Dwayland_backend=false -Dbroadway_backend=false -Dwin32_backend=false -Dquartz_backend=true -Dxinerama=no -Dcloudproviders=false -Dprofiler=false -Dtracker3=false -Dcolord=no -Dgtk_doc=false -Dman=false -Dintrospection=true -Ddemos=false -Dexamples=false -Dtests=false -Dinstalled_tests=false -Dbuiltin_immodules=yes'
 
 
 # Can be usefull when tweaking modulesets to avoid jhbuild overwriting:
@@ -115,3 +138,6 @@ module_mesonargs['gtksourceview4'] = '--buildtype release --optimization 3  -Dva
 # quiet_mode=True
 # Don't respect suggests
 ignore_suggests = True
+exit_on_error = True # For CI
+interact = False # For CI
+shallow_clone = True

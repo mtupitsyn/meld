@@ -69,7 +69,7 @@ jobs:
         working-directory: /
         shell: 'bash'
         run: |
-          brew install git ccache autoconf libtool automake pkg-config sassc optipng python bison flex cmake itstool gnu-sed
+          brew install git ccache autoconf libtool automake pkg-config sassc optipng python bison flex cmake itstool gnu-sed intltool
           pwd
           mkdir -p $HOME/Source          
           tar -xzf /Users/runner/work/meld/meld/Environment/environment.tar.gz
@@ -88,3 +88,7 @@ jobs:
       - name: Install GTK Theme
         run: |
           cd osx && /bin/bash ./build_gtk_theme.sh
+
+      - name: Package
+        run: |
+          ~/.new_local/bin/jhbuild run osx/build_app.sh

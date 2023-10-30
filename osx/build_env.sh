@@ -30,22 +30,16 @@ ln -sf /usr/local/opt/bison/bin/bison ~/gtk/inst/bin
 ln -sf /usr/local/bin/itstool ~/gtk/inst/bin
 ln -sf /usr/local/bin/xz ~/gtk/inst/bin
 
-#brew install python3 ccache
-#brew tap homebrew/cask
-#brew cask install inkscape
-#brew install sassc
-#brew install optipng
-#brew install imagemagick
-#brew install librsvg
-
 pushd . > /dev/null
-#jhbuild bootstrap
 
 export PKG_CONFIG_PATH=$HOME/gtk/inst/lib/pkgconfig:$HOME/gtk/inst/share/pkgconfig
-#export PKG_CONFIG_SYSROOT_DIR=$HOME/gtk/inst
+export PKG_CONFIG_LIBDIR==$HOME/gtk/inst/lib/pkgconfig
 export XDG_DATA_DIRS=$HOME/gtk/inst/share
 
 jhbuild buildone libffi zlib
+
+#jhbuild bootstrap  || true
+
 jhbuild buildone python3
 #PYTHON=$HOME/gtk/inst/bin/python3 PYTHON_CFLAGS=-I$HOME/gtk/inst/include/python3.11
 jhbuild buildone libxml2
