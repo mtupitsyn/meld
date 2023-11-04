@@ -36,11 +36,71 @@ export PKG_CONFIG_PATH=$HOME/gtk/inst/lib/pkgconfig:$HOME/gtk/inst/share/pkgconf
 export PKG_CONFIG_LIBDIR==$HOME/gtk/inst/lib/pkgconfig
 export XDG_DATA_DIRS=$HOME/gtk/inst/share
 
-jhbuild buildone libffi zlib
+[ -d $HOME/gtk/inst/lib/gettext ] || \
+(
+	cd $HOME/Source
+	rm -fr libiconv-1.17 libiconv-1.17.tar.gz || true
+	curl -OL https://ftp.gnu.org/gnu/libiconv/libiconv-1.17.tar.gz
+    tar xf libiconv-1.17.tar.gz
+	cd libiconv-1.17
+	jhbuild run ./configure	--disable-debug \
+			   --disable-dependency-tracking \
+			   --enable-extra-encodings \
+			   --enable-static \
+			   --disable-shared \
+			   --prefix=$HOME/gtk/inst
+	jhbuild run make -j8
+	jhbuild run make install
 
-#jhbuild bootstrap  || true
+	cd $HOME/Source/
+	rm -fr gettext-0.22.3 gettext-0.22.3.tar.xz || true
+	curl -OL https://ftp.gnu.org/gnu/gettext/gettext-0.22.3.tar.xz	
+	tar xf gettext-0.22.3.tar.xz
+	cd gettext-0.22.3
+	jhbuild run ./configure --without-emacs \
+			  --disable-silent-rules \
+			  --disable-java \
+			  --disable-native-java \
+			  --disable-libasprintf \
+			  --disable-csharp \
+			  --with-included-glib \
+			  --with-included-libcroco \
+			  --with-included-gettext \
+			  --with-included-libunistring \
+			  --without-git \
+			  --without-cvs \
+			  --without-xz \
+			  --prefix=$HOME/gtk/inst
+	jhbuild run make -j8
+	jhbuild run make install
+
+	cd $HOME/Source/libiconv-1.17
+)
+
+# jhbuild bootstrap
+jhbuild buildone libffi zlib
+# For later - perhaps make python use this library instead. 
+# (cd $HOME/Source/ && rm -fr tinygettext || true)
+# (cd $HOME/Source/ && git clone https://github.com/tinygettext/tinygettext)
+# (cd $HOME/Source/tinygettext/external && rm -fr tinycmmc)
+# (cd $HOME/Source/tinygettext/external && git clone https://github.com/Grumbel/tinycmmc)
+# (cd $HOME/Source/tinygettext && mkdir -p build && cd build && cmake .. && make -j8 && cmake --install . --prefix $HOME/gtk/inst)
+
+# For now: stub gettext
+# (
+#   cd $HOME/Source/ 
+#     rm -fr gettext-tiny || true
+#     git clone https://github.com/sabotage-linux/gettext-tiny
+#   cd $HOME/Source/gettext-tiny
+#     #gsed -i 's=/usr/local=/=g' Makefile;
+#     make LIBINTL=NOOP DESTDIR=$HOME/gtk/inst prefix=/ install 
+# 	#DESTDIR=$HOME/gtk/inst make install
+# )
 
 jhbuild buildone python3
+
+
+
 #PYTHON=$HOME/gtk/inst/bin/python3 PYTHON_CFLAGS=-I$HOME/gtk/inst/include/python3.11
 jhbuild buildone libxml2
 #(cd $HOME/gtk/inst/bin && touch itstool && chmod +x itstool)
@@ -48,7 +108,12 @@ jhbuild buildone libxml2
 PY_SITE_PACKAGES=$(~/gtk/inst/bin/python3 -c 'import site; print(site.getsitepackages()[0], end="")')
 /usr/local/bin/pip3 install six pygments --target $PY_SITE_PACKAGES
 
-PYTHON=$HOME/gtk/inst/bin/python3 jhbuild build --nodeps --ignore-suggests #-s freetype-no-harfbuzz
+# Build all the way up to freetype, then fix its pkg-config
+PYTHON=$HOME/gtk/inst/bin/python3 jhbuild build freetype
+gsed -i '/^Requires.private.*/d' $HOME/gtk/inst/lib/pkgconfig/freetype2.pc
+
+# Continue
+PYTHON=$HOME/gtk/inst/bin/python3 jhbuild build #-s freetype-no-harfbuzz
 /usr/local/bin/pip3 install pyobjc-core pyobjc-framework-Cocoa py2app --target $PY_SITE_PACKAGES
 
 cat $HOME/gtk/inst/lib/pkgconfig/epoxy.pc | grep -v x11 > $HOME/gtk/inst/lib/pkgconfig/epoxy.pc.1

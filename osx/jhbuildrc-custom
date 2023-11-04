@@ -11,11 +11,10 @@ from os import path
 
 #prefix = "/tmp/meldroot"
 checkoutroot = os.path.expanduser("~/Source/gtk")
-#setup_sdk(target='native', sdk_version=None, architectures=["x86_64"])
-#setup_sdk()
+setup_sdk()
 setup_release()
 os.environ['CONFIG_SHELL'] = '/bin/bash'
-_gtk_osx_use_jhbuild_python = False
+_gtk_osx_use_jhbuild_python = True
 
 if path.exists("/usr/local/bin/ccache"):
   print("Using ccache")
@@ -28,24 +27,8 @@ else:
 
 environ_prepend('CXXFLAGS', '-std=c++11 -stdlib=libc++')
 
-# From bootstrap (we only want gettext, xz)
-skip.append('m4')
-skip.append('m4-common')
-skip.append('libxml2')
-skip.append("cmake")
-skip.append("autoconf-archive")
-skip.append("libtool")
-skip.append("autoconf")
-skip.append("automake")
-skip.append("pkg-config")
-skip.append("bison")
-skip.append("flex")
-skip.append("gtk-osx-docbook")
-skip.append("gnumake")
-skip.append("intltool")
 
 # From modulesets
-skip.append("libiconv")
 skip.append("icu")
 skip.append("cups")
 skip.append("gnome-themes-standard")
@@ -56,6 +39,7 @@ skip.append("openssl")
 skip.append("python")
 skip.append("python3")  # We'll install it manually
 skip.append("itstool")
+skip.append("libtiff")
 skip.append("libxslt")
 skip.append("yelp-xsl")
 skip.append("yelp-tools")
@@ -63,8 +47,8 @@ skip.append("pygobject")
 skip.append("xorg-util-macros")
 skip.append('mozilla')
 skip.append('pulseaudio')
-skip.append('gtk-mac-integration')
-skip.append('gtk-mac-integration-python')
+#skip.append('gtk-mac-integration')
+#skip.append('gtk-mac-integration-python')
 skip.append('adwaita-icon-theme')
 skip.append('gtk-4')  # only for gtksourceview4 
 
@@ -86,7 +70,7 @@ skip.append('gtk-4')  # only for gtksourceview4
 modules = [
   "zlib", 
   "libjpeg", 
-  "libtiff", 
+  #"libtiff", 
   "libpng",
   "glib",
   "fribidi",
@@ -106,8 +90,8 @@ modules = [
 # Temporarily until modulesets are fixed...
 branches["openssl"] = "https://ftp.openssl.org/source/old/1.1.1/openssl-1.1.1c.tar.gz"
 
-module_extra_env['gettext-tools'] = 'CC=/usr/bin/clang CFLAGS=-O LDFLAGS=-L/usr/lib'
-module_autogenargs['gettext']     = ' --disable-rpath --enable-relocatable --disable-c++ --disable-java --disable-native-java --disable-curses --without-emacs --without-bzip2 --disable-nls '
+#module_extra_env['gettext-tools'] = 'CC=/usr/bin/clang CFLAGS=-O LDFLAGS=-L/usr/lib'
+#module_autogenargs['gettext']     = ' --disable-rpath --enable-relocatable --disable-c++ --disable-java --disable-native-java --disable-curses --without-emacs --without-bzip2'
 
 #module_autogenargs['zlib']    = ''
 module_autogenargs['yelp']     = '--disable-Werror'
@@ -116,9 +100,8 @@ module_autogenargs['gobject-introspection'] = '--with-cairo=yes '# + autogenargs
 module_autogenargs['tango-icon-theme']      ='--disable-nls --disable-icon-framing '# + autogenargs
 module_autogenargs['harfbuzz']      = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext --without-icu '# + autogenargs
 module_autogenargs['root-harfbuzz'] = '--disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf --with-coretext --without-icu '# + autogenargs
-module_autogenargs['fontconfig']     = '--with-cache-dir="~/Library/Caches/org.gnome.meld.fontconfig" --with-default-fonts=/System/Library/Fonts --with-add-fonts=/Library/Fonts,/Network/Library/Fonts,/System/Library/Fonts '# + autogenargs
-module_autogenargs['python3']  = '--enable-optimizations --disable-ipv6 --with-ensurepip=yes --with-system-expat --without-readline --with-pkg-config --disable-test-modules ' 
-module_extra_env['python3'] = 'LIBS=""'
+module_autogenargs['fontconfig']     = '--with-cache-dir="~/Library/Caches/org.gnome.meld.fontconfig" --with-default-fonts=/System/Library/Fonts --with-add-fonts=/Library/Fonts,/Network/Library/Fonts,/System/Library/Fonts --disable-cache-build --disable-docs --disable-dependency-tracking'
+#module_autogenargs['python3']  = '--enable-optimizations --disable-ipv6 --with-ensurepip=yes --with-system-expat --without-readline --with-pkg-config --disable-test-modules ' 
 
 module_autogenargs['libxml2']  = '--with-zlib --enable-ipv6=no ' 
 module_autogenargs['cairo']    = '--disable-full-testing --disable-trace --enable-ft --enable-fc --enable-quartz-image --enable-quartz-font --enable-quartz  --enable-png --enable-svg --enable-tee --enable-xml --enable-gobject --enable-pthread --disable-valgrind --disable-gtk-doc  --disable-gtk-doc-html --disable-dependency-tracking '# + autogenargs
@@ -137,7 +120,7 @@ module_mesonargs['gtk+-3.0']       = '--buildtype release --optimization 3 -Dx11
 # nobuild=True # Download only
 # quiet_mode=True
 # Don't respect suggests
-ignore_suggests = True
-exit_on_error = True # For CI
-interact = False # For CI
+#ignore_suggests = True
+#exit_on_error = True # For CI
+#interact = False # For CI
 shallow_clone = True
