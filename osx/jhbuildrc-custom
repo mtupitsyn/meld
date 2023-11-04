@@ -121,6 +121,6 @@ module_mesonargs['gtk+-3.0']       = '--buildtype release --optimization 3 -Dx11
 # quiet_mode=True
 # Don't respect suggests
 #ignore_suggests = True
-#exit_on_error = True # For CI
-#interact = False # For CI
+exit_on_error = True # For CI
+interact = False # For CI
 shallow_clone = True
