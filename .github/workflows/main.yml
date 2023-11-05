@@ -32,6 +32,14 @@ jobs:
           ln -sf $PWD/osx/jhbuildrc-custom $HOME/.jhbuildrc-custom
           /bin/bash -c "$(curl -fsSL https://gitlab.gnome.org/GNOME/gtk-osx/raw/master/gtk-osx-setup.sh)"
 
+      # Cache downloaded sources. This shouldn't really depend on the jhbuildrc-custom
+      # TODO: Figure out a better cache key for sources.
+      - uses: actions/cache@v3
+        with:
+          path: |
+            /Users/runner/Sources
+          key: ${{ hashFiles('osx/jhbuildrc-custom') }}
+
       - uses: actions/cache@v3
         with:
           path: |
