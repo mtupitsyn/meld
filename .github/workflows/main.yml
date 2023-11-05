@@ -111,4 +111,4 @@ jobs:
         with:
           name: Package
           path: |
-            /Users/runner/work/meld/meld/meldmerge.dmg
+            osx/Archives/meldmerge.dmg
