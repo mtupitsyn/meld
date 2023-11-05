@@ -22,6 +22,7 @@ INSTROOT="$HOME/gtk/inst/"
 CODE_SIGN_ID=""
 INSTALLER_CODE_SIGN_ID=""
 
+
 # TODO: Move this to build_env.sh
 #icon_sizes=( "16" "22" "24" "32" "48" "64" "72" "96" "128" "256" "512"  )
 #for icon_size in ${icon_sizes[@]}; do
@@ -30,29 +31,24 @@ INSTALLER_CODE_SIGN_ID=""
 #    -o ${INSTROOT}/share/icons/hicolor/${icon_size}x${icon_size}/apps/org.gnome.Meld.png
 #done;
 #(cd ${INSTROOT}/share/icons/hicolor/ && gtk-update-icon-cache -fqt .)
+# intltool
 
 cp meld/conf.py.in meld/conf.py.in.orig
 cp osx/conf.py meld/conf.py
 
-python3 -c "import sys; print('\n'.join(sys.path))"
+${INSTROOT}/bin/python3 -c "import sys; print('\n'.join(sys.path))"
 
 glib-compile-schemas data
-python3 setup_py2app.py build
-python3 setup_py2app.py py2app --use-faulthandler
+${INSTROOT}/bin/python3 setup_py2app.py build
+${INSTROOT}/bin/python3 setup_py2app.py py2app --use-faulthandler
 
 mv meld/conf.py.in.orig meld/conf.py.in
 rm meld/conf.py
 
-# py2app copies all Python framework to target..
-# too busy to figure out how to solve this at the moment. Let's just 
-# delete the files after they've been copied.
-# rm -fr $FRAMEWORKS/Python.framework
-
 # icon themes
-rsync -r -t --ignore-existing ${INSTROOT}/share/icons/Adwaita ${RES}/share/icons
+rsync -r -t --ignore-existing ${INSTROOT}/share/icons/Meld-WhiteSur-Icons ${RES}/share/icons
 rsync -r -t --ignore-existing ${INSTROOT}/share/icons/hicolor ${RES}/share/icons
-rsync -r -t --ignore-existing ${INSTROOT}/share/icons/Os-Catalina-icons ${RES}/share/icons
-(cd ${RES}/share/icons && ln -sf Os-Catalina-icons MeldIcons)
+(cd ${RES}/share/icons && ln -sf Meld-WhiteSur-Icons MeldIcons)
 
 # glib schemas
 rsync -r -t  $INSTROOT/share/glib-2.0/schemas $RES/share/glib-2.0
@@ -74,10 +70,11 @@ gdk-pixbuf-query-loaders  | sed s=\".*/lib/gdk-pixbuf-2.0=\"@executable_path/\.\
 mkdir -p $RES/share/themes
 rsync -r -t $INSTROOT/share/themes/Default/ $RES/share/themes/Default
 rsync -r -t $INSTROOT/share/themes/Mac/ $RES/share/themes/Mac
+rsync -r -t $INSTROOT/share/themes/WhiteSur-Dark-solid/ $RES/share/themes/WhiteSur-Dark-solid
+rsync -r -t $INSTROOT/share/themes/WhiteSur-Light-solid/ $RES/share/themes/WhiteSur-Light-solid
 rsync -r -t $INSTROOT/share/gtksourceview-4 $RES/share
-mkdir -p $RES/share/themes/Meld-Os-Catalina-gtk/gtk-3.0
-rsync -r -t --ignore-existing $INSTROOT/share/themes/Meld-Os-Catalina-gtk/gtk-3.0 $RES/share/themes/Meld-Os-Catalina-gtk
-cp $INSTROOT/share/themes/Mac/gtk-3.0/gtk-keys.css $RES/share/themes/Meld-Os-Catalina-gtk/gtk-3.0/gtk-keys.css
+cp $INSTROOT/share/themes/Mac/gtk-3.0/gtk-keys.css $RES/share/themes/WhiteSur-Light-solid/gtk-3.0/gtk-keys.css
+cp $INSTROOT/share/themes/Mac/gtk-3.0/gtk-keys.css $RES/share/themes/WhiteSur-Dark-solid/gtk-3.0/gtk-keys.css
 
 # meld specific resources
 mkdir -p $RES/share/meld
@@ -99,7 +96,7 @@ rsync -r -t data/icons/* $RES/share/icons
 #   rm -fr ${RES}/share/icons/Adwaita/${icon_size}x${icon_size}/categories/ || true
 #   rm -fr ${RES}/share/icons/Adwaita/${icon_size}x${icon_size}/status/ || true
 # done;
-(cd $RES/share/icons/Adwaita && gtk-update-icon-cache -fqt .)
+# (cd $RES/share/icons/Adwaita && gtk-update-icon-cache -fqt .)
 
 # update icon cache for hicolor
 (cd $RES/share/icons/hicolor && gtk-update-icon-cache -fqt .)
@@ -123,7 +120,6 @@ rsync -r -t $INSTROOT/lib/gobject-introspection $RES/lib
 mkdir -p $FRAMEWORKS
 rsync -t $INSTROOT/lib/libglib-2.0.0.dylib $FRAMEWORKS/libglib-2.0.0.dylib
 rsync -t $INSTROOT/lib/libcairo-gobject.2.dylib $FRAMEWORKS/libcairo-gobject.2.dylib
-# rsync -t $INSTROOT/lib/libcairo-script-interpreter.2.dylib $FRAMEWORKS/libcairo-script-interpreter.2.dylib
 rsync -t $INSTROOT/lib/libcairo.2.dylib $FRAMEWORKS/libcairo.2.dylib
 rsync -t $INSTROOT/lib/libpangocairo-1.0.0.dylib $FRAMEWORKS/libpangocairo-1.0.0.dylib
 rsync -t $INSTROOT/lib/libatk-1.0.0.dylib $FRAMEWORKS/libatk-1.0.0.dylib
@@ -133,7 +129,7 @@ rsync -t $INSTROOT/lib/libpango-1.0.0.dylib $FRAMEWORKS/libpango-1.0.0.dylib
 rsync -t $INSTROOT/lib/libpangoft2-1.0.0.dylib $FRAMEWORKS/libpangoft2-1.0.0.dylib
 rsync -t $INSTROOT/lib/libgtk-3.0.dylib $FRAMEWORKS/libgtk-3.0.dylib
 rsync -t $INSTROOT/lib/libgtksourceview-4.0.dylib $FRAMEWORKS/libgtksourceview-4.0.dylib
-rsync -t $INSTROOT/lib/libgtkmacintegration-gtk3.2.dylib $FRAMEWORKS/libgtkmacintegration-gtk3.2.dylib
+rsync -t $INSTROOT/lib/libgtkmacintegration-gtk3.4.dylib $FRAMEWORKS/libgtkmacintegration-gtk3.4.dylib
 
 # rename script, use wrapper
 #mv $MAIN/Contents/MacOS/Meld $MAIN/Contents/MacOS/Meld-bin
@@ -246,6 +242,7 @@ else
   #spctl -a -t exec -vv "meldmerge.dmg" && dmg_signed=1
 fi
 
+exit
 
 # Cleanup
 mkdir -p osx/Archives
