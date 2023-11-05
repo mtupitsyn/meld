@@ -113,7 +113,7 @@ setup(
     setup_requires=["py2app"],
     options={'py2app': {
                 'includes': [ 'cairo', 'gi', 'weakref', 'encodings' ],
-                'excludes': [ 'ctypes', 'tkinter' ],
+                'excludes': [ 'tkinter' ],
                 'dylib_excludes': [ 'Python' ],
                 'frameworks':
                     [ 
@@ -137,7 +137,7 @@ setup(
                     # 'libpangoft2-1.0.0.dylib',
                     # 'librsvg-2.2.dylib' 
                     ],
-                'argv_emulation': True,
+                'argv_emulation': False,
                 'no_chdir': True,
                 'iconfile': 'osx/meld.icns',
                 'plist': PLIST,

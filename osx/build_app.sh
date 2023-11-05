@@ -38,6 +38,9 @@ cp osx/conf.py meld/conf.py
 
 ${INSTROOT}/bin/python3 -c "import sys; print('\n'.join(sys.path))"
 
+PY_SITE_PACKAGES=$(~/gtk/inst/bin/python3 -c 'import site; print(site.getsitepackages()[0], end="")')
+/usr/local/bin/pip3 install distro py2app --target $PY_SITE_PACKAGES
+
 glib-compile-schemas data
 ${INSTROOT}/bin/python3 setup_py2app.py build
 ${INSTROOT}/bin/python3 setup_py2app.py py2app --use-faulthandler
@@ -118,18 +121,7 @@ rsync -r -t $INSTROOT/lib/gobject-introspection $RES/lib
 
 # copy some libraries that py2app misses
 mkdir -p $FRAMEWORKS
-rsync -t $INSTROOT/lib/libglib-2.0.0.dylib $FRAMEWORKS/libglib-2.0.0.dylib
-rsync -t $INSTROOT/lib/libcairo-gobject.2.dylib $FRAMEWORKS/libcairo-gobject.2.dylib
-rsync -t $INSTROOT/lib/libcairo.2.dylib $FRAMEWORKS/libcairo.2.dylib
-rsync -t $INSTROOT/lib/libpangocairo-1.0.0.dylib $FRAMEWORKS/libpangocairo-1.0.0.dylib
-rsync -t $INSTROOT/lib/libatk-1.0.0.dylib $FRAMEWORKS/libatk-1.0.0.dylib
-rsync -t $INSTROOT/lib/libgio-2.0.0.dylib $FRAMEWORKS/libgio-2.0.0.dylib
-rsync -t $INSTROOT/lib/libgobject-2.0.0.dylib $FRAMEWORKS/libgobject-2.0.0.dylib
-rsync -t $INSTROOT/lib/libpango-1.0.0.dylib $FRAMEWORKS/libpango-1.0.0.dylib
-rsync -t $INSTROOT/lib/libpangoft2-1.0.0.dylib $FRAMEWORKS/libpangoft2-1.0.0.dylib
-rsync -t $INSTROOT/lib/libgtk-3.0.dylib $FRAMEWORKS/libgtk-3.0.dylib
-rsync -t $INSTROOT/lib/libgtksourceview-4.0.dylib $FRAMEWORKS/libgtksourceview-4.0.dylib
-rsync -t $INSTROOT/lib/libgtkmacintegration-gtk3.4.dylib $FRAMEWORKS/libgtkmacintegration-gtk3.4.dylib
+rsync -t $INSTROOT/lib/*.dylib $FRAMEWORKS/
 
 # rename script, use wrapper
 #mv $MAIN/Contents/MacOS/Meld $MAIN/Contents/MacOS/Meld-bin
@@ -242,7 +234,6 @@ else
   #spctl -a -t exec -vv "meldmerge.dmg" && dmg_signed=1
 fi
 
-exit
 
 # Cleanup
 mkdir -p osx/Archives
