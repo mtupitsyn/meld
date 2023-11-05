@@ -222,6 +222,7 @@ popd
 
 # Compress the dmg file..
 cp osx/DS_Store /Volumes/Meld\ Merge/.DS_Store
+sync
 hdiutil detach $DEV
 hdiutil convert myimg.dmg -format UDZO -o meldmerge.dmg
 
