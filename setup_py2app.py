@@ -7,6 +7,7 @@ import os
 import site
 import meld.build_helpers
 import meld.conf
+import Foundation
 from setuptools import setup
 
 if sys.version_info[:2] < meld.conf.PYTHON_REQUIREMENT_TUPLE:
