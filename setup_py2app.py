@@ -5,6 +5,8 @@ import glob
 import sys
 import os
 import site
+import Foundation
+import CoreFoundation
 import meld.build_helpers
 import meld.conf
 from setuptools import setup
