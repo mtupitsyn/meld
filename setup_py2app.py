@@ -5,8 +5,6 @@ import glob
 import sys
 import os
 import site
-import Foundation
-import CoreFoundation
 import meld.build_helpers
 import meld.conf
 from setuptools import setup
@@ -114,7 +112,9 @@ setup(
     app=['bin/meld'],
     setup_requires=["py2app"],
     options={'py2app': {
-                'includes': [ 'gi', 'weakref', 'encodings', 'pycairo', 'PyGObject', 'pyobjc-core', 'pyobjc-framework-Cocoa' ],
+                'includes': [ 'gi', 'weakref', 'encodings', 'pycairo', 'PyGObject', 
+                              'pyobjc-core', 'pyobjc-framework-Cocoa',
+                              'CoreFoundation', 'Foundation' ],
                 'excludes': [ 'tkinter' ],
                 'dylib_excludes': [ 'Python' ],
                 'frameworks': [ ],
