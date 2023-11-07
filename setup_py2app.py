@@ -38,7 +38,7 @@ PLIST = {
     'CFBundleSignature': '???',
     'CFBundleVersion': VERSION_STRING,
     'LSPrefersPPC': False,
-    'LSArchitecturePriority': 'x86_64',
+    'LSArchitecturePriority': 'arm64',
     'NSHumanReadableCopyright': u'Copyright © 2023',
     'CFBundleDisplayName': 'Meld',
     'CFBundleName': 'Meld',
