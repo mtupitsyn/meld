@@ -108,7 +108,7 @@ module_autogenargs['cairo']    = '--disable-full-testing --disable-trace --enabl
 
 module_mesonargs['atk']            = '--buildtype release --optimization 3 -Ddocs=false -Dintrospection=true'
 module_mesonargs['gdk-pixbuf']     = '--buildtype release --optimization 3 -Dbuiltin_loaders=all -Drelocatable=true -Ddocs=false'
-module_mesonargs['glib']           = '--buildtype release --optimization 3 -Dbsymbolic_functions=false -Dgtk_doc=false -Db_bitcode=true -Db_ndebug=true'
+module_mesonargs['glib']           = '--buildtype release --optimization 3 -Dbsymbolic_functions=false -Dgtk_doc=false -Db_bitcode=true -Db_ndebug=true -Dtests=false'
 module_mesonargs['pango']          = '--buildtype release --optimization 3 -Dintrospection=enabled'
 module_mesonargs['pygobject3']     = '--buildtype release --optimization 3 -Dtests=false  -Dpycairo=enabled'
 module_mesonargs['gtksourceview4'] = '--buildtype release --optimization 3 -Dvapi=false'

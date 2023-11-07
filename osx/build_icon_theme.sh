@@ -58,14 +58,14 @@ fi
 if [[ ${color} == '-dark' ]]; then
     mkdir -p                                                                              ${THEME_DIR}/{apps,categories,emblems,devices,mimes,places,status}
 
-    cp -cRP "${SRC_DIR}"/src/actions                                                       ${THEME_DIR}
-    cp -cRP "${SRC_DIR}"/src/apps/symbolic                                                 ${THEME_DIR}/apps
-    cp -cRP "${SRC_DIR}"/src/categories/symbolic                                           ${THEME_DIR}/categories
-    cp -cRP "${SRC_DIR}"/src/emblems/symbolic                                              ${THEME_DIR}/emblems
-    cp -cRP "${SRC_DIR}"/src/mimes/symbolic                                                ${THEME_DIR}/mimes
-    cp -cRP "${SRC_DIR}"/src/devices/{16,22,24,symbolic}                                   ${THEME_DIR}/devices
-    cp -cRP "${SRC_DIR}"/src/places/{16,22,24,symbolic}                                    ${THEME_DIR}/places
-    cp -cRP "${SRC_DIR}"/src/status/{16,22,24,symbolic}                                    ${THEME_DIR}/status
+    cp -RP "${SRC_DIR}"/src/actions                                                       ${THEME_DIR}
+    cp -RP "${SRC_DIR}"/src/apps/symbolic                                                 ${THEME_DIR}/apps
+    cp -RP "${SRC_DIR}"/src/categories/symbolic                                           ${THEME_DIR}/categories
+    cp -RP "${SRC_DIR}"/src/emblems/symbolic                                              ${THEME_DIR}/emblems
+    cp -RP "${SRC_DIR}"/src/mimes/symbolic                                                ${THEME_DIR}/mimes
+    cp -RP "${SRC_DIR}"/src/devices/{16,22,24,symbolic}                                   ${THEME_DIR}/devices
+    cp -RP "${SRC_DIR}"/src/places/{16,22,24,symbolic}                                    ${THEME_DIR}/places
+    cp -RP "${SRC_DIR}"/src/status/{16,22,24,symbolic}                                    ${THEME_DIR}/status
 
     if [[ ${bold:-} == 'true' ]]; then
         cp -RP "${SRC_DIR}"/bold/*                                                              ${THEME_DIR}
