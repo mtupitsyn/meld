@@ -2,13 +2,10 @@
 import os
 import sys
 from pathlib import Path
-try:
-    from Foundation import NSBundle
-except:
-    pass
+from Foundation import NSBundle
 
 __package__ = "meld"
-__version__ = "3.21.0.osx3"
+__version__ = "3.21.0.osx4"
 
 APPLICATION_NAME = 'Meld'
 APPLICATION_ID = 'org.gnome.Meld'
