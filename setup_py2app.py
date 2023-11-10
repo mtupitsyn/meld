@@ -116,7 +116,7 @@ setup(
                 'includes': [ 'gi', 'weakref', 'encodings', 'pycairo', 'PyGObject', 
                               'pyobjc-core', 'pyobjc-framework-Cocoa',
                               'CoreFoundation', 'Foundation' ],
-                'excludes': [ 'tkinter' ],
+                'excludes': [ 'tkinter', 'ssl' ],
                 'dylib_excludes': [ 'Python' ],
                 'frameworks': [ ],
                 'argv_emulation': False,
