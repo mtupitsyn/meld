@@ -25,7 +25,7 @@ jobs:
       - name: Setup Homebrew & Various Tools
         run: |
           #/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          brew install git ccache autoconf libtool automake pkg-config sassc optipng python bison flex cmake itstool gnu-sed
+          brew install git ccache autoconf libtool automake pkg-config sassc optipng python@3.9 bison flex cmake itstool gnu-sed
 
       - name: Setup JHbuild
         run: |
@@ -82,7 +82,7 @@ jobs:
         working-directory: /
         shell: 'bash'
         run: |
-          brew install git ccache autoconf libtool automake pkg-config sassc optipng python bison flex cmake itstool gnu-sed intltool
+          brew install git ccache autoconf libtool automake pkg-config sassc optipng python@3.9 bison flex cmake itstool gnu-sed intltool
           pwd
           mkdir -p $HOME/Source          
           tar -xzf /Users/runner/work/meld/meld/Environment/environment.tar.gz
