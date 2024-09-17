@@ -1,9 +1,9 @@
 name: CI
 on:
   push:
-    branches: [ master ]
+  #  branches: [ master ]
   pull_request:
-    branches: [ master ]
+  #  branches: [ master ]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -12,7 +12,7 @@ on:
 jobs:
   build-environment:
     name: Build Environment
-    runs-on: macos-latest
+    runs-on: macos-13
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
@@ -25,7 +25,7 @@ jobs:
       - name: Setup Homebrew & Various Tools
         run: |
           #/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          brew install git ccache autoconf libtool automake pkg-config sassc optipng python bison flex cmake itstool gnu-sed
+          brew install git ccache autoconf libtool automake pkg-config sassc optipng python@3.11 bison flex cmake itstool gnu-sed
 
       - name: Setup JHbuild
         run: |
@@ -82,7 +82,9 @@ jobs:
         working-directory: /
         shell: 'bash'
         run: |
-          brew install git ccache autoconf libtool automake pkg-config sassc optipng python bison flex cmake itstool gnu-sed intltool
+          brew install git ccache autoconf libtool automake pkg-config sassc optipng python@3.11 bison flex cmake itstool gnu-sed intltool
+          rm /opt/homebrew/bin/pip3
+          ln -sf /opt/homebrew/bin/pip3.11 /opt/homebrew/bin/pip3
           pwd
           mkdir -p $HOME/Source          
           tar -xzf /Users/runner/work/meld/meld/Environment/environment.tar.gz

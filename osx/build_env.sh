@@ -106,7 +106,9 @@ jhbuild buildone libxml2
 #(cd $HOME/gtk/inst/bin && touch itstool && chmod +x itstool)
 
 PY_SITE_PACKAGES=$(~/gtk/inst/bin/python3 -c 'import site; print(site.getsitepackages()[0], end="")')
-/usr/local/bin/pip3 install six pygments --target $PY_SITE_PACKAGES
+/usr/local/bin/pip3 install six pygments packaging --target $PY_SITE_PACKAGES
+# Need setuptools < 65.0.0 (e.g. <=64.0.3), virtualenv <= 20.16.3
+/usr/local/bin/pip3 install setuptools==64.0.3 virtualenv==20.16.3 --upgrade --target $HOME/.new_local/lib/python3.11/site-packages
 
 # Build all the way up to freetype, then fix its pkg-config
 PYTHON=$HOME/gtk/inst/bin/python3 jhbuild build freetype
