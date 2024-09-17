@@ -39,7 +39,7 @@ cp osx/conf.py meld/conf.py
 ${INSTROOT}/bin/python3 -c "import sys; print('\n'.join(sys.path))"
 
 PY_SITE_PACKAGES=$(~/gtk/inst/bin/python3 -c 'import site; print(site.getsitepackages()[0], end="")')
-/opt/homebrew/bin/pip3 install --upgrade --force-reinstall distro pyobjc-core pyobjc-framework-Cocoa py2app six pygments --target $PY_SITE_PACKAGES
+/opt/homebrew/bin/pip3 install --upgrade --force-reinstall distro pyobjc-core pyobjc-framework-Cocoa py2app six pygments setuptools==65.5.0 more-itertools --target $PY_SITE_PACKAGES
 
 glib-compile-schemas data
 ${INSTROOT}/bin/python3 setup_py2app.py build
